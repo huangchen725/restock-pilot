@@ -1,0 +1,29 @@
+# LiteLLM 代理配置：Codex(Responses) -> LiteLLM -> 书生·端砚(Chat Completions)
+# 启动: litellm --config litellm-config.yaml --port 4000
+# 环境变量: INTERN_API_KEY（书生·端砚 TokenPlan key）
+# 已实测：端砚 /v1/responses 明确返回 "intern-s2 does not support openai_responses
+# protocol" -> 转换层为必选项；chat/completions 的 tools 三项实测全 PASS
+
+model_list:
+  - model_name: intern-s2
+    litellm_params:
+      # openai/ 前缀 = 走 OpenAI 兼容模式，指向自定义 api_base
+      model: openai/intern-s2
+      api_base: https://discovery-api.intern-ai.org.cn/v1
+      api_key: os.environ/INTERN_API_KEY
+      # 强制将上游请求以 Chat Completions 协议转发
+      # （Codex 侧 wire_api=responses 打到 LiteLLM 的 /v1/responses，由 LiteLLM 桥接翻译）
+      use_chat_completions_api: true
+      max_tokens: 8192
+
+litellm_settings:
+  # 上游不认识的参数直接丢弃而非报错（Codex 会带一些 OpenAI 专有字段）
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/INTERN_API_KEY
+
+# ============ 备用端点（挑战杯）============
+# 模型名改为 intern-s2-preview，api_base 改为:
+#   https://chat.intern-ai.org.cn/api/v1
+# （该端点 tools 三项实测同样全 PASS，实际模型 Intern-S2-Preview-35B）

@@ -1,0 +1,22 @@
+# Codex 接入配置（$CODEX_HOME/config.toml，项目专用 CODEX_HOME 隔离）
+# 注意：TOML 中顶层键必须写在所有 [table] 段之前，
+# 否则会被解析进上一个 table（sandbox/approval 曾因此失效）
+
+model = "intern-s2"
+model_provider = "intern_gateway"
+model_context_window = 262144
+model_max_output_tokens = 8192
+# 沙箱与审批策略：Codex 的 Windows workspace-write 沙箱会拦截所有
+# powershell/cmd 调用（实测连 echo 都 blocked by policy），本地开发期
+# 改用 danger-full-access 让工具调用真正执行
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+
+[model_providers.intern_gateway]
+name = "InternLM via LiteLLM"
+# LiteLLM 本地代理地址，不要写书生端点直连
+# （已确认最新版 Codex 仅支持 wire_api = "responses"，必须经转换层）
+base_url = "http://127.0.0.1:4000/v1"
+wire_api = "responses"
+# Codex 从该环境变量读取 key，作为 Bearer 发给 LiteLLM
+env_key = "INTERN_API_KEY"

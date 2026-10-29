@@ -1,0 +1,27 @@
+# 密钥与本地数据
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+outputs/
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Codex 运行态（CODEX_HOME）：只入库配置与文档，会话历史/状态库/自带技能不进 git
+agent-integration/*
+!agent-integration/SETUP.md
+!agent-integration/codex-config.toml
+!agent-integration/config.toml
+!agent-integration/litellm-config.yaml
+
+# 大体积参考包（本地解压研究用）
+codex-main.tar.gz
