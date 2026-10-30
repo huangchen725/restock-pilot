@@ -10,19 +10,31 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.config import load_environment
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:8100")
+    parser.add_argument("--portal", default="http://127.0.0.1:8200")
     parser.add_argument("--budget-cents", type=int, default=500000)
     args = parser.parse_args()
 
-    # trust_env=False：本地服务直连，绝不走系统代理（沙箱 HTTP_PROXY 会劫持请求）
-    client = httpx.Client(base_url=args.base, timeout=300, trust_env=False)
+    load_environment()
+    token = os.getenv("RESTOCK_APPROVAL_TOKEN")
+    if not token:
+        print("独立冒烟需要与服务相同的 RESTOCK_APPROVAL_TOKEN；请在本地 .env 配置后重启服务。日常使用工作台无需此项配置。")
+        return 1
+    # The compatibility header waits for jobs; the product UI uses polling.
+    client = httpx.Client(base_url=args.base, timeout=900, trust_env=False,
+                         headers={"Prefer":"wait"})
 
     # 1. create（规则引擎出 plan；required 模式下含真实 Planner）
     resp = client.post("/tasks", json={"policy": {"budget_cents": args.budget_cents}})
@@ -30,6 +42,9 @@ def main() -> int:
         print(f"CREATE FAILED {resp.status_code}: {resp.text[:800]}")
         return 1
     created = resp.json()
+    if created.get("state") != "NEEDS_REVIEW" or not created.get("plan"):
+        print("CREATE INCOMPLETE: " + json.dumps(created, ensure_ascii=False)[:800])
+        return 1
     task_id = created["task_id"]
     plan_hash = created.get("plan_hash")
     agent = created.get("agent", {})
@@ -38,7 +53,9 @@ def main() -> int:
           f"agent={agent.get('status')}")
 
     # 2. approve
-    resp = client.post(f"/tasks/{task_id}/approve")
+    resp = client.post(f"/tasks/{task_id}/approve",
+        headers={"X-Restock-Approval":token},
+        json={"version":created["plan"]["version"],"plan_hash":plan_hash})
     if resp.status_code != 200:
         print(f"APPROVE FAILED {resp.status_code}: {resp.text[:800]}")
         return 1
@@ -63,9 +80,9 @@ def main() -> int:
     status = resp.json()
     print(f"[4/4] status  state={status['state']} approved_hash={str(status.get('approved_plan_hash'))[:16]}...")
 
-    portal_base = args.base.replace(":8100", ":8200")
-    portal = httpx.Client(base_url=portal_base, timeout=30, trust_env=False)
-    orders = portal.get("/api/purchase-orders").json()
+    portal = httpx.Client(base_url=args.portal, timeout=30, trust_env=False)
+    orders = [order for order in portal.get("/api/purchase-orders").json()
+              if order["external_ref"].startswith(task_id+"-")]
     print(f"PORTAL  orders={len(orders)}")
     for order in orders:
         print(f"      - {order['order_id']} ref={order['external_ref']} "
@@ -77,6 +94,21 @@ def main() -> int:
                "execution_state": execution["state"],
                "portal_orders": len(orders)}
     print("SMOKE_SUMMARY " + json.dumps(summary, ensure_ascii=False))
+    expected = {}
+    for item in created["plan"]["items"]:
+        if item["order_qty"]:
+            expected.setdefault(item["supplier_id"], []).append(
+                (item["sku"],item["order_qty"],item["unit_cost_cents"]))
+    actual = {o["supplier_id"]:sorted((i["sku"],i["order_qty"],i["unit_cost_cents"])
+              for i in o["lines"]) for o in orders}
+    valid = (status["state"] == execution["state"] == "COMPLETED" and len(orders)==len(expected)
+        and actual == {supplier:sorted(lines) for supplier,lines in expected.items()}
+        and all(o["status"]=="SUBMITTED" and o["external_ref"]==f"{task_id}-v{created['plan']['version']}-{o['supplier_id']}"
+                and o["total_cost_cents"]==sum(qty*cost for _,qty,cost in actual[o["supplier_id"]]) for o in orders))
+    client.close(); portal.close()
+    if not valid:
+        print("SMOKE FAILED: 申请单、批准内容或最终状态不一致。")
+        return 1
     return 0
 
 

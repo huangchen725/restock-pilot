@@ -10,16 +10,21 @@
 保留 Codex CLI 作为后台运行时，用户全程使用 RestockPilot 工作台；不要求打开
 Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重写 Agent 循环。
 
-后端已有规则引擎、审批、录单和回读链路；产品工作台、上传、差异展示和导出仍待实现。
+M1 产品工作台已接通三份 CSV 上传、口径检查、方案展示、修改差异、人工批准、
+演示采购录单与回读，以及 CSV/HTML 导出。长任务在后台运行，页面可刷新恢复同一任务。
 业务 MCP 尚未接入，三阶段调用不代表已经实现多智能体协作。
 
 M0 业务规则与数据契约已完成本轮开发，详见 [DATA_CONTRACT.md](DATA_CONTRACT.md)：
 日期窗口、口径确认、合格在途抵扣、预算部分采购、风险并列展示及持久化快照修订。
-新方案采用 schema 2；旧方案保持读取、批准指纹和执行兼容，没有快照的旧方案需新建任务才能修订。
+新方案采用 schema 2；旧方案保持读取、批准指纹和执行兼容，没有快照的旧方案需明确应用新数据或新建任务后修订。
 
-本轮普通回归 **128 项通过、9 项跳过**（7 项浏览器、2 项启动集成）；显式启用浏览器后，
-新旧方案 **2 项通过**，原有故障注入 **5 项仍失败**，留在 M3。此前统一启动测试 13 项通过。
-本轮未调用真实模型；更新后的修订协议和提示词仍需 M2 真实语义与耗时复验。现有演示服务未重启。
+本轮工作台真实浏览器正常流程已通过：上传、修正口径、生成、改预算、查看差异、
+重新批准、录单、刷新和下载；另用 30 SKU 样例通过独立冒烟核对。
+新旧方案浏览器正常流程 **2 项通过**；原有故障注入 **5 项仍失败**，留在 M3。
+统一启动 **13 项通过**，包含工作台和代理。普通回归 **138 项通过、10 项默认跳过**
+（工作台浏览器 1 项、执行浏览器 7 项、启动集成 2 项；均已另行显式运行）。
+本轮未调用真实模型；自然语言采用模拟输出测试，真实语义、耗时及工作台模型闭环仍需 M2/M4 复验。
+现有演示服务未重启；本地证据在 `outputs/m1-workbench/`，不提交 Git。
 
 以下为 M0 规则更新前的真实模型验收记录，不能代替新版模型输出复验：
 
@@ -92,10 +97,12 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 入口自动读取 `.env`，检查依赖、密钥是否填写和端口占用，再依次启动 LiteLLM
-代理（4000）、演示采购后台（8200）和主服务（8100）。全部就绪后显示访问地址。
+代理（4000）、演示采购后台（8200）、主服务（8100）和工作台（8501）。
+全部就绪后在浏览器打开 **http://127.0.0.1:8501**，此后通过工作台完成业务操作。
 保持这一个窗口运行，按 **Ctrl+C** 会统一停止本次启动的服务及其子进程；启动失败
 也会清理已经启动的部分。其他已运行进程不会被接管或停止，子服务不弹出终端。
-所有服务仅监听 `127.0.0.1`。目前可访问 API 文档和演示采购后台，产品工作台仍待实现。
+所有服务仅监听 `127.0.0.1`。演示采购后台为 http://127.0.0.1:8200，开发者接口说明为
+http://127.0.0.1:8100/docs；日常使用无需手写请求。
 
 ```powershell
 # 只检查配置、依赖和端口，不启动服务或调用模型
@@ -104,15 +111,16 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 # 查询本地服务健康状态
 .\.venv\Scripts\python.exe start.py status
 
-# 不需要密钥、CLI 或 LiteLLM，只启动两项业务服务
+# 不需要密钥、CLI 或 LiteLLM，启动工作台、主服务与演示后台
 .\.venv\Scripts\python.exe start.py --offline
 ```
 
 离线服务的状态使用 `start.py status --offline` 查询。`RESTOCK_AGENT_MODE=off`
 也会启用离线模式；此模式不提供真实模型生成和自然语言修订。启动与状态检查只访问
-本地健康/模型列表接口，不能证明书生密钥有效或完整任务通过。浏览器安装是录单前提。
+本地健康/模型列表接口，不能证明书生密钥有效或完整任务通过。离线模式可用参数表单
+完成规则计算与演示录单，页面明确标记未启用模型。浏览器安装是录单前提。
 
-统一入口已用 LiteLLM 1.106.0 验证并固定该依赖版本。其余依赖的完整锁定仍按工程计划推进。
+统一入口已验证并固定 LiteLLM 1.106.0、Streamlit 1.66.1。其余依赖的完整锁定仍按工程计划推进。
 
 配置规则：
 
@@ -122,18 +130,36 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 - 诊断日志写到被 Git 忽略的 `outputs/launcher/`，写入前遮蔽配置中的密钥与认证信息。
 - `RESTOCK_CODEX_BIN` 可指定程序名或路径；未设置时查 PATH。项目相对路径也可使用，
   显式配置错误时不会静默换版本。项目 `CODEX_HOME` 仅在 CLI 子进程中设置。
-- 统一入口固定管理本地 4000/8100/8200 端口；`PROCUREMENT_PORTAL_URL` 保持
+- 统一入口固定管理本地 4000/8100/8200/8501 端口；`PROCUREMENT_PORTAL_URL` 保持
   `http://127.0.0.1:8200`。自定义外部后台属于手动部署场景。
+- 统一入口自动为工作台和 API 提供相同的临时批准凭证，不需要用户手动配置。
+  只有分开启动 UI/API 或运行独立冒烟脚本时，才需在被忽略的 `.env` 中配置相同的
+  `RESTOCK_APPROVAL_TOKEN` 随机长值并重启。批准凭证不会注入 CLI 子进程；当前尚无
+  用户登录和操作系统权限隔离，不能把本地工作台直接公开部署。
+- 后台队列只支持一个 API 进程，不要使用多个 worker。服务重启可恢复查看，执行中断
+  会标为待核对；不会自动重新录单。部分成功和未知结果的恢复仍在 M3。
+
+### 工作台操作
+
+1. 上传销售、库存、供应商三份标准 CSV（每份最多 5 MB），确认单位、库存、单价与在途口径，
+   或点击“使用示例数据”。发现缺项时修正后重新检查。
+2. 填写预算、天数、优先类别和排除商品。真实模式还可填写自然语言要求；最终以展示的生效参数为准。
+3. 查看数量、金额、风险和未满足需求。修改产生新版本，页面显示与前一版差异；历史版本只读。
+4. 勾选“我已核对”并批准当前版本，再点击“创建采购申请”。修改或明确应用新数据会撤销旧批准；
+   单独上传不会覆盖已有任务。过期页面的批准会被拒绝。
+5. 查看各供应商申请单号与回读结果，下载补货 CSV 和 HTML 报告。保存当前页面地址，或从任务记录返回。
+
+申请创建不代表付款或到货。异常时请先核对已有申请，不要另建任务重复采购。
 
 真实浏览器验收（自动启动隔离采购后台，重复执行两次验证不生成重复单）：
 
 ```powershell
 $env:RUN_PLAYWRIGHT_E2E = '1'
 .\.venv\Scripts\python.exe -m pytest tests/test_playwright_e2e.py -q
+Remove-Item Env:RUN_PLAYWRIGHT_E2E
 ```
 
-统一启动的集成测试会短暂占用本地 4000/8100/8200 端口，使用临时数据库和测试密钥，
-不发送模型推理请求；先停止已有演示服务再运行：
+统一启动的集成测试使用隔离端口、临时数据库和测试密钥，不发送模型推理请求，也不接管已有服务：
 
 ```powershell
 $env:RUN_STARTUP_E2E = '1'
@@ -141,10 +167,22 @@ $env:RUN_STARTUP_E2E = '1'
 Remove-Item Env:RUN_STARTUP_E2E
 ```
 
-双服务全链路冒烟（off 模式，不需要 LLM key）：
+工作台真实浏览器验收（自动启动隔离服务，模型明确关闭；上传、修改、批准、执行、刷新和两种下载）：
 
 ```powershell
-# 先用 start.py --offline 启动服务，再在另一窗口运行：
+$env:RUN_WORKBENCH_E2E = '1'
+.\.venv\Scripts\python.exe -m pytest tests/test_workbench_e2e.py -q
+Remove-Item Env:RUN_WORKBENCH_E2E
+```
+
+如果配置了 `PLAYWRIGHT_BROWSERS_PATH`，安装与验收需使用同一路径。普通回归默认跳过浏览器及启动集成，
+skipped 不能计作验收通过。故障注入需按 AGENTS.md 单独显式运行，当前仍有 5 项已知失败。
+
+开发者独立冒烟（off 模式，不需要 LLM key；会创建演示申请）：
+
+```powershell
+# 先在本地 .env 配置 RESTOCK_APPROVAL_TOKEN 随机长值，再用 start.py --offline 启动。
+# 在另一窗口运行；日常工作台用户无需这一步：
 .\.venv\Scripts\python.exe scripts/run_smoke_e2e.py
 ```
 
@@ -156,13 +194,14 @@ Remove-Item Env:RUN_STARTUP_E2E
 
 | 路径 | 内容 |
 |---|---|
-| `app/` | models / rules / state_machine / db / validation / runner / prompts / main；Step 3 新增 `execution.py`（Playwright 固定适配器）与 `procurement_portal.py`（三页采购后台） |
+| `app/` | models / rules / state_machine / db / validation / runner / prompts / main；execution（录单）、procurement_portal（演示后台）；M1 新增 datasets（上传快照）、jobs（后台任务）、reports（差异与导出） |
+| `ui/app.py` | Streamlit 业务工作台，仅通过业务 API 读写，不直接访问数据库 |
 | `tests/` | 规则、审批 hash、runner、幂等、回读、批准版本与审计测试；Chromium E2E 和故障注入需显式启用 |
 | `start.py` | 自动读取 .env、统一启动、状态查询、Ctrl+C 停止与脱敏日志 |
 | `DATA_CONTRACT.md` | 数据确认口径、计算公式、输出字段、修订协议和旧方案兼容 |
 | `ENGINEERING_PLAN.md` | 当前工程决策、M0–M4 任务、分工、排期与验收标准 |
 | `data/` | 30 SKU 样例三件套 CSV |
-| `scripts/` | generate_data.py（30 SKU 样例）+ run_smoke_e2e.py（双服务全链路冒烟，含 portal 落单核对） |
+| `scripts/` | generate_data.py（30 SKU 样例）+ run_smoke_e2e.py（独立冒烟，严格批准并核对本任务全部单据） |
 | `agent-integration/` | Codex config.toml / LiteLLM 配置 / SETUP.md 操作手册（含 6 条踩坑记录） |
 | `day1-test/` | Day 1 验收产物（JSONL 事件流 + result.json） |
 | `test_intern_function_calling.py` | 书生端点工具调用实测脚本（换端点/key 复用） |

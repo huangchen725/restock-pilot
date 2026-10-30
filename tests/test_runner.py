@@ -92,6 +92,7 @@ def test_launch_failure_cleans_prompt_without_starting_timer(monkeypatch, tmp_pa
 def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "resolve_codex_bin", lambda _: sys.executable)
     monkeypatch.setenv("CODEX_HOME", "personal-home")
+    monkeypatch.setenv("RESTOCK_APPROVAL_TOKEN", "human-only-secret")
     prompt = "补货预算调整\n" * 2000
     observed = {}
 
@@ -106,6 +107,7 @@ def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path)
             return 0
 
     def launch(cmd, **kwargs):
+        assert "RESTOCK_APPROVAL_TOKEN" not in kwargs["env"]
         observed.update(cmd=cmd, prompt=kwargs["stdin"].read().decode("utf-8"),
                         home=kwargs["env"]["CODEX_HOME"], path=Path(kwargs["stdin"].name))
         return Process()

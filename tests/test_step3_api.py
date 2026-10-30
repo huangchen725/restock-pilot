@@ -5,6 +5,7 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.support import SyncClient
 
 from app import db, main
 from app.execution import build_supplier_orders, summarize_execution
@@ -59,7 +60,7 @@ def client(tmp_path, monkeypatch):
                 "tool_calls": [], "duration_s": 0.1}
 
     monkeypatch.setattr(main, "_run_agent_stage", fake_agent)
-    with TestClient(main.app) as test_client:
+    with SyncClient(main.app) as test_client:
         test_client.agent_calls = agent_calls
         yield test_client
     main._conn.close()

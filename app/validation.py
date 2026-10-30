@@ -16,7 +16,10 @@ SUPPLIERS_COLS = {"sku", "supplier_id", "unit_cost_cents", "lead_days", "pack_si
 
 
 def read_csv_rows(path):
-    raw = Path(path).read_bytes()
+    return parse_csv_bytes(Path(path).read_bytes())
+
+
+def parse_csv_bytes(raw):
     for enc in ("utf-8-sig", "gb18030"):
         try:
             text = raw.decode(enc)

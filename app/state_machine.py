@@ -17,6 +17,7 @@ from app.models import TaskState
 
 TRANSITIONS: dict[TaskState, Set[TaskState]] = {
     TaskState.NEW: {TaskState.ANALYZING},
+    TaskState.NEEDS_INPUT: {TaskState.ANALYZING},
     TaskState.ANALYZING: {TaskState.NEEDS_REVIEW, TaskState.NEEDS_INPUT, TaskState.FAILED},
     TaskState.NEEDS_REVIEW: {TaskState.APPROVED, TaskState.ANALYZING},
     # 批准后用户仍可提出修改：撤销批准 → 重新生成 v+1 → 回 NEEDS_REVIEW

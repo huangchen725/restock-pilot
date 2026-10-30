@@ -2,6 +2,7 @@
 """SQLite 持久层：WAL 模式 + 单写者纪律（所有写操作经由本模块）。"""
 
 import sqlite3
+import json
 import threading
 from pathlib import Path
 
@@ -47,9 +48,24 @@ CREATE TABLE IF NOT EXISTS execution_events (
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_events_task ON execution_events(task_id, seq);
+CREATE TABLE IF NOT EXISTS datasets (
+    dataset_id TEXT PRIMARY KEY, snapshot_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS task_context (
+    task_id TEXT PRIMARY KEY, busy INTEGER NOT NULL DEFAULT 0,
+    phase TEXT NOT NULL DEFAULT '', error TEXT,
+    result_json TEXT, request_json TEXT
+);
+CREATE TABLE IF NOT EXISTS task_activity (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
+    kind TEXT NOT NULL, payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_activity_task ON task_activity(task_id, seq);
 """
 
-_LOCK = threading.Lock()
+_LOCK = threading.RLock()
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:
@@ -179,3 +195,92 @@ def list_execution_events(conn, task_id: str):
         event["payload"] = json.loads(event.pop("payload_json"))
         events.append(event)
     return events
+
+
+def save_dataset(conn, snapshot):
+    from app.validation import snapshot_hash
+    identifier = "ds-" + snapshot_hash(snapshot)
+    with _LOCK, conn:
+        conn.execute("INSERT OR IGNORE INTO datasets(dataset_id,snapshot_json) VALUES (?,?)",
+                     (identifier, snapshot.model_dump_json()))
+    return identifier
+
+
+def get_dataset(conn, identifier):
+    from app.models import DatasetSnapshot
+    from app.validation import snapshot_hash
+    with _LOCK:
+        row = conn.execute("SELECT snapshot_json FROM datasets WHERE dataset_id=?", (identifier,)).fetchone()
+    if not row:
+        return None
+    snapshot = DatasetSnapshot.model_validate_json(row[0])
+    if identifier != "ds-" + snapshot_hash(snapshot):
+        raise ValueError("数据快照指纹不一致，请重新上传。")
+    return snapshot
+
+
+def update_context(conn, task_id, **fields):
+    allowed = {"busy", "phase", "error", "result_json", "request_json"}
+    if not fields or not set(fields) <= allowed:
+        raise ValueError("invalid context update")
+    with _LOCK, conn:
+        conn.execute("INSERT OR IGNORE INTO task_context(task_id) VALUES (?)", (task_id,))
+        conn.execute("UPDATE task_context SET " + ",".join(k+"=?" for k in fields) + " WHERE task_id=?",
+                     (*fields.values(), task_id))
+
+
+def claim_task(conn, task_id, phase):
+    with _LOCK, conn:
+        conn.execute("INSERT OR IGNORE INTO task_context(task_id) VALUES (?)", (task_id,))
+        cursor = conn.execute("UPDATE task_context SET busy=1,phase=?,error=NULL WHERE task_id=? AND busy=0",
+                              (phase, task_id))
+        return cursor.rowcount == 1
+
+
+def get_context(conn, task_id):
+    with _LOCK:
+        row = conn.execute("SELECT * FROM task_context WHERE task_id=?", (task_id,)).fetchone()
+    result = dict(row) if row else {"busy":0,"phase":"","error":None}
+    for field in ("result", "request"):
+        result[field] = json.loads(result.pop(field+"_json", None) or "null")
+    return result
+
+
+def activity(conn, task_id, kind, payload):
+    with _LOCK, conn:
+        conn.execute("INSERT INTO task_activity(task_id,kind,payload_json) VALUES (?,?,?)",
+                     (task_id, kind, json.dumps(payload, ensure_ascii=False)))
+
+
+def list_activity(conn, task_id):
+    with _LOCK:
+        rows = conn.execute("SELECT * FROM task_activity WHERE task_id=? ORDER BY seq", (task_id,)).fetchall()
+    return [{"seq":r["seq"],"kind":r["kind"],"payload":json.loads(r["payload_json"]),
+             "created_at":r["created_at"]} for r in rows]
+
+
+def list_tasks(conn):
+    with _LOCK:
+        return [dict(r) for r in conn.execute("SELECT * FROM tasks ORDER BY created_at DESC,rowid DESC LIMIT 100")]
+
+
+def list_plan_versions(conn, task_id):
+    with _LOCK:
+        return [r[0] for r in conn.execute("SELECT version FROM plans WHERE task_id=? ORDER BY version", (task_id,))]
+
+
+def recover_interrupted(conn):
+    # Single API process only; never replay a possibly submitted purchase automatically.
+    with _LOCK, conn:
+        rows = conn.execute("SELECT t.task_id,t.state,c.phase FROM tasks t LEFT JOIN task_context c USING(task_id) WHERE c.busy=1 OR t.state='EXECUTING'").fetchall()
+        for row in rows:
+            state = row["state"]
+            if state == "EXECUTING":
+                state = "NEEDS_RECONCILIATION"
+            elif state in ("NEW", "ANALYZING"):
+                exists = conn.execute("SELECT 1 FROM plans WHERE task_id=?", (row["task_id"],)).fetchone()
+                state = "NEEDS_REVIEW" if exists else "FAILED"
+            conn.execute("UPDATE tasks SET state=?,approved_plan_hash=CASE WHEN ? IN ('FAILED','NEEDS_REVIEW') THEN NULL ELSE approved_plan_hash END,approved_version=CASE WHEN ? IN ('FAILED','NEEDS_REVIEW') THEN NULL ELSE approved_version END WHERE task_id=?",
+                         (state,state,state,row["task_id"]))
+            update_context(conn,row["task_id"],busy=0,phase="服务重启后待复核",error="上次操作因服务重启中断，请核对结果后再继续。")
+            activity(conn,row["task_id"],"interrupted",{"state":state})

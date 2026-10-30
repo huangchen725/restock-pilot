@@ -39,7 +39,7 @@ def test_missing_key_rejected_before_any_services_start(monkeypatch):
 
 
 def test_offline_has_no_gateway_or_cli_dependency():
-    assert [spec.name for spec in services(True)] == ["portal", "api"]
+    assert [spec.name for spec in services(True)] == ["portal", "api", "ui"]
 
 
 def test_logs_redact_secret_and_authorization():
@@ -157,6 +157,18 @@ def test_entrypoint_rolls_back_partial_startup(tmp_path, monkeypatch):
 @pytest.mark.parametrize("offline", [True, False])
 def test_real_entrypoint_health_status_and_ctrl_c(tmp_path, monkeypatch, offline):
     import start
+    # Exercise the real entrypoint without competing with an existing demo.
+    original_services = start.services
+    port_map = {s.name: free_port() for s in original_services(offline)}
+    def isolated_services(mode):
+        specs = []
+        for spec in original_services(mode):
+            command = list(spec.command)
+            flag = '--server.port' if spec.name == 'ui' else '--port'
+            command[command.index(flag)+1] = str(port_map[spec.name])
+            specs.append(Service(spec.name,port_map[spec.name],command,spec.health_path))
+        return specs
+    monkeypatch.setattr(start, 'services', isolated_services)
     # Never use a real upstream key or the user's database for readiness checks.
     monkeypatch.setenv("INTERN_API_KEY", "sk-local-startup-test-not-real")
     monkeypatch.setenv("RESTOCK_AGENT_MODE", "off" if offline else "required")
@@ -173,7 +185,7 @@ def test_real_entrypoint_health_status_and_ctrl_c(tmp_path, monkeypatch, offline
 
     monkeypatch.setattr(Supervisor, "wait", ready_then_interrupt)
     assert start.main(["--offline"] if offline else []) == 0
-    assert len(observed) == (2 if offline else 3)
+    assert len(observed) == (3 if offline else 4)
     assert all(proc.poll() is not None for proc in observed)
-    for spec in services(offline):
+    for spec in start.services(offline):
         check_port(spec.port)

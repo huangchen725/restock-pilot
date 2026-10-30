@@ -109,6 +109,7 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
     "命令行太长" 直接 exit=1。
     """
     env = os.environ.copy()
+    env.pop("RESTOCK_APPROVAL_TOKEN", None)
     env["CODEX_HOME"] = codex_home or str(
         Path(__file__).resolve().parents[1] / "agent-integration"
     )

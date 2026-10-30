@@ -29,6 +29,8 @@
 | `app/validation.py`、`app/rules.py` | 数据质量与确定性补货规则；规则计算保持纯函数 |
 | `app/state_machine.py`、`app/db.py` | 任务状态、批准绑定与持久化 |
 | `app/main.py` | 业务接口与流程衔接 |
+| `app/datasets.py`、`app/jobs.py`、`app/reports.py` | 上传快照、后台任务、版本差异和清单报告 |
+| `ui/app.py` | 用户工作台，只通过业务 API 读写，不复制规则或直接操作数据库 |
 | `app/runner.py`、`app/prompts.py` | 后台 CLI 生命周期、事件解析、阶段上下文与输出校验 |
 | `app/execution.py` | 已批准方案的浏览器录单、防重与回读核对 |
 | `app/procurement_portal.py` | 自建演示采购后台，必须与真实客户系统区分 |

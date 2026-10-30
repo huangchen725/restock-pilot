@@ -44,7 +44,9 @@ CSV 支持 UTF-8、UTF-8 BOM 和 GB18030，表头使用标准英文字段。三�
 
 `DatasetSnapshot` 包含确认口径、窗口起止日期，以及规范排序后的三张完整输入表。对其规范 JSON 计算 SHA256，得到 `dataset_hash`；`dataset_id` 为 `ds-` 加该 hash。行重排不改变结果或 hash，输入值及确认口径变化会改变 hash。
 
-快照与方案一起保存在现有 `plans.plan_json` 中，不需要删除或重建数据库。修订只使用该方案持久化的快照；后台 CSV 被修改甚至删除，不会影响已有任务的重算。更换数据须创建新任务，不能复用旧批准。上传、切换数据及补齐资料的界面仍属于 M1。
+快照与方案一起保存在现有 `plans.plan_json` 中。M1 另以增量建表方式将上传快照保存在 `datasets`，不删除或重建数据库。默认修订只使用方案持久化的快照；后台 CSV 被修改甚至删除，不会影响已有任务的重算。
+
+上传不自动覆盖任务。尚未执行的任务可显式提交新的 `dataset_id`，生成 v+1 并撤销旧批准；旧版本保留原数据与 hash。执行后不允许用此入口换数据重买，部分成功和未知结果须按 M3 恢复规则处理。相同内容与口径对应同一数据身份；不同内容或口径产生新身份。
 
 ## 补货数量和预算
 
@@ -94,11 +96,28 @@ CSV 支持 UTF-8、UTF-8 BOM 和 GB18030，表头使用标准英文字段。三�
 }
 ```
 
-上述请求可直接用于已配置口径文件的数据目录。其他来源应同时提交 `data_contract`。JSON 字段或 Policy 类型不合法返回 422；CSV 或口径问题返回带 `task_id`、`state=NEEDS_INPUT`、`data_problems` 字符串列表的响应，不调用模型、不保存方案。未知类别或排除 SKU 也阻止计算。
+上述请求可直接用于已配置口径文件的数据目录；直接使用其他口径时可同时提交 `data_contract`。工作台先上传并绑定 `dataset_id`，不能再用任务级 `data_contract` 覆盖该数据集口径。
+
+创建、修订、执行默认立即返回 HTTP 202 和 `task_id`；通过 `GET /tasks/{id}` 查询 `state`、`operation.busy/phase/error/result`。JSON 字段或 Policy 类型不合法仍同步返回 422。数据或口径问题会持久化为 `state=NEEDS_INPUT` 及 `operation.result.data_problems`，不调用模型、不保存方案；未知类别或排除 SKU 也阻止计算。脚本可显式设置 `Prefer: wait` 获得同步结果与原有错误状态码。
+
+M1 接口约定：
+
+| 操作 | 请求及响应 |
+|---|---|
+| 上传 | `POST /datasets`，multipart 字段 sales/inventory/suppliers 为三份 CSV，contract 为 DataContract JSON 字符串；每份最多 5 MB。成功返回 READY、dataset_id/hash、窗口、商品数；问题返回 NEEDS_INPUT、data_problems，不生成数据版本 |
+| 示例 | `POST /datasets/example`，将自带样例保存为不可变快照 |
+| 创建 | `POST /tasks`，policy、dataset_id，可选 user_request；自然语言先转换并校验为受支持 Policy |
+| 修订 | `POST /tasks/{id}/revise`，结构化 policy 或自然语言 comment，可选 dataset_id；policy 和 comment 不能同时提交 |
+| 批准 | `POST /tasks/{id}/approve`，正文必须为页面所见 version、plan_hash；需 X-Restock-Approval 工作台凭证。缺凭证 403，过期版本/hash 409，处理期间 409 |
+| 版本与差异 | `GET /tasks/{id}/plans`、`plans/{version}`、`diff?from_version=1&to_version=2` |
+| 阶段及结果 | `GET /tasks/{id}/activity`、`executions`；状态、意见、摘要和回执持久化 |
+| 下载 | `GET /tasks/{id}/artifacts/{version}/csv` 或 html；历史报告只含对应版本申请，不将任务当前状态等同于该版本已执行 |
+
+人工批准凭证由统一启动入口注入工作台和 API，不注入后台 CLI。该机制尚不构成 M2 的完整权限隔离。当前队列限定单 API 进程；启动时把上次执行中断标为 NEEDS_RECONCILIATION，不自动重新提交采购。
 
 首版 Policy 只支持预算、覆盖天数、安全天数、优先类别和排除 SKU。预算必须为正整数分，覆盖天数为 7–90，安全天数为 0–30。不能直接修改数量、价格、供应商或设置单 SKU 最低数量。
 
-Reviser 必须返回 `policy`、`explanation`、`unsupported_requests` 三个字段。识别到不支持或不明确的要求时返回 `policy=null` 和非空问题列表；整个修订被拒绝，不部分应用。缺字段、非法 Policy 或问题列表非空均返回 422，不产生 v+1；旧批准按已有修订语义撤销，仍需重新复核。正常修订生成新版本并重新计算。
+Reviser 必须返回 `policy`、`explanation`、`unsupported_requests` 三个字段。识别到不支持或不明确的要求时返回 `policy=null` 和非空问题列表；整个修订被拒绝，不部分应用。缺字段、非法 Policy 或问题列表非空均记录为修订错误（`Prefer: wait` 时返回 422），不产生 v+1；旧批准按已有修订语义撤销，仍需重新复核。正常修订生成新版本并重新计算。
 
 这个协议及拒绝路径已通过模拟模型测试；模型是否正确识别所有自然语言不支持项，仍需 M2 真实语义场景验证，不能仅凭 schema 宣称已经保证。
 
@@ -106,6 +125,6 @@ Reviser 必须返回 `policy`、`explanation`、`unsupported_requests` 三个字
 
 缺少 `schema_version` 的存量 JSON 按版本 1 加载，审批 hash 只包含旧有字段；新增默认字段不会改变其既有指纹。新方案按版本 2 将快照、规则版本和计算证据一并纳入 hash。
 
-旧方案仍可读取、核验和按原批准执行。旧方案没有历史数据快照，修订返回 409，要求使用确认后的数据创建新任务；不从现在的 CSV 猜测其原始依据。数据库与旧记录不被清空或自动重算。
+旧方案仍可读取、核验和按原批准执行。旧方案没有历史数据快照时，不从现在的 CSV 猜测原始依据；直接修订被拒绝（同步模式 409）。用户须上传并显式应用新数据，或创建新任务；无论哪种方式均须重新批准。数据库与旧记录不被清空或自动重算。
 
-验收覆盖日期乱序、缺失与重复、编码、数值边界、口径确认、在途时点、预算整包与起订量、版本持久化、旧 hash 兼容，以及新旧方案的真实 Chromium 录单与防重。本轮不调用模型，不修改已有演示数据库，不重启现有服务。
+验收覆盖日期乱序、缺失与重复、编码、数值边界、口径确认、在途时点、预算整包与起订量、版本持久化、旧 hash 兼容，以及新旧方案的真实 Chromium 录单与防重。M1 另验证真实工作台上传到下载、旧批准失效、非阻塞响应、执行互斥、数据库重开及导出安全。本轮不调用真实模型，不修改已有演示数据库，不重启现有服务；5 项既有故障注入仍失败，详见工程计划。

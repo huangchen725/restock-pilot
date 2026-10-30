@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import os
 import re
+import secrets
 import signal
 import socket
 import subprocess
@@ -48,6 +49,9 @@ def services(offline: bool) -> list[Service]:
     ):
         result.append(Service(name, port, [sys.executable, "-m", "uvicorn",
             module, "--host", "127.0.0.1", "--port", str(port)], "/health"))
+    result.append(Service("ui",8501,[sys.executable,"-m","streamlit","run",str(ROOT / "ui/app.py"),
+        "--server.address","127.0.0.1","--server.port","8501","--server.headless","true",
+        "--browser.gatherUsageStats","false"],"/_stcore/health"))
     return result
 
 
@@ -68,7 +72,7 @@ def check_port(port: int) -> None:
 
 
 def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
-    missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright")
+    missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright", "streamlit")
                if importlib.util.find_spec(name) is None]
     if missing:
         raise StartupError("缺少依赖：" + ", ".join(missing) +
@@ -103,6 +107,8 @@ def is_healthy(spec: Service, env: dict[str, str]) -> bool:
                              headers=headers, timeout=0.8, trust_env=False)
         if response.status_code != 200:
             return False
+        if spec.name == "ui":
+            return response.text.strip() == "ok"
         payload = response.json()
         if spec.name == "proxy":
             return any(item.get("id") == "intern-s2" for item in payload.get("data", []))
@@ -219,6 +225,7 @@ def main(argv=None) -> int:
     offline = mode == "off"
     env.update(RESTOCK_AGENT_MODE=mode, PYTHONUNBUFFERED="1",
                PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    env["RESTOCK_APPROVAL_TOKEN"] = env.get("RESTOCK_APPROVAL_TOKEN") or secrets.token_urlsafe(32)
     specs = services(offline)
     supervisor = None
     previous_handlers = {}
@@ -238,8 +245,8 @@ def main(argv=None) -> int:
             previous_handlers[sig] = signal.signal(sig, lambda *_: supervisor.stopping.set())
         supervisor.start()
         print("服务已启动。模式：" + ("离线，未启用模型" if offline else "真实模型（密钥与推理尚未验收）"), flush=True)
-        print("API 文档：http://127.0.0.1:8100/docs；采购演示：http://127.0.0.1:8200", flush=True)
-        print(f"日志：{supervisor.log_dir}\n保持本窗口运行，按 Ctrl+C 统一停止。产品工作台尚未实现。", flush=True)
+        print("工作台：http://127.0.0.1:8501；采购演示：http://127.0.0.1:8200", flush=True)
+        print(f"日志：{supervisor.log_dir}\n保持本窗口运行，按 Ctrl+C 统一停止。", flush=True)
         supervisor.wait()
         return 0
     except (StartupError, OSError, ImportError) as exc:
