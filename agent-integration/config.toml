@@ -22,3 +22,12 @@ base_url = "http://127.0.0.1:4000/v1"
 wire_api = "responses"
 # Codex 从该环境变量读取 key，作为 Bearer 发给 LiteLLM
 env_key = "INTERN_API_KEY"
+
+# M2 业务 MCP 工具层：inspect_dataset / build_plan / revise_plan / get_execution_result
+# 相对路径以 Codex 启动工作目录（项目根）为基准；金额数量只能由规则引擎产生
+[mcp_servers.restock]
+command = ".venv/Scripts/python.exe"
+args = ["-m", "app.mcp_server"]
+
+[projects.'e:\restock-pilot']
+trust_level = "trusted"
