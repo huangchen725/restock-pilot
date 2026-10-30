@@ -1,30 +1,26 @@
 # -*- coding: utf-8 -*-
 """FastAPI 入口：真实三阶段 Agent + 审批 gate + 固定浏览器执行适配器。"""
 
-import hashlib
-import json
 import os
 import uuid
-from collections import defaultdict
 from pathlib import Path
-from typing import List
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app import db, runner
 from app.execution import PlaywrightProcurementAdapter, build_supplier_orders
-from app.models import Plan, Policy, TaskState, canonical_json
+from app.models import Policy, TaskState, canonical_json, DataContract, RevisionDecision
 from app.prompts import build_stage_prompt
 from app.rules import build_plan
 from app.state_machine import TaskRecord, TransitionError
-from app.validation import load_dataset
+from app.validation import load_snapshot, snapshot_hash, merged_rows, validate_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 DB_PATH = ROOT / os.getenv("RESTOCK_DB_PATH", "restock.db")
 
-app = FastAPI(title="RestockPilot", version="0.3.0-step3")
+app = FastAPI(title="RestockPilot", version="0.4.0-m0")
 _conn = None
 _tasks: dict = {}
 
@@ -59,48 +55,14 @@ def get_record(task_id: str) -> TaskRecord:
 
 
 class AnalyzeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     policy: Policy
+    data_contract: DataContract | None = None
 
 
 class ReviseRequest(BaseModel):
-    comment: str
-
-
-def _dataset_hash(sales, inv, sup) -> str:
-    payload = json.dumps([sales, inv, sup], sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(payload.encode()).hexdigest()[:16]
-
-
-def _merged_rows(sales, inv, sup) -> List[dict]:
-    inv_by_sku = {r["sku"]: r for r in inv}
-    sup_by_sku = {r["sku"]: r for r in sup}
-    sales_by_sku = defaultdict(list)
-    for r in sales:
-        sales_by_sku[r["sku"]].append(float(r["sold_qty"]))
-    rows = []
-    for sku, seq in sales_by_sku.items():
-        inv_r = inv_by_sku[sku]
-        sup_r = sup_by_sku[sku]
-        seq = seq[-28:]
-        if len(seq) < 28:
-            seq = [0.0] * (28 - len(seq)) + seq
-        rows.append({
-            "sku": sku,
-            "name": inv_r["name"], "category": inv_r["category"],
-            "available_qty": int(inv_r["available_qty"]),
-            "inbound_qty": int(inv_r["inbound_qty"]),
-            "inbound_eta_days": (
-                int(inv_r["inbound_eta"])
-                if inv_r.get("inbound_eta") not in (None, "", "None") else None
-            ),
-            "supplier_id": sup_r["supplier_id"],
-            "unit_cost_cents": int(sup_r["unit_cost_cents"]),
-            "lead_days": int(sup_r["lead_days"]),
-            "pack_size": int(sup_r["pack_size"]),
-            "min_order_qty": int(sup_r["min_order_qty"]),
-            "daily_sales": seq,
-        })
-    return rows
+    model_config = ConfigDict(extra="forbid")
+    comment: str = Field(min_length=1)
 
 
 def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
@@ -128,18 +90,16 @@ def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
 
 def _policy_from_agent(text: str) -> Policy:
     """Reviser 唯一可影响的通道：完整 Policy JSON，其他内容一律拒绝。"""
-    stripped = text.strip()
     try:
-        payload = json.loads(stripped)
-        policy_payload = payload["policy"] if isinstance(payload, dict) else None
-        if not isinstance(policy_payload, dict):
-            raise ValueError("missing policy object")
-        required = {"budget_cents", "cover_days", "safety_days",
-                    "priority_categories", "excluded_skus"}
-        if set(policy_payload) != required:
-            raise ValueError("policy must contain exactly the five supported fields")
-        return Policy.model_validate(policy_payload)
-    except (json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+        decision = RevisionDecision.model_validate_json(text.strip())
+        if decision.unsupported_requests:
+            raise ValueError("unsupported requests: " + "; ".join(decision.unsupported_requests))
+        if decision.policy is None:
+            raise ValueError("missing policy")
+        if decision.policy.model_fields_set != set(Policy.model_fields):
+            raise ValueError("policy must explicitly contain all five supported fields")
+        return decision.policy
+    except ValueError as exc:
         raise AgentStageError(f"invalid Reviser policy output: {exc}") from exc
 
 
@@ -158,18 +118,19 @@ def create_task(req: AnalyzeRequest):
     rec.transition(TaskState.ANALYZING)
     db.upsert_task(get_conn(), task_id, rec.state)
 
-    sales, inv, sup, problems = load_dataset(DATA_DIR)
+    snapshot, problems = load_snapshot(DATA_DIR, req.data_contract)
+    if snapshot is not None:
+        problems += validate_policy(req.policy, snapshot)
     if problems:
         rec.transition(TaskState.NEEDS_INPUT)
         db.upsert_task(get_conn(), task_id, rec.state)
         return {"task_id": task_id, "state": rec.state.value, "data_problems": problems}
 
-    ds_hash = _dataset_hash(sales, inv, sup)
-    plan = build_plan(task_id, 1, ds_hash, req.policy, _merged_rows(sales, inv, sup))
+    plan = build_plan(task_id, 1, snapshot_hash(snapshot), req.policy, merged_rows(snapshot), snapshot)
     h = db.save_plan(get_conn(), plan)
     try:
         agent = _run_agent_stage(
-            "planner", canonical_json(plan.model_dump()),
+            "planner", canonical_json(plan.model_dump(exclude={"dataset_snapshot"})),
             "请检查这份规则引擎方案并给出复核摘要。",
         )
     except AgentStageError as exc:
@@ -209,6 +170,11 @@ def revise(task_id: str, req: ReviseRequest):
         raise HTTPException(409, str(exc))
     db.upsert_task(get_conn(), task_id, rec.state)
 
+    snapshot = current_plan.dataset_snapshot
+    if snapshot is None:
+        raise _revision_error(rec, "legacy plan has no data snapshot; create a new task with confirmed data", 409)
+    if snapshot_hash(snapshot) != current_plan.dataset_hash:
+        raise _revision_error(rec, "dataset snapshot hash mismatch", 409)
     context = canonical_json({
         "current_policy": current_plan.policy.model_dump(),
         "current_version": current_plan.version,
@@ -221,12 +187,12 @@ def revise(task_id: str, req: ReviseRequest):
     except AgentStageError as exc:
         raise _revision_error(rec, str(exc), 422)
 
-    sales, inv, sup, problems = load_dataset(DATA_DIR)
+    problems = validate_policy(new_policy, snapshot)
     if problems:
-        raise _revision_error(rec, "dataset changed and is invalid: " + "; ".join(problems), 422)
+        raise _revision_error(rec, "; ".join(problems), 422)
     new_plan = build_plan(
-        task_id, current_plan.version + 1, _dataset_hash(sales, inv, sup),
-        new_policy, _merged_rows(sales, inv, sup),
+        task_id, current_plan.version + 1, current_plan.dataset_hash,
+        new_policy, merged_rows(snapshot), snapshot,
     )
     h = db.save_plan(get_conn(), new_plan)
     rec.transition(TaskState.NEEDS_REVIEW)

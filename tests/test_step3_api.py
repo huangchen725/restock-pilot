@@ -54,7 +54,7 @@ def client(tmp_path, monkeypatch):
             policy = json.loads(context)["current_policy"]
             policy["cover_days"] -= 1
             return {"status": "ok", "tool_calls": [], "duration_s": 0.1,
-                    "summary": json.dumps({"policy": policy, "explanation": "覆盖天数减 1"})}
+                    "summary": json.dumps({"policy": policy, "explanation": "覆盖天数减 1", "unsupported_requests": []})}
         return {"status": "ok", "summary": f"{stage} summary",
                 "tool_calls": [], "duration_s": 0.1}
 

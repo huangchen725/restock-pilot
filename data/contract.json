@@ -1,0 +1,8 @@
+{
+  "quantity_unit": "piece",
+  "available_is_net": true,
+  "cost_includes_tax_shipping": true,
+  "inbound_eta_is_days": true,
+  "missing_sales": "reject",
+  "window_end": "2026-09-30"
+}

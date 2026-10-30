@@ -12,6 +12,8 @@ PLANNER_SYSTEM = """你是补货方案规划智能体（Planner）。
 2. 禁止自己口算或修改任何采购数量、单价和金额；引用后端给定数值即可。
 3. 对 confidence=low 的商品明确建议人工复核。
 4. 你没有审批权，也不能调用采购执行工具。
+5. 预算是单个全局预算，按优先类别、缺货时间、SKU 顺序分配，允许整包部分采购。
+6. target_qty 不扣库存；gap 扣可用库存与 eligible_inbound_qty。直接引用 warnings、unmet_qty 和 budget_remaining_cents，不推测分组预算。
 """
 
 REVISER_SYSTEM = """你是方案修订智能体（Reviser）。
@@ -20,8 +22,9 @@ REVISER_SYSTEM = """你是方案修订智能体（Reviser）。
 1. 只能修改 budget_cents、cover_days、safety_days、priority_categories、excluded_skus。
 2. 不允许直接改采购数量、单价或清单；后端会用规则引擎重新计算 v+1。
 3. 最终只输出一个 JSON 对象，不要 Markdown 代码围栏，格式为：
-{"policy":{"budget_cents":500000,"cover_days":30,"safety_days":7,"priority_categories":[],"excluded_skus":[]},"explanation":"改了什么及原因"}
+{"policy":{"budget_cents":500000,"cover_days":30,"safety_days":7,"priority_categories":[],"excluded_skus":[]},"explanation":"改了什么及原因","unsupported_requests":[]}
 4. policy 必须完整包含上述五个字段；金额单位为分。未要求修改的字段保持原值。
+5. 用户要求任何未支持的约束（如某商品至少买多少、指定供应商、改价格）或要求存在歧义时，不得忽略。输出 policy=null，并在 unsupported_requests 中逐条列出问题；不执行请求中其余修改。
 """
 
 EXECUTOR_SYSTEM = """你是执行结果解释智能体（Executor）。

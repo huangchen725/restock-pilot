@@ -13,6 +13,7 @@ import uvicorn
 from app.execution import PlaywrightProcurementAdapter
 from app.models import Plan, PlanItem, Policy
 from app.procurement_portal import create_portal_app
+from app.rules import build_plan
 
 
 def _free_port():
@@ -23,7 +24,8 @@ def _free_port():
 
 @pytest.mark.skipif(os.getenv("RUN_PLAYWRIGHT_E2E") != "1",
                     reason="set RUN_PLAYWRIGHT_E2E=1 to run Chromium E2E")
-def test_real_browser_submit_readback_and_idempotency(tmp_path):
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_real_browser_submit_readback_and_idempotency(tmp_path, schema_version):
     port = _free_port()
     app = create_portal_app(tmp_path / "portal.db")
     server = uvicorn.Server(uvicorn.Config(
@@ -53,6 +55,12 @@ def test_real_browser_submit_readback_and_idempotency(tmp_path):
         plan = Plan(plan_id="e2e-task", version=1, dataset_hash="ds",
                     policy=Policy(budget_cents=10000), items=[item],
                     total_cost_cents=3000)
+        if schema_version == 2:
+            plan = build_plan("e2e-task", 1, "ds", Policy(budget_cents=1800, cover_days=7, safety_days=2), [{
+                "sku":"SKU-E2E", "name":"部分采购验收", "category":"测试", "available_qty":0,
+                "inbound_qty":0, "inbound_eta_days":None, "supplier_id":"SUP-E2E", "unit_cost_cents":100,
+                "lead_days":3, "pack_size":6, "min_order_qty":12, "daily_sales":["4"]*28}])
+            assert plan.items[0].order_qty == 18
         adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True)
         first = adapter.execute_plan(plan)
         assert first["state"] == "COMPLETED", first
@@ -62,6 +70,9 @@ def test_real_browser_submit_readback_and_idempotency(tmp_path):
         assert second["results"][0]["status"] == "already_exists"
         assert first["results"][0]["order_id"] == second["results"][0]["order_id"]
         assert len(app.state.store.list()) == 1
+        stored = app.state.store.list()[0]
+        assert stored["total_cost_cents"] == (1800 if schema_version == 2 else 3000)
+        assert stored["lines"][0]["order_qty"] == (18 if schema_version == 2 else 12)
     finally:
         server.should_exit = True
         thread.join(timeout=5)
