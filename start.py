@@ -56,7 +56,10 @@ def services(offline: bool) -> list[Service]:
 
 
 def redact(text: str, env: dict[str, str]) -> str:
-    values = {v for k, v in env.items() if v and any(
+    # 短值不可能是密钥：形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量
+    # 若参与替换会把 JSON 里的数字（如 "version": 1）误脱敏为 [REDACTED]，
+    # 污染持久化数据（result_json）导致 json.loads 失败。
+    values = {v for k, v in env.items() if v and len(v) >= 8 and any(
         word in k.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD"))}
     for value in sorted(values, key=len, reverse=True):
         text = text.replace(value, "[REDACTED]")
