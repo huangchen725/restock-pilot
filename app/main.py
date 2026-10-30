@@ -22,11 +22,16 @@ from app.validation import load_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
-DB_PATH = ROOT / "restock.db"
+DB_PATH = ROOT / os.getenv("RESTOCK_DB_PATH", "restock.db")
 
 app = FastAPI(title="RestockPilot", version="0.3.0-step3")
 _conn = None
 _tasks: dict = {}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "restock-pilot"}
 
 
 class AgentStageError(RuntimeError):

@@ -202,8 +202,8 @@ def _detail_page(order: dict) -> str:
 
 
 def create_portal_app(db_path: str | Path | None = None) -> FastAPI:
-    store = ProcurementStore(db_path or os.getenv(
-        "PROCUREMENT_DB_PATH", str(ROOT / "procurement.db")
+    store = ProcurementStore(db_path or ROOT / os.getenv(
+        "PROCUREMENT_DB_PATH", "procurement.db"
     ))
     portal = FastAPI(title="RestockPilot Demo Procurement Portal", version="1.0.0")
     portal.state.store = store

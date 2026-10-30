@@ -13,9 +13,19 @@ Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重�
 后端已有规则引擎、审批、录单和回读链路；产品工作台、上传、差异展示和导出仍待实现。
 业务 MCP 尚未接入，三阶段调用不代表已经实现多智能体协作。
 
-本机核对：启动适配后普通回归 **36 项通过、6 项浏览器测试跳过**；此前单独启用
+本机核对：自动配置与统一启动完成后普通回归 **47 项通过、8 项跳过**（6 项浏览器、
+2 项服务启动集成测试）；另行显式启用的启动测试 **13 项通过**，覆盖真实代理及业务服务的
+就绪、状态查询与统一停止，未调用上游模型。此前单独启用
 浏览器测试时，正常录单与幂等 **1 项通过**，故障注入 **5 项失败**。账本完整性
-检查仍需修复；迁移环境的真实书生完整链路尚未复验。
+检查仍需修复。
+
+2026-10-30 迁移环境真实书生后端链路已通过一次验证（任务 `7af1cc26`，34 项断言）：
+预算从 5,000 元改为 3,000 元，方案总额从 4,903.08 元变为 2,576.04 元；旧批准失效，
+重新批准后真实 Chromium 创建 2 笔申请，独立回读一致，重复执行返回 409 且无新增单据。
+Planner/Reviser/Executor 均由 `intern-s2` 实际响应，耗时分别为 472.5/8.1/94.9 秒。
+Planner 摘要有预算分配与在途抵扣口径的解释偏差，需修正；这次通过的是后端正常流程，
+不等于产品界面、业务 MCP、故障恢复或重复稳定性验收通过。三阶段均未调用业务工具。
+本地脱敏证据保存在 `outputs/real-chain-20261030-134716/`（不提交 Git）。
 
 执行顺序：运行与业务契约 → 产品工作台和 Agent 工具并行 → 异常恢复与审计 →
 真实模型验收和比赛交付。工作台是必交项，详细分工、内部日期和完成标准见计划。
@@ -58,43 +68,58 @@ Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重�
 
 ## 快速启动
 
-以下命令使用 PowerShell，在项目根目录执行。Linux/macOS 使用 `.venv/bin/python`
-及对应 shell 的环境变量语法。
+在项目根目录执行以下 PowerShell 命令。Linux/macOS 使用 `.venv/bin/python`。
 
 ```powershell
-# 1. 首次准备环境（已创建 .venv 时跳过第一行）
+# 首次准备依赖；已有 .venv 时跳过创建
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m playwright install chromium
 
-# 2. 确认当前终端能够找到 Codex CLI
-codex --version
-# 特殊安装位置可选配；只填程序位置，不附带 exec 等参数：
-# $env:RESTOCK_CODEX_BIN = '.\node_modules\.bin\codex.cmd'
-
-# 3. 代理终端：注入密钥后启动，保持运行
-$env:INTERN_API_KEY = '端砚key'
-.\.venv\Scripts\litellm.exe --config agent-integration/litellm-config.yaml --port 4000
-
-# 4. 采购后台终端（另开终端，进入项目根目录）
-.\.venv\Scripts\python.exe -m uvicorn app.procurement_portal:app --port 8200
-
-# 5. 主服务终端（另开终端，进入项目根目录）
-$env:INTERN_API_KEY = '端砚key'
-$env:RESTOCK_AGENT_MODE = 'required'
-$env:PROCUREMENT_PORTAL_URL = 'http://127.0.0.1:8200'
-# 如果需要 RESTOCK_CODEX_BIN，也在这个终端设置
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8100
+# 首次创建配置；不覆盖已经填写的 .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-runner 每次启动时优先读取 `RESTOCK_CODEX_BIN`，未设置或留空时从主服务进程的
-`PATH` 查找 `codex`。支持程序名、绝对路径和项目根目录下的相对路径；Windows
-通过 `PATHEXT` 查找 `.exe` / `.cmd` 等可执行文件。显式配置无效时直接报错，
-不会静默回退到其他安装版本。
+编辑根目录 `.env`，填写 `INTERN_API_KEY`。真实模式还需要安装并能找到 Codex CLI。
+之后每次只需运行：
 
-参考 `.env.example` 配置环境变量。仅把值写入 `.env` 不会自动加载到 runner；
-请通过启动终端或进程管理工具注入。项目专用 `CODEX_HOME` 由 runner 仅在子进程中
-设置为 `agent-integration/`，不需要修改个人环境。
+```powershell
+.\.venv\Scripts\python.exe start.py
+```
+
+入口自动读取 `.env`，检查依赖、密钥是否填写和端口占用，再依次启动 LiteLLM
+代理（4000）、演示采购后台（8200）和主服务（8100）。全部就绪后显示访问地址。
+保持这一个窗口运行，按 **Ctrl+C** 会统一停止本次启动的服务及其子进程；启动失败
+也会清理已经启动的部分。其他已运行进程不会被接管或停止，子服务不弹出终端。
+所有服务仅监听 `127.0.0.1`。目前可访问 API 文档和演示采购后台，产品工作台仍待实现。
+
+```powershell
+# 只检查配置、依赖和端口，不启动服务或调用模型
+.\.venv\Scripts\python.exe start.py --check
+
+# 查询本地服务健康状态
+.\.venv\Scripts\python.exe start.py status
+
+# 不需要密钥、CLI 或 LiteLLM，只启动两项业务服务
+.\.venv\Scripts\python.exe start.py --offline
+```
+
+离线服务的状态使用 `start.py status --offline` 查询。`RESTOCK_AGENT_MODE=off`
+也会启用离线模式；此模式不提供真实模型生成和自然语言修订。启动与状态检查只访问
+本地健康/模型列表接口，不能证明书生密钥有效或完整任务通过。浏览器安装是录单前提。
+
+统一入口已用 LiteLLM 1.106.0 验证并固定该依赖版本。其余依赖的完整锁定仍按工程计划推进。
+
+配置规则：
+
+- 统一入口和直接导入 `app` 的服务都读取项目根目录 `.env`，不受终端当前目录影响。
+- 已有进程环境变量优先于 `.env`；编辑配置后需重启。密钥不会出现在启动参数或控制台中。
+- 数据库路径使用 `RESTOCK_DB_PATH`、`PROCUREMENT_DB_PATH`，相对路径以项目根目录为基准。
+- 诊断日志写到被 Git 忽略的 `outputs/launcher/`，写入前遮蔽配置中的密钥与认证信息。
+- `RESTOCK_CODEX_BIN` 可指定程序名或路径；未设置时查 PATH。项目相对路径也可使用，
+  显式配置错误时不会静默换版本。项目 `CODEX_HOME` 仅在 CLI 子进程中设置。
+- 统一入口固定管理本地 4000/8100/8200 端口；`PROCUREMENT_PORTAL_URL` 保持
+  `http://127.0.0.1:8200`。自定义外部后台属于手动部署场景。
 
 真实浏览器验收（自动启动隔离采购后台，重复执行两次验证不生成重复单）：
 
@@ -103,11 +128,19 @@ $env:RUN_PLAYWRIGHT_E2E = '1'
 .\.venv\Scripts\python.exe -m pytest tests/test_playwright_e2e.py -q
 ```
 
+统一启动的集成测试会短暂占用本地 4000/8100/8200 端口，使用临时数据库和测试密钥，
+不发送模型推理请求；先停止已有演示服务再运行：
+
+```powershell
+$env:RUN_STARTUP_E2E = '1'
+.\.venv\Scripts\python.exe -m pytest tests/test_startup.py -q
+Remove-Item Env:RUN_STARTUP_E2E
+```
+
 双服务全链路冒烟（off 模式，不需要 LLM key）：
 
 ```powershell
-# 终端 1：采购后台 8200；终端 2：主服务 8100（RESTOCK_AGENT_MODE=off
-# PROCUREMENT_PORTAL_URL=http://127.0.0.1:8200），然后：
+# 先用 start.py --offline 启动服务，再在另一窗口运行：
 .\.venv\Scripts\python.exe scripts/run_smoke_e2e.py
 ```
 
@@ -121,6 +154,7 @@ $env:RUN_PLAYWRIGHT_E2E = '1'
 |---|---|
 | `app/` | models / rules / state_machine / db / validation / runner / prompts / main；Step 3 新增 `execution.py`（Playwright 固定适配器）与 `procurement_portal.py`（三页采购后台） |
 | `tests/` | 规则、审批 hash、runner、幂等、回读、批准版本与审计测试；Chromium E2E 和故障注入需显式启用 |
+| `start.py` | 自动读取 .env、统一启动、状态查询、Ctrl+C 停止与脱敏日志 |
 | `ENGINEERING_PLAN.md` | 当前工程决策、M0–M4 任务、分工、排期与验收标准 |
 | `data/` | 30 SKU 样例三件套 CSV |
 | `scripts/` | generate_data.py（30 SKU 样例）+ run_smoke_e2e.py（双服务全链路冒烟，含 portal 落单核对） |
