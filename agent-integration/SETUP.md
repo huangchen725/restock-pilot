@@ -49,7 +49,8 @@ litellm --config agent-integration\litellm-config.yaml --port 4000
 curl http://127.0.0.1:4000/v1/models -H "Authorization: Bearer $env:INTERN_API_KEY"
 
 # 6. 项目专用 CODEX_HOME 指向本目录配置
-$env:CODEX_HOME = "C:\Users\LENOVO\WorkBuddy\2026-10-27-19-46-22\agent-integration"
+$env:CODEX_HOME = Join-Path (Get-Location) "agent-integration"
+# 这里从项目根目录手动运行 CLI；主服务的 runner 会自动为子进程设置此目录。
 # （把 codex-config.toml 复制/改名为该目录下的 config.toml）
 
 # 7. Day 1 验收：最小工具调用链（不是"能聊天"）

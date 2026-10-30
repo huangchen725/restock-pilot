@@ -8,6 +8,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -15,10 +16,28 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-CODEX_BIN = (
-    r"C:\Users\LENOVO\.workbuddy\binaries\node\workspace"
-    r"\node_modules\.bin\codex.cmd"
-)
+def resolve_codex_bin(workdir: str) -> str:
+    """显式配置优先，否则查 PATH；相对路径以任务工作目录为基准。"""
+    configured = os.getenv("RESTOCK_CODEX_BIN", "").strip()
+    candidate = os.path.expandvars(os.path.expanduser(configured or "codex"))
+    if os.path.isabs(candidate) or "/" in candidate or "\\" in candidate:
+        path = Path(candidate)
+        if not path.is_absolute():
+            path = Path(workdir) / path
+        candidate = str(path.resolve())
+    resolved = shutil.which(candidate)
+    if resolved:
+        return str(Path(resolved).resolve())
+    if configured:
+        raise FileNotFoundError(
+            "RESTOCK_CODEX_BIN does not resolve to an executable. "
+            "Set it to a program path (without command arguments), "
+            "or unset it to find codex on PATH."
+        )
+    raise FileNotFoundError(
+        "Codex CLI was not found on PATH. Install it and restart the service, "
+        "or set RESTOCK_CODEX_BIN to its executable path."
+    )
 
 
 def _decode_output(data: bytes) -> str:
@@ -93,11 +112,16 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
     env["CODEX_HOME"] = codex_home or str(
         Path(__file__).resolve().parents[1] / "agent-integration"
     )
-    cmd = [CODEX_BIN, "exec", "--json", "--skip-git-repo-check", "-"]
     start = time.time()
+    try:
+        executable = resolve_codex_bin(workdir)
+    except OSError as exc:
+        return CodexRunResult(127, [], str(exc), round(time.time() - start, 1))
+    cmd = [executable, "exec", "--json", "--skip-git-repo-check", "-"]
 
     prompt_handle = tempfile.NamedTemporaryFile(
         "w", suffix=".md", prefix="codex-prompt-", delete=False, encoding="utf-8",
+        newline="",
     )
     prompt_handle.write(prompt)
     prompt_handle.close()
@@ -115,14 +139,21 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
         )
 
     timer = threading.Timer(timeout_s, _kill_tree)
-    timer.start()
     try:
         with open(prompt_handle.name, "rb") as stdin_fh:
-            proc = subprocess.Popen(
-                cmd, cwd=workdir, env=env,
-                stdin=stdin_fh,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            )
+            try:
+                proc = subprocess.Popen(
+                    cmd, cwd=workdir, env=env,
+                    stdin=stdin_fh,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+            except OSError as exc:
+                return CodexRunResult(
+                    127, [], f"Unable to start Codex CLI: {exc}",
+                    round(time.time() - start, 1),
+                )
+            # 启动成功后才启用超时，避免启动失败时访问尚不存在的 proc。
+            timer.start()
             for raw_line in proc.stdout:
                 line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line:

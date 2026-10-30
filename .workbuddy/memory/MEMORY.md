@@ -1,5 +1,13 @@
 # RestockPilot 项目长期记忆
 
+## 2026-10-30 计划调整
+
+- 后续执行以仓库根目录 [ENGINEERING_PLAN.md](../../ENGINEERING_PLAN.md) 为准，替代旧的 Step 4/5 排序。
+- 保留后台 Codex CLI，不抽取源码或重写 Agent 循环；产品用户只使用 RestockPilot 工作台，不操作 Codex 界面或终端。
+- 工作台、上传、版本差异与清单报告导出是必交项，与业务工具接入并行推进。
+- 当前本机普通回归 36 项通过，6 项浏览器测试默认跳过；此前显式运行浏览器验收为正常 E2E 1 项通过、故障注入 5 项失败。迁移后真实书生链路尚未复验。
+- 旧 Step 3 记录表示原开发环境的后端阶段验收，不表示产品闭环完成。三阶段称为工作流，不包装未经验证的多智能体协作。
+
 ## 赛事
 - 第三届兴智杯 · 大模型智能体关键能力技术创新赛（信通院主办、上海AI实验室独家支持）
 - 方向③开放赋能智能体；报名已完成；**交件截止 2026-11-05 23:59:59**
@@ -10,8 +18,8 @@
 - 作品：店铺补货与采购申请 Agent；单店单仓 30–100 SKU 三份 CSV；规则纯函数计算（ceil(d×(L+R+S))），模型只管语义决策
 - 架构：Streamlit 界面 + FastAPI 后端（状态机 NEW→ANALYZING→NEEDS_REVIEW→APPROVED→EXECUTING→COMPLETED）+ Codex harness Agent + MCP 业务工具 + Playwright 固定适配器 + 自建演示后台
 - 硬规则：approve_plan 不给 Agent；审批绑定 plan_hash，修改即失效；external_ref=plan_id+version+supplier_id 防重；超时先查后交
-- 5 条改进待落地：双通道一致性校验、Policy DSL、故障注入评测、执行回放审计账本、SKU 置信分层
-- 三阶段包装为 Planner/Reviser/Executor 专职子智能体（多智能体叙事）
+- 双通道一致性校验、Policy schema、SKU 置信分层已有初版；故障注入与审计实现尚未完成验收，详见当前计划。
+- Planner/Reviser/Executor 为三阶段工作流；实际录单由受控适配器执行。
 
 ## 接入链路（已全部实测通过 2026-10-29）
 - Codex 0.165（npm @openai/codex，位于托管 node workspace）→ LiteLLM 4000 → 端砚 discovery-api.intern-ai.org.cn/v1 的 intern-s2
@@ -30,6 +38,8 @@
 - RPM 50 限流（codex 循环密集调用）；max_tokens 8192 截断；danger-full-access 无沙箱
 
 ## 下一步
-- Step 4：故障注入评测 + 执行回放审计账本
-- Step 5：技术文档 PDF / ≤5min 视频 / 应用体验链接部署（Streamlit 界面可选项）
+- M0：固定运行环境、完成迁移验证，修正日期窗口、在途抵扣和预算分配口径。
+- M1/M2 并行：工作台、上传、修改差异与报告；真实业务工具、任务进度和批准权限边界。
+- M3：修复故障注入、结果未知时的回查、部分成功恢复、执行互斥与审计完整性。
+- M4：固定产品场景与真实模型验收、异机复现、技术文档、视频、体验链接及提交包。
 - 安全：两把 key 聊天明文暴露过（端砚 key 2026-10-29 又暴露一次），11/5 提交前必须吊销换新
