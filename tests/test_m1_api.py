@@ -84,8 +84,13 @@ def test_full_workbench_api_flow_diff_approval_execution_exports(client,dataset,
 
 def test_background_request_returns_before_model_and_blocks_conflicts(client,dataset,monkeypatch):
     entered,release=threading.Event(),threading.Event()
-    def slow(*args):
+    def slow(stage, context, user_input):
         entered.set(); release.wait(5)
+        if stage == "planner":
+            # 慢速模拟也需产生 MCP build_plan 的副作用，否则 main 读不到方案会 FAILED
+            from app import mcp_server
+            ctx = json.loads(context)
+            mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
         return {'status':'ok','summary':'持久化摘要','tool_calls':[],'duration_s':1}
     monkeypatch.setattr(main,'_run_agent_stage',slow)
     try:

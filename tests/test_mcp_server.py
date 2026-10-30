@@ -27,7 +27,7 @@ def test_inspect_dataset_returns_contract_and_hash(tool_env):
 
 
 def test_build_plan_generates_amounts_only_from_rules(tool_env):
-    result = mcp_server.build_plan("task-mcp", {"budget_cents": 500000})
+    result = mcp_server.build_plan("task-mcp", policy={"budget_cents": 500000})
     assert result["reused"] is False
     plan = result["plan"]
     assert plan["total_cost_cents"] > 0
@@ -40,18 +40,18 @@ def test_build_plan_generates_amounts_only_from_rules(tool_env):
 
 
 def test_repeated_build_plan_reuses_same_version(tool_env):
-    first = mcp_server.build_plan("task-mcp", {"budget_cents": 500000})
-    second = mcp_server.build_plan("task-mcp", {"budget_cents": 500000})
+    first = mcp_server.build_plan("task-mcp", policy={"budget_cents": 500000})
+    second = mcp_server.build_plan("task-mcp", policy={"budget_cents": 500000})
     assert second["reused"] is True
     assert second["plan"]["version"] == first["plan"]["version"]
     assert second["plan_hash"] == first["plan_hash"]
 
 
 def test_policy_change_creates_new_version_and_invalidates_approval(tool_env):
-    mcp_server.build_plan("task-mcp", {"budget_cents": 500000})
+    mcp_server.build_plan("task-mcp", policy={"budget_cents": 500000})
     db.upsert_task(tool_env, "task-mcp", TaskState.APPROVED,
                    approved_plan_hash="x" * 64, approved_version=1)
-    revised = mcp_server.revise_plan("task-mcp", {"budget_cents": 300000})
+    revised = mcp_server.revise_plan("task-mcp", policy={"budget_cents": 300000})
     assert revised["reused"] is False
     assert revised["plan"]["version"] == 2
     assert revised["plan"]["policy"]["budget_cents"] == 300000
@@ -62,11 +62,11 @@ def test_policy_change_creates_new_version_and_invalidates_approval(tool_env):
 
 
 def test_executing_task_cannot_be_rebuilt(tool_env):
-    mcp_server.build_plan("task-mcp", {"budget_cents": 500000})
+    mcp_server.build_plan("task-mcp", policy={"budget_cents": 500000})
     db.upsert_task(tool_env, "task-mcp", TaskState.EXECUTING,
                    approved_plan_hash="x" * 64, approved_version=1)
     with pytest.raises(ValueError, match="不允许"):
-        mcp_server.build_plan("task-mcp", {"budget_cents": 400000})
+        mcp_server.build_plan("task-mcp", policy={"budget_cents": 400000})
 
 
 def test_unknown_task_rejected(tool_env):

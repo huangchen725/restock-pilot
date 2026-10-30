@@ -47,10 +47,22 @@ def client(tmp_path, monkeypatch):
     main._tasks = {}
     _FakeAdapter.instances = []
     monkeypatch.setattr(main, "PlaywrightProcurementAdapter", _FakeAdapter)
+    # mcp_server 与 main 共享同一测试 DB（fake_agent 模拟 MCP 调用时写入同一库）
+    from app import mcp_server
+    monkeypatch.setattr(mcp_server, "DB_PATH", tmp_path / "test.db")
+    mcp_server._conn = None
     agent_calls = []
 
     def fake_agent(stage, context, user_input):
         agent_calls.append(stage)
+        if stage == "planner":
+            # 模拟 codex 通过 MCP build_plan 生成方案（与真实 MCP 同一入口与数据源）
+            ctx = json.loads(context)
+            result = mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
+            if "error" in result:
+                raise RuntimeError(f"MCP build_plan failed: {result}")
+            return {"status": "ok", "summary": "planner summary",
+                    "tool_calls": ["mcp__restock__build_plan"], "duration_s": 0.1}
         if stage == "reviser":
             policy = json.loads(context)["current_policy"]
             policy["cover_days"] -= 1

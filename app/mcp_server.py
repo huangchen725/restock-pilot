@@ -49,7 +49,18 @@ def _latest_version(task_id: str) -> int:
     return (row["v"] or 0) if row else 0
 
 
-def _generate(task_id: str, policy: Policy, stage: str) -> dict:
+def _resolve_snapshot(dataset_id: str | None):
+    """与 main 的数据源一致：优先 dataset_id（datasets 表），否则 DATA_DIR。"""
+    if dataset_id:
+        snapshot = db.get_dataset(get_conn(), dataset_id)
+        if snapshot is None:
+            raise ValueError(f"dataset {dataset_id} not found")
+        return snapshot, []
+    return load_snapshot(DATA_DIR)
+
+
+def _generate(task_id: str, policy: Policy, stage: str,
+              dataset_id: str | None = None) -> dict:
     """build_plan / revise_plan 共用：状态校验 + 幂等 + 生成 + 撤销旧批准。"""
     row = _get_task(task_id)
     state = row["state"]
@@ -59,7 +70,7 @@ def _generate(task_id: str, policy: Policy, stage: str) -> dict:
         raise ValueError(
             f"任务状态 {state} 不允许{stage}；执行中/已完成的方案不可被 Agent 改写"
         )
-    snapshot, problems = load_snapshot(DATA_DIR)
+    snapshot, problems = _resolve_snapshot(dataset_id)
     if problems:
         return {"error": "dataset_problems", "problems": problems}
 
@@ -95,16 +106,17 @@ def inspect_dataset(task_id: str) -> dict:
 
 @server.tool(name="build_plan",
              description="用规则引擎生成补货方案；金额数量由规则计算。同 policy 重复调用复用现有版本。")
-def build_plan(task_id: str, policy: dict | None = None) -> dict:
+def build_plan(task_id: str, dataset_id: str | None = None,
+               policy: dict | None = None) -> dict:
     pol = Policy.model_validate(policy) if policy else Policy(budget_cents=500000)
-    return _generate(task_id, pol, "生成方案")
+    return _generate(task_id, pol, "生成方案", dataset_id)
 
 
 @server.tool(name="revise_plan",
              description="按新 policy 修订方案（生成 v+1 并撤销旧批准）；金额数量由规则计算。")
-def revise_plan(task_id: str, policy: dict) -> dict:
+def revise_plan(task_id: str, policy: dict, dataset_id: str | None = None) -> dict:
     pol = Policy.model_validate(policy)
-    return _generate(task_id, pol, "修订方案")
+    return _generate(task_id, pol, "修订方案", dataset_id)
 
 
 @server.tool(description="查询任务的执行回执与审计事件。")

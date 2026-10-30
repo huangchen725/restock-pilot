@@ -48,9 +48,22 @@ def client(tmp_path, monkeypatch):
     main._tasks = {}
     _FakeAdapter.instances = []
     monkeypatch.setattr(main, "PlaywrightProcurementAdapter", _FakeAdapter)
-    monkeypatch.setattr(main, "_run_agent_stage",
-                        lambda *a, **k: {"status": "ok", "summary": "s",
-                                         "tool_calls": [], "duration_s": 0.1})
+    from app import mcp_server
+    monkeypatch.setattr(mcp_server, "DB_PATH", tmp_path / "test.db")
+    mcp_server._conn = None
+
+    def fake_agent(stage, context, user_input):
+        if stage == "planner":
+            import json as J
+            ctx = J.loads(context)
+            result = mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
+            if "error" in result:
+                raise RuntimeError(f"MCP build_plan failed: {result}")
+            return {"status": "ok", "summary": "planner summary",
+                    "tool_calls": ["mcp__restock__build_plan"], "duration_s": 0.1}
+        return {"status": "ok", "summary": "s", "tool_calls": [], "duration_s": 0.1}
+
+    monkeypatch.setattr(main, "_run_agent_stage", fake_agent)
     with SyncClient(main.app) as test_client:
         yield test_client
     main._conn.close()

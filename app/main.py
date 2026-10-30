@@ -301,15 +301,28 @@ def _create_work(task_id,req,snapshot):
         rec.transition(TaskState.NEEDS_INPUT)
         db.upsert_task(get_conn(),task_id,rec.state)
         return {"task_id":task_id,"state":rec.state.value,"data_problems":problems}
-    plan=build_plan(task_id,1,snapshot_hash(snapshot),policy,merged_rows(snapshot),snapshot)
-    h=db.save_plan(get_conn(),plan)
+    plan=None
+    # 统一数据源：将当前 snapshot 保存为 dataset，Planner 通过 MCP 以同一 dataset_id 生成方案。
+    dataset_id=db.save_dataset(get_conn(),snapshot)
     _phase(task_id,"生成方案与复核摘要")
+    planner_input=(
+        f"为任务 {task_id} 生成补货方案："
+        f"1) 用 inspect_dataset(task_id=\"{task_id}\") 检查数据集；"
+        f"2) 用 build_plan(task_id=\"{task_id}\", dataset_id=\"{dataset_id}\", policy={policy.model_dump_json()}) 生成方案；"
+        f"3) 根据工具返回的方案写复核摘要（低置信、跳过项、预算取舍）。"
+    )
     try:
-        agent=_run_agent_stage("planner",canonical_json(planner_context(plan)),"请检查这份规则引擎方案并给出复核摘要。")
+        agent=_run_agent_stage("planner",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"policy":policy.model_dump()}),planner_input)
     except AgentStageError as exc:
         rec.transition(TaskState.FAILED)
         db.upsert_task(get_conn(),task_id,rec.state)
         raise HTTPException(503,str(exc))
+    # Planner 必须通过 MCP build_plan 生成方案；未生成则明确失败，不伪装成功。
+    plan,h=db.get_plan(get_conn(),task_id,1)
+    if plan is None:
+        rec.transition(TaskState.FAILED)
+        db.upsert_task(get_conn(),task_id,rec.state)
+        raise HTTPException(503,"Planner 未通过业务工具生成方案（MCP build_plan 未被成功调用）")
     _agent_event(task_id,"planner",1,agent)
     rec.transition(TaskState.NEEDS_REVIEW)
     db.upsert_task(get_conn(),task_id,rec.state)
