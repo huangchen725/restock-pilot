@@ -90,6 +90,36 @@ class ApprovalRequest(BaseModel):
     plan_hash: str = Field(min_length=64, max_length=64)
 
 
+def planner_context(plan) -> dict:
+    """Planner 的极简上下文：汇总 + 下单明细 + 风险清单（~1KB）。
+
+    完整 plan JSON（30 SKU 全字段 ~17KB）会让上游推理模型逐项分析、
+    思考链爆炸（实测 >10min，codex 超时）；只给决策所需信息，
+    思考链可控（实测 ~165s 完成且摘要口径正确）。
+    """
+    ordered = [i for i in plan.items if i.order_qty > 0]
+    return {
+        "plan_id": plan.plan_id,
+        "version": plan.version,
+        "policy": plan.policy.model_dump(),
+        "total_cost_cents": plan.total_cost_cents,
+        "budget_remaining_cents": getattr(plan, "budget_remaining_cents", None),
+        "sku_count": len(plan.items),
+        "ordered": [{
+            "sku": i.sku, "name": i.name, "order_qty": i.order_qty,
+            "unit_cost_cents": i.unit_cost_cents,
+            "line_total_cents": i.line_total_cents,
+            "supplier_id": i.supplier_id,
+            "original_order_qty": i.original_order_qty,
+            "unmet_qty": i.unmet_qty,
+        } for i in ordered],
+        "skipped_count": len(plan.skipped),
+        "low_confidence_skus": [i.sku for i in plan.items if i.confidence == "low"],
+        "stockout_skus": [i.sku for i in plan.items if i.stockout_before_arrival],
+        "unmet_total_qty": sum(i.unmet_qty for i in plan.items),
+    }
+
+
 def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
     """真实调用 runner；off 只用于显式离线测试，绝不伪装成 Agent 成功。"""
     if os.getenv("RESTOCK_AGENT_MODE", "required").lower() == "off":
@@ -275,7 +305,7 @@ def _create_work(task_id,req,snapshot):
     h=db.save_plan(get_conn(),plan)
     _phase(task_id,"生成方案与复核摘要")
     try:
-        agent=_run_agent_stage("planner",canonical_json(plan.model_dump(exclude={"dataset_snapshot"})),"请检查这份规则引擎方案并给出复核摘要。")
+        agent=_run_agent_stage("planner",canonical_json(planner_context(plan)),"请检查这份规则引擎方案并给出复核摘要。")
     except AgentStageError as exc:
         rec.transition(TaskState.FAILED)
         db.upsert_task(get_conn(),task_id,rec.state)
