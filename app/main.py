@@ -519,6 +519,66 @@ def reconcile(task_id: str):
             "version": plan.version, "reconciliation": results}
 
 
+@app.post("/tasks/{task_id}/recover")
+def recover(task_id: str):
+    """M3 受控恢复：只恢复确定未成功的订单，已创建的保留，不生成新版本。
+
+    流程：先受控核对确定状态，只恢复 not_submitted 的订单（用原 external_ref
+    重新提交，幂等防重）；created 的保留不重复提交，unknown 的不自动恢复
+    （需人工核对）。恢复后按实际结果更新任务状态。
+    """
+    rec = get_record(task_id)
+    if rec.state not in (TaskState.NEEDS_RECONCILIATION, TaskState.PARTIAL):
+        raise HTTPException(409, "只有执行结果待核对的任务可以受控恢复。")
+    version = rec.approved_version or _latest_version(task_id)
+    plan, h = db.get_plan(get_conn(), task_id, version)
+    if plan is None:
+        raise HTTPException(404, "找不到已批准的方案。")
+    adapter = PlaywrightProcurementAdapter(
+        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
+        headless=True,
+    )
+    # 先受控核对确定状态，只恢复确定未提交的订单；unknown 不自动恢复。
+    recon = adapter.reconcile_orders(plan)
+    refs_to_recover = {r["external_ref"] for r in recon if r["state"] == "not_submitted"}
+    unknown_refs = [r["external_ref"] for r in recon if r["state"] == "unknown"]
+    if not refs_to_recover:
+        return {"task_id": task_id, "state": rec.state.value,
+                "recovered": [], "skipped_unknown": unknown_refs,
+                "message": "没有可恢复的确定未提交订单；结果未知的订单需先人工核对。"}
+
+    def _record(result):
+        db.save_execution_record(
+            get_conn(), task_id, plan.plan_id, plan.version,
+            result["external_ref"], result["status"], result)
+        db.append_execution_event(get_conn(), task_id, "order_result",
+                                  result["external_ref"], {
+            "status": result["status"], "order_id": result.get("order_id"),
+            "problems": result.get("problems"), "error": result.get("error"),
+            "attempt_log": result.get("attempt_log", []), "plan_hash": h,
+            "recovered": True,
+        })
+    report = adapter.execute_plan(plan, on_order_result=_record,
+                                  only_refs=refs_to_recover)
+    # 状态更新：全部恢复成功且无 unknown → COMPLETED；仍有 unknown → 保持待核对。
+    all_created = all(r["state"] == "created" for r in report["results"])
+    if all_created and not unknown_refs:
+        rec.transition(TaskState.COMPLETED)
+        db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
+    db.append_execution_event(get_conn(), task_id, "execution_finished", None, {
+        "state": rec.state.value, "recovered": True, "plan_hash": h,
+        "final_task_state": rec.state.value,
+    })
+    db.activity(get_conn(), task_id, "recovered", {
+        "version": plan.version,
+        "recovered_refs": sorted(refs_to_recover),
+        "skipped_unknown": unknown_refs,
+    })
+    return {"task_id": task_id, "state": rec.state.value,
+            "version": plan.version, "recovered": report["results"],
+            "skipped_unknown": unknown_refs}
+
+
 @app.get("/tasks/{task_id}")
 def get_status(task_id: str):
     conn = get_conn()

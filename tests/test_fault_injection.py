@@ -154,6 +154,22 @@ def _plan(plan_id: str) -> Plan:
                 total_cost_cents=2500)
 
 
+def _plan_two_suppliers(plan_id: str) -> Plan:
+    """双供应商 plan：SUP-A 与 SUP-B 各一条订单行，用于部分成功与恢复场景。"""
+    def item(sku, supplier):
+        return PlanItem(
+            sku=sku, name=f"商品-{sku}", category="测试",
+            avg_daily_sales=2.0, lead_days=3, available_qty=0, inbound_qty=0,
+            target_qty=10, gap=10, order_qty=10, unit_cost_cents=250,
+            supplier_id=supplier, pack_size=1, min_order_qty=1,
+            line_total_cents=2500,
+        )
+    return Plan(plan_id=plan_id, version=1, dataset_hash="ds",
+                policy=Policy(budget_cents=10000),
+                items=[item("SKU-A", "SUP-A"), item("SKU-B", "SUP-B")],
+                total_cost_cents=5000)
+
+
 def _start_portal(tmp_path, injector):
     app = injector.app  # Assertions and requests must use this very same store.
     server = uvicorn.Server(uvicorn.Config(
@@ -376,6 +392,41 @@ def test_reconcile_orders_returns_determined_states_without_new_orders(tmp_path)
         mismatched = adapter.reconcile_orders(_plan("recon"))
         assert mismatched[0]["state"] == "created"
         assert any("total mismatch" in p for p in mismatched[0]["problems"])
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def test_recover_only_not_submitted_keeps_created_no_duplicates(tmp_path):
+    """M3 受控恢复：只恢复确定未提交的订单，已创建的保留不重复提交。
+
+    部分成功（SUP-A 已创建、SUP-B 未提交）后，recover 只恢复 SUP-B；
+    SUP-A 不重复提交（仍只有 1 单），SUP-B 创建成功（订单总数 2）。
+    """
+    injector = FaultInjector(create_portal_app(tmp_path / "p.db"))
+    base_url, store_app, server, thread = _start_portal(tmp_path, injector)
+    try:
+        adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True)
+        plan = _plan_two_suppliers("rec")
+        # 先只创建 SUP-A 的订单（部分成功）
+        adapter.execute_plan(plan, only_refs={"rec-v1-SUP-A"})
+        assert len(store_app.state.store.list()) == 1
+
+        # 受控核对：SUP-A 已创建，SUP-B 未提交
+        recon = adapter.reconcile_orders(plan)
+        states = {r["external_ref"]: r["state"] for r in recon}
+        assert states["rec-v1-SUP-A"] == "created"
+        assert states["rec-v1-SUP-B"] == "not_submitted"
+
+        # 受控恢复：只恢复 not_submitted 的 SUP-B
+        refs_to_recover = {r["external_ref"] for r in recon if r["state"] == "not_submitted"}
+        assert refs_to_recover == {"rec-v1-SUP-B"}
+        report = adapter.execute_plan(plan, only_refs=refs_to_recover)
+        assert report["results"][0]["status"] == "created"
+        # SUP-B 创建成功，SUP-A 不重复（订单总数 2，SUP-A 仍只有 1 单）
+        assert len(store_app.state.store.list()) == 2
+        a_orders = [o for o in store_app.state.store.list() if o["supplier_id"] == "SUP-A"]
+        assert len(a_orders) == 1
     finally:
         server.should_exit = True
         thread.join(timeout=5)

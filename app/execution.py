@@ -102,8 +102,11 @@ class PlaywrightProcurementAdapter:
         self.headless = headless
         self.timeout_ms = timeout_ms
 
-    def execute_plan(self, plan: Plan, on_order_result=None) -> dict:
+    def execute_plan(self, plan: Plan, on_order_result=None, only_refs=None) -> dict:
         orders = build_supplier_orders(plan)
+        # M3 受控恢复：only_refs 限定只恢复指定订单（其余不触碰，不生成新版本）。
+        if only_refs is not None:
+            orders = [o for o in orders if o["external_ref"] in only_refs]
         if not orders:
             return {"results": [], **summarize_execution([])}
         results = []
