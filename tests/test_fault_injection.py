@@ -38,6 +38,7 @@ class FaultInjector:
         self.fail_next_submit = 0       # F1：接下来 N 次 POST 真实执行后替换为 502
         self.tamper_total_delta = 0     # F3：详情页 total 加上该 delta（分）
         self.hang_seconds = 0.0         # F5：真实落库后延迟响应
+        self.delay_commit_seconds = 0.0  # F7：先 hang（订单未落库），hang 结束后才落库
         self.fail_all_after_submit = 0  # F6：submit 真实落库后，后续所有请求一律 502
         self._all_down = False
         self.injected = []
@@ -69,6 +70,18 @@ class FaultInjector:
                 await send({"type": "http.response.start", "status": 502,
                             "headers": [(b"content-type", b"text/plain")]})
                 await send({"type": "http.response.body", "body": b"submit committed but backend down"})
+                return
+            if self.delay_commit_seconds > 0:
+                # F7 延迟落库：先 hang（订单未落库），hang 结束后才真实落库。
+                # adapter 超时回查时订单尚未出现（回查未找到），但稍后会落库。
+                self.injected.append("delay_commit")  # 注入开始即标记（客户端断连可能取消后续协程，不影响注入记录）
+                await asyncio.sleep(self.delay_commit_seconds)
+                bucket = []
+                async def capture_delay(message):
+                    bucket.append(message)
+                await self.app(scope, receive, capture_delay)
+                for message in bucket:
+                    await send(message)
                 return
             if self.hang_seconds > 0:
                 bucket = []
@@ -294,6 +307,37 @@ def test_f6_submit_then_backend_down_marks_unknown_not_failed(tmp_path):
         # 服务端订单确实已落库（证明不是"确定未提交"）
         assert len(store_app.state.store.list()) == 1
         assert injector.injected == ["all_down_after_commit"]
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def test_f7_delayed_commit_lookup_miss_is_unknown_not_failure(tmp_path):
+    """F7：延迟落库——提交超时后回查未找到（订单尚未落库），不能判定为确定未提交。
+
+    M3 核心：回查未找到 ≠ 确定未提交（可能延迟落库）。超时/响应丢失场景下，
+    回查未找到只能判为结果未知（NEEDS_RECONCILIATION），不得盲目重试或重复购买。
+    与 F4（连接拒绝，确定未提交）和 F6（回查失败）区分。
+    """
+    injector = FaultInjector(create_portal_app(tmp_path / "p.db"))
+    base_url, store_app, server, thread = _start_portal(tmp_path, injector)
+    try:
+        adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True,
+                                               timeout_ms=5000)
+        injector.delay_commit_seconds = 9.0  # 后台 hang 9s 后才落库；adapter 5s 超时回查时未出现
+        report = adapter.execute_plan(_plan("f7"))
+        result = report["results"][0]
+        # 回查未找到不能判定为确定未提交：结果未知，进入待人工核对
+        assert result["status"] == "unknown", result
+        assert result["submission_state"] == "unknown"
+        assert result["problems"], "结果未知必须携带需人工核对的 problems"
+        assert report["state"] == TaskState.NEEDS_RECONCILIATION.value
+        # 未盲目重试：即使回查未找到也不再次提交（不创建重复单）
+        # 注：Chromium 超时断连可能中断延迟落库（ClientDisconnect），
+        # 订单最终可能出现也可能不出现——两种情况都属"结果未知"，
+        # 关键是状态判定为 unknown 而非"确定未提交"后的盲目重试。
+        assert len(store_app.state.store.list()) <= 1
+        assert injector.injected == ["delay_commit"]
     finally:
         server.should_exit = True
         thread.join(timeout=5)

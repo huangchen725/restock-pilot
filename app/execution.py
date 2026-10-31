@@ -179,7 +179,19 @@ class PlaywrightProcurementAdapter:
                                     "order_id": recovered.get("order_id")})
                 return self._receipt_result(order, recovered,
                                             "recovered_after_error", attempt_log)
-            return self._failure(order, exc, attempt_log)
+            # 回查未找到：区分"确定未提交"与"结果未知"（M3）。
+            # 连接拒绝（后台明确未收到请求）→ 确定未提交，可安全重试；
+            # 超时/响应丢失（后台可能已落库但回查时延迟未出现）→ 结果未知，
+            # 进入待人工核对，不得盲目重试或重复购买。
+            msg = str(exc).lower()
+            if ("connection_refused" in msg or "connection refused" in msg
+                    or "econnrefused" in msg):
+                attempt_log.append({"step": "confirmed_not_submitted",
+                                    "reason": "connection_refused"})
+                return self._failure(order, exc, attempt_log)
+            attempt_log.append({"step": "unknown_not_confirmed",
+                                "reason": "submit_error_but_no_order_found"})
+            return self._unknown(order, exc, attempt_log)
 
     def _find_by_ref(self, page, external_ref: str,
                      attempt_log: Optional[List[dict]] = None) -> Optional[dict]:
