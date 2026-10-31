@@ -20,7 +20,7 @@ class _FakeAdapter:
         self.executed_versions = []
         self.__class__.instances.append(self)
 
-    def execute_plan(self, plan):
+    def execute_plan(self, plan, on_order_result=None):
         self.executed_versions.append(plan.version)
         results = []
         for order in build_supplier_orders(plan):
@@ -32,12 +32,16 @@ class _FakeAdapter:
                 "lines": order["lines"],
                 "total_cost_cents": order["total_cost_cents"],
             }
-            results.append({
+            result = {
                 "supplier_id": order["supplier_id"],
                 "external_ref": order["external_ref"],
                 "status": "created", "order_id": receipt["order_id"],
                 "receipt": receipt, "problems": [], "error": None,
-            })
+            }
+            results.append(result)
+            # 模拟真实 adapter 的逐步落账回调（M3）
+            if on_order_result is not None:
+                on_order_result(result)
         return {"results": results, **summarize_execution(results)}
 
 

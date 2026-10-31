@@ -102,7 +102,7 @@ class PlaywrightProcurementAdapter:
         self.headless = headless
         self.timeout_ms = timeout_ms
 
-    def execute_plan(self, plan: Plan) -> dict:
+    def execute_plan(self, plan: Plan, on_order_result=None) -> dict:
         orders = build_supplier_orders(plan)
         if not orders:
             return {"results": [], **summarize_execution([])}
@@ -119,14 +119,22 @@ class PlaywrightProcurementAdapter:
                     page = browser.new_page()
                     page.set_default_timeout(self.timeout_ms)
                     for order in orders:
-                        results.append(self._execute_order(page, order))
+                        result = self._execute_order(page, order)
+                        results.append(result)
+                        # M3 逐步落账：每个订单完成时立即回调持久化，
+                        # 中断时已完成订单的过程记录不丢失（不再整批结束才落账）。
+                        if on_order_result is not None:
+                            on_order_result(result)
                 finally:
                     browser.close()
         except Exception as exc:
             completed_refs = {result["external_ref"] for result in results}
             for order in orders:
                 if order["external_ref"] not in completed_refs:
-                    results.append(self._failure(order, exc))
+                    failure = self._failure(order, exc)
+                    results.append(failure)
+                    if on_order_result is not None:
+                        on_order_result(failure)
         return {"results": results, **summarize_execution(results)}
 
     def reconcile_orders(self, plan: Plan) -> List[dict]:

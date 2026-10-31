@@ -451,8 +451,9 @@ def _execute_work(task_id):
                     "total_cost_cents": o["total_cost_cents"]}
                    for o in orders],
     })
-    report = adapter.execute_plan(plan)
-    for result in report["results"]:
+    # M3 逐步落账：每个订单完成时立即持久化执行记录与事件，
+    # 中断时已完成订单的过程记录不丢失（不再整批结束才落账）。
+    def _record_order_result(result):
         db.save_execution_record(
             get_conn(), task_id, plan.plan_id, plan.version,
             result["external_ref"], result["status"], result,
@@ -466,6 +467,7 @@ def _execute_work(task_id):
             "attempt_log": result.get("attempt_log", []),
             "plan_hash": h,
         })
+    report = adapter.execute_plan(plan, on_order_result=_record_order_result)
     rec.transition(TaskState(report["state"]))
     db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
     db.append_execution_event(get_conn(), task_id, "execution_finished", None, {
