@@ -64,9 +64,16 @@ def client(tmp_path, monkeypatch):
             return {"status": "ok", "summary": "planner summary",
                     "tool_calls": ["mcp__restock__build_plan"], "duration_s": 0.1}
         if stage == "reviser":
-            policy = json.loads(context)["current_policy"]
+            ctx = json.loads(context)
+            policy = dict(ctx["current_policy"])
             policy["cover_days"] -= 1
-            return {"status": "ok", "tool_calls": [], "duration_s": 0.1,
+            if "task_id" in ctx:
+                # revise 场景：模拟 Reviser 通过 MCP revise_plan 生成 v+1
+                result = mcp_server.revise_plan(ctx["task_id"], policy, ctx.get("dataset_id"))
+                if "error" in result:
+                    raise RuntimeError(f"MCP revise_plan failed: {result}")
+            # create 的理解要求（无 task_id）：只转 policy，不调 revise_plan
+            return {"status": "ok", "tool_calls": ["mcp__restock__revise_plan"] if "task_id" in ctx else [], "duration_s": 0.1,
                     "summary": json.dumps({"policy": policy, "explanation": "覆盖天数减 1", "unsupported_requests": []})}
         return {"status": "ok", "summary": f"{stage} summary",
                 "tool_calls": [], "duration_s": 0.1}

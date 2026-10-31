@@ -381,21 +381,56 @@ def _revise_work(task_id,req):
         raise _revision_error(rec,"dataset snapshot hash mismatch",409)
     original_req=db.get_context(get_conn(),task_id).get('request') or {}
     policy=req.policy or (current.policy if current else Policy.model_validate(original_req.get('policy',{})))
-    agent={"status":"not_requested","summary":"通过参数表单修改","duration_s":0}
-    if req.comment.strip():
-        _phase(task_id,"理解修改意见")
-        try:
-            agent=_run_agent_stage("reviser",canonical_json({"current_policy":policy.model_dump(),"current_version":current.version if current else 0}),req.comment)
-            if agent.get('status')=='disabled':
-                raise AgentStageError("离线模式不能理解自然语言，请使用参数表单。")
-            policy=_policy_from_agent(agent['summary'])
-        except AgentStageError as exc:
-            raise _revision_error(rec,str(exc),422)
     problems=validate_policy(policy,snapshot)
     if problems:
         raise _revision_error(rec,"; ".join(problems),422)
-    plan=build_plan(task_id,current.version+1 if current else 1,snapshot_hash(snapshot),policy,merged_rows(snapshot),snapshot)
-    h=db.save_plan(get_conn(),plan)
+    agent={"status":"not_requested","summary":"通过参数表单修改","duration_s":0}
+    dataset_id=db.save_dataset(get_conn(),snapshot)
+    next_version=current.version+1 if current else 1
+    if req.comment.strip():
+        _phase(task_id,"理解修改意见并生成新版本")
+        reviser_input=(
+            f"为任务 {task_id} 修订方案：理解以下修改意见并生成新版本。"
+            f"当前 policy: {policy.model_dump_json()}。"
+            f"用 revise_plan(task_id=\"{task_id}\", dataset_id=\"{dataset_id}\", policy=<你理解的完整policy>) 生成 v{next_version}。"
+            f"修改意见: {req.comment}"
+        )
+        try:
+            agent=_run_agent_stage("reviser",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"current_policy":policy.model_dump(),"current_version":current.version if current else 0}),reviser_input)
+            if agent.get('status')=='disabled':
+                raise AgentStageError("离线模式不能理解自然语言，请使用参数表单。")
+        except AgentStageError as exc:
+            raise _revision_error(rec,str(exc),422)
+        # 不支持的/不完整的/legacy 修订决策：Reviser 声明的 decision 不完整则拒绝（422）。
+        summary=(agent.get('summary') or '').strip()
+        if summary.startswith('{'):
+            try:
+                decision=json.loads(summary)
+            except Exception:
+                decision=None
+            if decision is not None:
+                pol=decision.get('policy')
+                required={'budget_cents','cover_days','safety_days','priority_categories','excluded_skus'}
+                if (decision.get('unsupported_requests')
+                        or pol is None
+                        or not isinstance(pol,dict)
+                        or set(pol.keys())!=required
+                        or 'unsupported_requests' not in decision):
+                    reasons=decision.get('unsupported_requests') or ["修订决策不完整或格式不支持"]
+                    raise _revision_error(rec,"; ".join(reasons),422)
+        # Reviser 必须通过 MCP revise_plan 生成新版本；未生成则明确失败，不伪装成功。
+        plan,h=db.get_plan(get_conn(),task_id,next_version)
+        if plan is None:
+            raise _revision_error(rec,"Reviser 未通过业务工具生成新版本（MCP revise_plan 未被成功调用）",503)
+    else:
+        # 参数表单：后端直接调 MCP revise_plan（统一权限边界、幂等与撤销旧批准）。
+        from app import mcp_server
+        result=mcp_server.revise_plan(task_id,policy.model_dump(),dataset_id)
+        if "error" in result:
+            raise _revision_error(rec,str(result),422)
+        plan,h=db.get_plan(get_conn(),task_id,next_version)
+        if plan is None:
+            raise _revision_error(rec,"修订工具未生成新版本",503)
     _agent_event(task_id,"reviser",plan.version,agent)
     rec.transition(TaskState.NEEDS_REVIEW)
     db.upsert_task(get_conn(),task_id,rec.state)
