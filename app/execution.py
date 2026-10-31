@@ -169,10 +169,11 @@ class PlaywrightProcurementAdapter:
             try:
                 recovered = self._find_by_ref(page, order["external_ref"], attempt_log)
             except Exception as lookup_exc:
-                # 回查本身失败（如后台整体不可达）：失败结果必须携带过程日志。
+                # 回查本身失败（如后台整体不可达）：提交结果未知，
+                # 可能已落库但无法确认——进入待人工核对，不得盲目重试或重复购买。
                 attempt_log.append({"step": "recover_lookup_error",
                                     "error": f"{type(lookup_exc).__name__}: {lookup_exc}"[:300]})
-                return self._failure(order, exc, attempt_log)
+                return self._unknown(order, exc, attempt_log)
             if recovered is not None:
                 attempt_log.append({"step": "recovered",
                                     "order_id": recovered.get("order_id")})
@@ -184,7 +185,12 @@ class PlaywrightProcurementAdapter:
                      attempt_log: Optional[List[dict]] = None) -> Optional[dict]:
         if attempt_log is not None:
             attempt_log.append({"step": "duplicate_check", "external_ref": external_ref})
-        page.goto(f"{self.base_url}/purchase-orders?external_ref={quote(external_ref)}")
+        response = page.goto(f"{self.base_url}/purchase-orders?external_ref={quote(external_ref)}")
+        # 区分"回查失败（结果未知）"与"正常无此单（确定未提交）"：
+        # 5xx 是后台异常，无法确认订单状态，必须抛异常进入 recover_lookup_error，
+        # 不能当作"无此单"误判为确定未提交。
+        if response is not None and response.status >= 500:
+            raise RuntimeError(f"回查后台返回 {response.status}，无法确认订单状态")
         if page.locator("a.order-link").count() == 0:
             if attempt_log is not None:
                 attempt_log.append({"step": "duplicate_check_result", "found": False})
@@ -232,6 +238,7 @@ class PlaywrightProcurementAdapter:
     @staticmethod
     def _failure(order: dict, exc: Exception,
                  attempt_log: Optional[List[dict]] = None) -> dict:
+        # 确定未提交（连接失败或回查确认无此单）：可安全重试。
         return {
             "supplier_id": order["supplier_id"],
             "external_ref": order["external_ref"],
@@ -240,5 +247,23 @@ class PlaywrightProcurementAdapter:
             "receipt": None,
             "problems": [],
             "error": f"{type(exc).__name__}: {exc}",
+            "submission_state": "not_attempted",
+            "attempt_log": attempt_log or [],
+        }
+
+    @staticmethod
+    def _unknown(order: dict, exc: Exception,
+                 attempt_log: Optional[List[dict]] = None) -> dict:
+        # 结果未知：提交可能已落库但回查失败，无法确认——需人工核对，
+        # problems 非空使 summarize_execution 进入 NEEDS_RECONCILIATION。
+        return {
+            "supplier_id": order["supplier_id"],
+            "external_ref": order["external_ref"],
+            "status": "unknown",
+            "order_id": None,
+            "receipt": None,
+            "problems": ["提交结果未知：回查失败，无法确认是否已创建申请，需人工核对"],
+            "error": f"{type(exc).__name__}: {exc}",
+            "submission_state": "unknown",
             "attempt_log": attempt_log or [],
         }

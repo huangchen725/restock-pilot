@@ -38,16 +38,38 @@ class FaultInjector:
         self.fail_next_submit = 0       # F1：接下来 N 次 POST 真实执行后替换为 502
         self.tamper_total_delta = 0     # F3：详情页 total 加上该 delta（分）
         self.hang_seconds = 0.0         # F5：真实落库后延迟响应
+        self.fail_all_after_submit = 0  # F6：submit 真实落库后，后续所有请求一律 502
+        self._all_down = False
         self.injected = []
         self.submit_requests = 0
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        # F6 全挂模式：submit 落库后，后续所有请求（含回查）一律 502
+        if self._all_down:
+            await send({"type": "http.response.start", "status": 502,
+                        "headers": [(b"content-type", b"text/plain")]})
+            await send({"type": "http.response.body", "body": b"backend down after submit"})
+            return
         method, path = scope["method"], scope["path"]
 
         if method == "POST" and path == "/purchase-orders":
             self.submit_requests += 1
+            if self.fail_all_after_submit > 0:
+                self.fail_all_after_submit -= 1
+                bucket = []
+
+                async def capture(message):
+                    bucket.append(message)
+
+                await self.app(scope, receive, capture)  # 订单真实落库
+                self.injected.append("all_down_after_commit")
+                self._all_down = True
+                await send({"type": "http.response.start", "status": 502,
+                            "headers": [(b"content-type", b"text/plain")]})
+                await send({"type": "http.response.body", "body": b"submit committed but backend down"})
+                return
             if self.hang_seconds > 0:
                 bucket = []
                 async def capture_hang(message):
@@ -242,6 +264,36 @@ def test_f5_submit_hang_times_out_then_recovers(tmp_path):
         assert 'recovered' in [e['step'] for e in result['attempt_log']]
         actual=httpx.get(base_url+'/api/purchase-orders',trust_env=False).json()
         assert len(actual)==1 and actual[0]['total_cost_cents']==2500 and actual[0]['status']=='SUBMITTED'
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+def test_f6_submit_then_backend_down_marks_unknown_not_failed(tmp_path):
+    """F6：submit 真实落库后后台整体崩溃（回查也失败）→ 结果未知。
+
+    与 F4（连接从未建立，确定未提交）区分：订单已落库但回查无法确认，
+    必须进入 NEEDS_RECONCILIATION 而不是 FAILED，不得盲目重试。
+    """
+    injector = FaultInjector(create_portal_app(tmp_path / "p.db"))
+    base_url, store_app, server, thread = _start_portal(tmp_path, injector)
+    try:
+        adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True,
+                                               timeout_ms=5000)
+        injector.fail_all_after_submit = 1
+        report = adapter.execute_plan(_plan("f6"))
+        result = report["results"][0]
+        # 结果未知（不是 failed）：提交可能已落库但回查失败
+        assert result["status"] == "unknown", result
+        assert result["submission_state"] == "unknown"
+        assert result["problems"], "结果未知必须携带需人工核对的 problems"
+        assert report["state"] == TaskState.NEEDS_RECONCILIATION.value
+        # 过程日志包含 submit_error 与 recover_lookup_error
+        steps = [s["step"] for s in result["attempt_log"]]
+        assert "submit_error" in steps and "recover_lookup_error" in steps
+        # 服务端订单确实已落库（证明不是"确定未提交"）
+        assert len(store_app.state.store.list()) == 1
+        assert injector.injected == ["all_down_after_commit"]
     finally:
         server.should_exit = True
         thread.join(timeout=5)
