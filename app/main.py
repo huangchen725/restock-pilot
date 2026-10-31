@@ -552,7 +552,17 @@ def get_audit_trail(task_id: str):
     else:
         has_finish = any(e["event_type"] == "execution_finished" for e in events)
         approved_hash = rec.approved_plan_hash
-        replay_ok = has_finish and all(
+        # 预期订单集合完整性（M3）：execution_started 声明的每个 external_ref
+        # 都必须有 order_result 事件；中断执行（开始+结束但缺订单结果）不算完整。
+        expected_refs = set()
+        for e in events:
+            if e["event_type"] == "execution_started":
+                for o in e["payload"].get("orders", []):
+                    expected_refs.add(o["external_ref"])
+        result_refs = {e["external_ref"] for e in events
+                       if e["event_type"] == "order_result"}
+        orders_complete = expected_refs.issubset(result_refs) if expected_refs else True
+        replay_ok = has_finish and orders_complete and all(
             e["event_type"] != "order_result"
             or (e["payload"].get("plan_hash")
                 and (approved_hash is None or e["payload"]["plan_hash"] == approved_hash))

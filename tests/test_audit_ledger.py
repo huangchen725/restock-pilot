@@ -117,3 +117,46 @@ def test_audit_trail_replay_detects_missing_plan_hash(tmp_path):
         main._conn.close()
         main._conn = None
         main._tasks = {}
+
+
+def test_audit_trail_empty_ledger_is_not_complete(client):
+    """空账本不代表完整执行（M3 审计完整性）。"""
+    created = client.post("/tasks", json={"policy": {"budget_cents": 500000}}).json()
+    task_id = created["task_id"]
+    trail = client.get(f"/tasks/{task_id}/audit-trail").json()
+    assert trail["replay_complete"] is False
+    assert trail["event_count"] == 0
+
+
+def test_audit_trail_interrupted_execution_is_not_complete(client):
+    """中断执行（started + finished 但无 order_result）不能标为完整。"""
+    created = client.post("/tasks", json={"policy": {"budget_cents": 500000}}).json()
+    task_id = created["task_id"]
+    db.append_execution_event(main.get_conn(), task_id, "execution_started", None, {
+        "plan_hash": "x" * 64,
+        "orders": [{"external_ref": "e1", "supplier_id": "S1",
+                    "lines": 1, "total_cost_cents": 100}],
+    })
+    db.append_execution_event(main.get_conn(), task_id, "execution_finished",
+                              None, {"state": "FAILED"})
+    trail = client.get(f"/tasks/{task_id}/audit-trail").json()
+    assert trail["replay_complete"] is False
+
+
+def test_audit_trail_partial_order_results_is_not_complete(client):
+    """部分订单结果（声明 2 单但只有 1 个 order_result）不能标为完整。"""
+    created = client.post("/tasks", json={"policy": {"budget_cents": 500000}}).json()
+    task_id = created["task_id"]
+    db.append_execution_event(main.get_conn(), task_id, "execution_started", None, {
+        "plan_hash": "x" * 64,
+        "orders": [{"external_ref": "e1", "supplier_id": "S1",
+                    "lines": 1, "total_cost_cents": 100},
+                   {"external_ref": "e2", "supplier_id": "S2",
+                    "lines": 1, "total_cost_cents": 200}],
+    })
+    db.append_execution_event(main.get_conn(), task_id, "order_result", "e1",
+                              {"status": "created", "plan_hash": "x" * 64})
+    db.append_execution_event(main.get_conn(), task_id, "execution_finished",
+                              None, {"state": "PARTIAL"})
+    trail = client.get(f"/tasks/{task_id}/audit-trail").json()
+    assert trail["replay_complete"] is False  # e2 缺 order_result
