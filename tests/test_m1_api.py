@@ -88,9 +88,10 @@ def test_background_request_returns_before_model_and_blocks_conflicts(client,dat
         entered.set(); release.wait(5)
         if stage == "planner":
             # 慢速模拟也需产生 MCP build_plan 的副作用，否则 main 读不到方案会 FAILED
-            from app import mcp_server
+            from app.business_tools import active_session
             ctx = json.loads(context)
-            mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
+            active_session().call('inspect_dataset', {'task_id':ctx['task_id']})
+            active_session().call('build_plan', {'task_id':ctx['task_id'], 'dataset_id':ctx['dataset_id'], 'policy':ctx['policy']})
         return {'status':'ok','summary':'持久化摘要','tool_calls':[],'duration_s':1}
     monkeypatch.setattr(main,'_run_agent_stage',slow)
     try:
@@ -108,7 +109,8 @@ def test_background_request_returns_before_model_and_blocks_conflicts(client,dat
         if not status['operation']['busy']: break
         time.sleep(.02)
     assert status['state']=='NEEDS_REVIEW'
-    assert status['operation']['result']['agent']['summary']=='持久化摘要'
+    assert status['operation']['result']['agent']['model_advice']=='持久化摘要'
+    assert status['operation']['result']['agent']['summary'].endswith('模型建议：持久化摘要')
 
 
 def test_reupload_to_current_task_invalidates_approval(client,dataset,tmp_path):

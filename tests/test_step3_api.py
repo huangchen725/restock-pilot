@@ -47,10 +47,7 @@ def client(tmp_path, monkeypatch):
     main._tasks = {}
     _FakeAdapter.instances = []
     monkeypatch.setattr(main, "PlaywrightProcurementAdapter", _FakeAdapter)
-    # mcp_server 与 main 共享同一测试 DB（fake_agent 模拟 MCP 调用时写入同一库）
-    from app import mcp_server
-    monkeypatch.setattr(mcp_server, "DB_PATH", tmp_path / "test.db")
-    mcp_server._conn = None
+    from app.business_tools import active_session
     agent_calls = []
 
     def fake_agent(stage, context, user_input):
@@ -58,7 +55,8 @@ def client(tmp_path, monkeypatch):
         if stage == "planner":
             # 模拟 codex 通过 MCP build_plan 生成方案（与真实 MCP 同一入口与数据源）
             ctx = json.loads(context)
-            result = mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
+            active_session().call('inspect_dataset', {'task_id':ctx['task_id']})
+            result = active_session().call('build_plan', {'task_id':ctx['task_id'], 'dataset_id':ctx['dataset_id'], 'policy':ctx['policy']})
             if "error" in result:
                 raise RuntimeError(f"MCP build_plan failed: {result}")
             return {"status": "ok", "summary": "planner summary",
@@ -69,7 +67,7 @@ def client(tmp_path, monkeypatch):
             policy["cover_days"] -= 1
             if "task_id" in ctx:
                 # revise 场景：模拟 Reviser 通过 MCP revise_plan 生成 v+1
-                result = mcp_server.revise_plan(ctx["task_id"], policy, ctx.get("dataset_id"))
+                result = active_session().call('revise_plan', {'task_id':ctx['task_id'], 'policy':policy, 'dataset_id':ctx['dataset_id']})
                 if "error" in result:
                     raise RuntimeError(f"MCP revise_plan failed: {result}")
             # create 的理解要求（无 task_id）：只转 policy，不调 revise_plan
@@ -183,17 +181,19 @@ def test_main_agent_stage_calls_real_runner(monkeypatch):
         return Result()
 
     monkeypatch.setattr(main.runner, "run_codex_task", fake_run)
+    import sys
+    monkeypatch.setattr(main.runner, "resolve_codex_bin", lambda _: sys.executable)
     result = main._run_agent_stage("planner", "权威上下文", "用户输入")
     assert result["status"] == "ok"
     assert result["summary"] == "真实 Agent 摘要"
     assert "你是补货方案规划智能体" in captured["prompt"]
-    # M2 权限边界：Agent 使用隔离工作目录，且该目录不含业务 DB 与 .env
+    # Runtime config is temporary and uses only scoped broker credentials.
     from pathlib import Path
     wd = Path(captured["workdir"])
-    assert wd == main._agent_workdir()
-    assert not (wd / "restock.db").exists()
-    assert not (wd / ".env").exists()
-    assert wd.name == "agent-workdir"
+    assert wd.name == 'work'
+    assert not wd.exists()  # cleaned after the stage, not shared between tasks
+    assert 'INTERN_API_KEY' not in captured['child_env']
+    assert 'RESTOCK_APPROVAL_TOKEN' not in captured['child_env']
 
 
 def test_reviser_rejects_non_json_or_extra_policy_fields():

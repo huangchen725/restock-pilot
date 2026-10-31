@@ -120,3 +120,48 @@ def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path)
     assert observed["home"] == str(tmp_path / "agent config")
     assert os.environ["CODEX_HOME"] == "personal-home"
     assert not observed["path"].exists()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows CLI lifecycle')
+def test_large_stderr_does_not_block_stdout_or_trigger_false_timeout(monkeypatch,tmp_path):
+    script=tmp_path/'noisy.py'
+    script.write_text('import sys,json\nsys.stderr.write("x"*1048576)\nsys.stderr.flush()\n'
+        'print(json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"done"}}),flush=True)\n',encoding='utf-8')
+    launcher=tmp_path/'noisy.cmd'
+    launcher.write_text('@echo off\n"%LOCAL_TEST_PYTHON%" "%LOCAL_TEST_SCRIPT%"\n',encoding='ascii')
+    monkeypatch.setenv('RESTOCK_CODEX_BIN',str(launcher))
+    result=runner.run_codex_task('local stub',str(tmp_path),timeout_s=5,
+        child_env={'LOCAL_TEST_PYTHON':sys.executable,'LOCAL_TEST_SCRIPT':str(script)})
+    assert not result.timed_out and result.exit_code==0
+    assert result.final_text=='done'
+    assert len(result.stderr)<=65536
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows owned process tree')
+def test_timeout_stops_owned_cli_and_descendant_only(monkeypatch,tmp_path):
+    import psutil
+    import subprocess
+    script=tmp_path/'hanging.py'; record=tmp_path/'child.pid'
+    script.write_text('import subprocess,sys,time\nfrom pathlib import Path\n'
+        'p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(60)"])\n'
+        'Path(sys.argv[1]).write_text(str(p.pid))\ntime.sleep(60)\n',encoding='utf-8')
+    launcher=tmp_path/'hanging.cmd'
+    launcher.write_text('@echo off\n"%LOCAL_TEST_PYTHON%" "%LOCAL_TEST_SCRIPT%" "%LOCAL_TEST_RECORD%"\n',encoding='ascii')
+    monkeypatch.setenv('RESTOCK_CODEX_BIN',str(launcher))
+    outsider=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)'],creationflags=subprocess.CREATE_NO_WINDOW)
+    try:
+        result=runner.run_codex_task('local stub',str(tmp_path),timeout_s=2,
+            child_env={'LOCAL_TEST_PYTHON':sys.executable,'LOCAL_TEST_SCRIPT':str(script),'LOCAL_TEST_RECORD':str(record)})
+        assert result.timed_out
+        assert record.exists() and not psutil.pid_exists(int(record.read_text()))
+        assert outsider.poll() is None
+    finally:
+        outsider.terminate(); outsider.wait(timeout=5)
+
+
+def test_mcp_events_retain_tool_parameters_and_results():
+    event=runner.CodexEvent({'type':'item.completed','item':{'type':'mcp_tool_call',
+        'server':'restock','tool':'build_plan','arguments':{'task_id':'t'},
+        'result':{'total_cost_cents':1800},'status':'completed'}})
+    call=runner.CodexRunResult(0,[event],'',0).tool_calls[0]
+    assert call['arguments']=={'task_id':'t'} and call['result']['total_cost_cents']==1800

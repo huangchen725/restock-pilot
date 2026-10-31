@@ -131,7 +131,15 @@ class PlaywrightProcurementAdapter:
 
     def _execute_order(self, page, order: dict) -> dict:
         attempt_log: List[dict] = []
-        existing = self._find_by_ref(page, order["external_ref"], attempt_log)
+        try:
+            existing = self._find_by_ref(page, order["external_ref"], attempt_log)
+        except Exception as exc:
+            # No submit was attempted. Preserve the actual failed lookup instead
+            # of inventing a negative lookup result or dropping the entire trace.
+            attempt_log.append({'step':'initial_lookup_error','error':f'{type(exc).__name__}: {exc}'[:300]})
+            result = self._failure(order, exc, attempt_log)
+            result['submission_state'] = 'not_attempted'
+            return result
         if existing is not None:
             return self._receipt_result(order, existing, "already_exists", attempt_log)
         try:

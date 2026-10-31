@@ -37,8 +37,9 @@ class FaultInjector:
         self.app = app
         self.fail_next_submit = 0       # F1：接下来 N 次 POST 真实执行后替换为 502
         self.tamper_total_delta = 0     # F3：详情页 total 加上该 delta（分）
-        self.hang_seconds = 0.0         # F5：POST 前挂起时长
+        self.hang_seconds = 0.0         # F5：真实落库后延迟响应
         self.injected = []
+        self.submit_requests = 0
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -46,9 +47,17 @@ class FaultInjector:
         method, path = scope["method"], scope["path"]
 
         if method == "POST" and path == "/purchase-orders":
+            self.submit_requests += 1
             if self.hang_seconds > 0:
-                self.injected.append("hang")
+                bucket = []
+                async def capture_hang(message):
+                    bucket.append(message)
+                await self.app(scope, receive, capture_hang)
+                self.injected.append("hang_after_commit")
                 await asyncio.sleep(self.hang_seconds)
+                for message in bucket:
+                    await send(message)
+                return
             if self.fail_next_submit > 0:
                 self.fail_next_submit -= 1
                 self.injected.append("fake_502")
@@ -75,9 +84,8 @@ class FaultInjector:
             body = b"".join(m.get("body", b"") for m in bucket
                             if m["type"] == "http.response.body")
             tampered, count = re.subn(
-                br'id="order-total-cents">(\d+)<',
-                lambda m: b'id="order-total-cents">%d<' % (
-                    int(m.group(1)) + self.tamper_total_delta),
+                br'''(id=["']order-total-cents["']>)(\d+)(<)''',
+                lambda m: m.group(1) + str(int(m.group(2)) + self.tamper_total_delta).encode() + m.group(3),
                 body,
             )
             if count:
@@ -112,7 +120,7 @@ def _plan(plan_id: str) -> Plan:
 
 
 def _start_portal(tmp_path, injector):
-    app = create_portal_app(tmp_path / "portal.db")
+    app = injector.app  # Assertions and requests must use this very same store.
     server = uvicorn.Server(uvicorn.Config(
         injector, host="127.0.0.1", port=_free_port(), log_level="warning",
     ))
@@ -146,10 +154,14 @@ def test_f1_submit_response_lost_recovers_by_lookup(tmp_path):
         assert "recovered" in [s["step"] for s in result["attempt_log"]]
         # 服务端只有一单：响应丢了但订单落库，先查后交没有二次提交
         assert len(store_app.state.store.list()) == 1
+        assert injector.injected == ['fake_502'] and injector.submit_requests == 1
+        actual = httpx.get(base_url+'/api/purchase-orders',trust_env=False).json()
+        assert len(actual)==1 and actual[0]['total_cost_cents']==2500 and actual[0]['status']=='SUBMITTED'
         # 注入解除后重放：幂等命中，不新建
         replay = adapter.execute_plan(_plan("f1"))
         assert replay["results"][0]["status"] == "already_exists"
         assert len(store_app.state.store.list()) == 1
+        assert injector.submit_requests == 1
     finally:
         server.should_exit = True
         thread.join(timeout=5)
@@ -167,6 +179,8 @@ def test_f2_idempotent_replay_no_duplicates(tmp_path):
         assert (first["results"][0]["order_id"]
                 == second["results"][0]["order_id"])
         assert len(store_app.state.store.list()) == 1
+        assert injector.submit_requests == 1
+        assert len(httpx.get(base_url+'/api/purchase-orders',trust_env=False).json()) == 1
     finally:
         server.should_exit = True
         thread.join(timeout=5)
@@ -185,23 +199,30 @@ def test_f3_tampered_readback_marks_reconciliation(tmp_path):
         assert result["status"] == "already_exists"
         assert any("total mismatch" in p for p in result["problems"]), result["problems"]
         assert second["state"] == TaskState.NEEDS_RECONCILIATION.value
+        assert 'tamper_total(+1)' in injector.injected and injector.submit_requests == 1
+        actual = httpx.get(base_url+'/api/purchase-orders',trust_env=False).json()
+        assert len(actual)==1 and actual[0]['total_cost_cents']==2500
     finally:
         server.should_exit = True
         thread.join(timeout=5)
 
 
 def test_f4_portal_down_fails_without_blind_retry(tmp_path):
-    adapter = PlaywrightProcurementAdapter(base_url="http://127.0.0.1:1",
-                                           headless=True, timeout_ms=4000)
-    report = adapter.execute_plan(_plan("f4"))
+    # Hold an unlistened loopback port: actual connection refusal, not Chromium's
+    # unsafe-port rejection (port 1) from the old fixture.
+    with socket.socket() as unavailable:
+        unavailable.bind(('127.0.0.1',0))
+        adapter = PlaywrightProcurementAdapter(base_url=f"http://127.0.0.1:{unavailable.getsockname()[1]}",
+                                               headless=True, timeout_ms=4000)
+        report = adapter.execute_plan(_plan("f4"))
     result = report["results"][0]
     assert result["status"] == "failed"
     assert report["state"] == TaskState.FAILED.value
     steps = [s["step"] for s in result["attempt_log"]]
-    # 只有查重尝试（提交前 + 异常后各一次），回查也失败，从未发出提交动作
-    assert steps == ["duplicate_check", "duplicate_check_result",
-                     "submit_error", "duplicate_check",
-                     "recover_lookup_error"], steps
+    # A failed initial read cannot claim a completed negative lookup or submit.
+    assert steps == ['duplicate_check','initial_lookup_error'], steps
+    assert result['submission_state']=='not_attempted'
+    assert 'ERR_CONNECTION_REFUSED' in result['error']
 
 
 def test_f5_submit_hang_times_out_then_recovers(tmp_path):
@@ -210,12 +231,17 @@ def test_f5_submit_hang_times_out_then_recovers(tmp_path):
     try:
         adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True,
                                                timeout_ms=5000)
-        injector.hang_seconds = 9.0  # 超过 adapter 5s 超时；请求最终仍会落库
+        injector.hang_seconds = 9.0  # 已落库，响应超过 adapter 5s 超时
         report = adapter.execute_plan(_plan("f5"))
         result = report["results"][0]
         assert result["status"] == "recovered_after_error", result
         assert report["state"] == TaskState.COMPLETED.value
         assert len(store_app.state.store.list()) == 1
+        assert injector.injected == ['hang_after_commit'] and injector.submit_requests == 1
+        assert 'submit_error' in [e['step'] for e in result['attempt_log']]
+        assert 'recovered' in [e['step'] for e in result['attempt_log']]
+        actual=httpx.get(base_url+'/api/purchase-orders',trust_env=False).json()
+        assert len(actual)==1 and actual[0]['total_cost_cents']==2500 and actual[0]['status']=='SUBMITTED'
     finally:
         server.should_exit = True
         thread.join(timeout=5)

@@ -48,15 +48,14 @@ def client(tmp_path, monkeypatch):
     main._tasks = {}
     _FakeAdapter.instances = []
     monkeypatch.setattr(main, "PlaywrightProcurementAdapter", _FakeAdapter)
-    from app import mcp_server
-    monkeypatch.setattr(mcp_server, "DB_PATH", tmp_path / "test.db")
-    mcp_server._conn = None
+    from app.business_tools import active_session
 
     def fake_agent(stage, context, user_input):
         if stage == "planner":
             import json as J
             ctx = J.loads(context)
-            result = mcp_server.build_plan(ctx["task_id"], ctx.get("dataset_id"), ctx["policy"])
+            active_session().call('inspect_dataset', {'task_id':ctx['task_id']})
+            result = active_session().call('build_plan', {'task_id':ctx['task_id'], 'dataset_id':ctx['dataset_id'], 'policy':ctx['policy']})
             if "error" in result:
                 raise RuntimeError(f"MCP build_plan failed: {result}")
             return {"status": "ok", "summary": "planner summary",

@@ -9,3 +9,4 @@ python-multipart>=0.0.9
 python-dotenv>=1.0,<2
 psutil>=6,<8
 streamlit==1.66.1
+mcp==2.3.0

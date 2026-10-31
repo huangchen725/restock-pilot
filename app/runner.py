@@ -16,6 +16,17 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+
+def child_environment(extra=None):
+    # Allow only OS bootstrap variables; never inherit .env, DB paths, approval
+    # credentials, personal model credentials, proxies or Python injection knobs.
+    allowed = {'PATH', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP',
+               'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOME', 'LANG', 'SYSTEMDRIVE'}
+    env = {k: v for k, v in os.environ.items() if k.upper() in allowed}
+    env.update(PYTHONIOENCODING='utf-8', PYTHONUTF8='1', PYTHONUNBUFFERED='1')
+    env.update(extra or {})
+    return env
+
 def resolve_codex_bin(workdir: str) -> str:
     """显式配置优先，否则查 PATH；相对路径以任务工作目录为基准。"""
     configured = os.getenv("RESTOCK_CODEX_BIN", "").strip()
@@ -89,8 +100,15 @@ class CodexRunResult:
         self.timed_out = timed_out
 
     @property
-    def tool_calls(self) -> List[str]:
-        return [e.tool_command for e in self.events if e.is_tool_exec]
+    def tool_calls(self) -> list[dict | str]:
+        result = []
+        for event in self.events:
+            item = event.raw.get('item') or {}
+            if event.type == 'item.completed' and item.get('type') == 'mcp_tool_call':
+                result.append({k: item.get(k) for k in ('server', 'tool', 'arguments', 'result', 'error', 'status')})
+            elif event.is_tool_exec:
+                result.append(event.tool_command)
+        return result
 
     @property
     def final_text(self) -> str:
@@ -101,21 +119,21 @@ class CodexRunResult:
 
 
 def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
-                   codex_home: Optional[str] = None) -> CodexRunResult:
+                   codex_home: Optional[str] = None, child_env=None,
+                   executable: Optional[str] = None) -> CodexRunResult:
     """同步执行一次 codex exec，返回结构化结果。
 
     prompt 经临时文件 + stdin 传入（`codex exec -`）：Windows cmd.exe 对
     .cmd 批处理的命令行有 8191 字符上限，长 prompt 走 argv 会报
     "命令行太长" 直接 exit=1。
     """
-    env = os.environ.copy()
-    env.pop("RESTOCK_APPROVAL_TOKEN", None)
+    env = child_environment(child_env)
     env["CODEX_HOME"] = codex_home or str(
         Path(__file__).resolve().parents[1] / "agent-integration"
     )
     start = time.time()
     try:
-        executable = resolve_codex_bin(workdir)
+        executable = executable or resolve_codex_bin(workdir)
     except OSError as exc:
         return CodexRunResult(127, [], str(exc), round(time.time() - start, 1))
     cmd = [executable, "exec", "--json", "--skip-git-repo-check", "-"]
@@ -129,15 +147,13 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
     events: List[CodexEvent] = []
     stderr = ""
     timed_out = False
+    stderr_tail = bytearray()
+    stream_error = []
 
     def _kill_tree():
         nonlocal timed_out
         timed_out = True
-        # Windows：杀整棵进程树（codex 可能派生 powershell 子进程）
-        subprocess.run(
-            ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-            capture_output=True,
-        )
+        _stop_owned_process(proc)
 
     timer = threading.Timer(timeout_s, _kill_tree)
     try:
@@ -147,6 +163,8 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
                     cmd, cwd=workdir, env=env,
                     stdin=stdin_fh,
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    **({'creationflags': subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
+                       if os.name == 'nt' else {'start_new_session': True}),
                 )
             except OSError as exc:
                 return CodexRunResult(
@@ -155,16 +173,43 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
                 )
             # 启动成功后才启用超时，避免启动失败时访问尚不存在的 proc。
             timer.start()
-            for raw_line in proc.stdout:
-                line = raw_line.decode("utf-8", errors="replace").strip()
-                if not line:
-                    continue
-                try:
-                    events.append(CodexEvent(json.loads(line)))
-                except json.JSONDecodeError:
-                    continue  # 非事件行（横幅等）跳过
-            stderr = _decode_output(proc.stderr.read() if proc.stderr else b"")
-            proc.wait()
+            def read_errors():
+                while True:
+                    chunk = proc.stderr.read(4096)
+                    if not chunk:
+                        break
+                    stderr_tail.extend(chunk)
+                    del stderr_tail[:-65536]
+
+            def read_events():
+                total = 0
+                for raw_line in proc.stdout:
+                    total += len(raw_line)
+                    if total > 8 * 1024 * 1024:
+                        stream_error.append('CLI event stream exceeded 8 MB')
+                        _stop_owned_process(proc)
+                        break
+                    try:
+                        events.append(CodexEvent(json.loads(raw_line)))
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        continue
+
+            readers = [threading.Thread(target=read_errors, daemon=True),
+                       threading.Thread(target=read_events, daemon=True)]
+            for reader in readers:
+                reader.start()
+            try:
+                proc.wait()
+            except BaseException:
+                _stop_owned_process(proc)
+                raise
+            finally:
+                for reader in readers:
+                    reader.join(timeout=5)
+                proc.stdout.close(); proc.stderr.close()
+            stderr = _decode_output(bytes(stderr_tail))
+            if stream_error:
+                stderr += '\n' + stream_error[0]
     finally:
         timer.cancel()
         try:
@@ -173,6 +218,21 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
             pass
 
     return CodexRunResult(
-        exit_code=proc.returncode, events=events, stderr=stderr,
+        exit_code=proc.returncode or (1 if stream_error else 0), events=events, stderr=stderr,
         duration_s=round(time.time() - start, 1), timed_out=timed_out,
     )
+
+
+def _stop_owned_process(proc):
+    """Terminate only the child started by this call and its descendants."""
+    if proc.poll() is not None:
+        return
+    if os.name == 'nt':
+        subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
+                       capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    else:
+        import signal
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass

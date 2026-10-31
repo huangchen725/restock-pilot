@@ -4,6 +4,7 @@
 import os
 import json
 import secrets
+import re
 import threading
 from contextlib import asynccontextmanager
 import uuid
@@ -17,9 +18,10 @@ from app import db, runner, jobs, datasets, reports
 from app.execution import PlaywrightProcurementAdapter, build_supplier_orders
 from app.models import Policy, TaskState, canonical_json, DataContract, RevisionDecision
 from app.prompts import build_stage_prompt
-from app.rules import build_plan
 from app.state_machine import TaskRecord, TransitionError
-from app.validation import load_snapshot, snapshot_hash, merged_rows, validate_policy
+from app.validation import load_snapshot, snapshot_hash, validate_policy
+from app.business_tools import ToolSession, active_session, planner_review
+from app.agent_runtime import AgentRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
@@ -32,7 +34,7 @@ async def lifespan(app):
     jobs.shutdown()
 
 
-app = FastAPI(title="RestockPilot", version="0.5.0-m1", lifespan=lifespan)
+app = FastAPI(title="RestockPilot", version="0.6.0-m2", lifespan=lifespan)
 _conn = None
 _tasks: dict = {}
 _conn_lock = threading.Lock()
@@ -41,7 +43,7 @@ APPROVAL_TOKEN = os.getenv("RESTOCK_APPROVAL_TOKEN") or secrets.token_urlsafe(32
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "restock-pilot", "version":"0.5.0-m1",
+    return {"status": "ok", "service": "restock-pilot", "version":"0.6.0-m2",
             "agent_mode":os.getenv("RESTOCK_AGENT_MODE","required")}
 
 
@@ -90,57 +92,25 @@ class ApprovalRequest(BaseModel):
     plan_hash: str = Field(min_length=64, max_length=64)
 
 
-def planner_context(plan) -> dict:
-    """Planner 的极简上下文：汇总 + 下单明细 + 风险清单（~1KB）。
-
-    完整 plan JSON（30 SKU 全字段 ~17KB）会让上游推理模型逐项分析、
-    思考链爆炸（实测 >10min，codex 超时）；只给决策所需信息，
-    思考链可控（实测 ~165s 完成且摘要口径正确）。
-    """
-    ordered = [i for i in plan.items if i.order_qty > 0]
-    return {
-        "plan_id": plan.plan_id,
-        "version": plan.version,
-        "policy": plan.policy.model_dump(),
-        "total_cost_cents": plan.total_cost_cents,
-        "budget_remaining_cents": getattr(plan, "budget_remaining_cents", None),
-        "sku_count": len(plan.items),
-        "ordered": [{
-            "sku": i.sku, "name": i.name, "order_qty": i.order_qty,
-            "unit_cost_cents": i.unit_cost_cents,
-            "line_total_cents": i.line_total_cents,
-            "supplier_id": i.supplier_id,
-            "original_order_qty": i.original_order_qty,
-            "unmet_qty": i.unmet_qty,
-        } for i in ordered],
-        "skipped_count": len(plan.skipped),
-        "low_confidence_skus": [i.sku for i in plan.items if i.confidence == "low"],
-        "stockout_skus": [i.sku for i in plan.items if i.stockout_before_arrival],
-        "unmet_total_qty": sum(i.unmet_qty for i in plan.items),
-    }
-
-
-def _agent_workdir() -> Path:
-    """Agent 的隔离工作目录：不含业务 DB、.env 与业务代码。
-
-    M2 权限边界：Agent 文件访问范围限制在隔离目录，业务数据与批准
-    只能经由 MCP 工具（受控边界），不能直接读写项目根的敏感文件。
-    """
-    d = ROOT / "outputs" / "agent-workdir"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
 def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
     """真实调用 runner；off 只用于显式离线测试，绝不伪装成 Agent 成功。"""
     if os.getenv("RESTOCK_AGENT_MODE", "required").lower() == "off":
         return {"status": "disabled", "summary": "", "tool_calls": [], "duration_s": 0}
     prompt = build_stage_prompt(stage, context, user_input)
-    result = runner.run_codex_task(
-        prompt=prompt,
-        workdir=str(_agent_workdir()),
-        timeout_s=int(os.getenv("RESTOCK_AGENT_TIMEOUT_S", "600")),
-    )
+    try:
+        # Resolve configured relative CLI paths at the same project root used by
+        # startup, before entering a private per-run working directory.
+        executable = runner.resolve_codex_bin(str(ROOT))
+    except OSError as exc:
+        raise AgentStageError(str(exc)) from exc
+    try:
+        with AgentRuntime(active_session()) as runtime:
+            result = runner.run_codex_task(
+                prompt=prompt, workdir=str(runtime.workdir), codex_home=str(runtime.home),
+                executable=executable, child_env=runtime.env,
+                timeout_s=int(os.getenv("RESTOCK_AGENT_TIMEOUT_S", "600")))
+    except (OSError, ValueError) as exc:
+        raise AgentStageError(f'Agent runtime failed: {exc}') from exc
     if result.timed_out or result.exit_code != 0 or not result.final_text.strip():
         detail = result.stderr.strip()[-800:] or "empty agent response"
         raise AgentStageError(
@@ -169,6 +139,13 @@ def _policy_from_agent(text: str) -> Policy:
         raise AgentStageError(f"invalid Reviser policy output: {exc}") from exc
 
 
+def _check_summary_currency(agent):
+    # This catches a reproduced translation error, not every possible semantic
+    # error in free-form model explanations. Tables/amounts remain authoritative.
+    if re.search(r'\d[\d,.]*\s*(?:美分|美元|USD\b)', agent.get('summary',''), re.IGNORECASE):
+        raise AgentStageError('模型摘要金额口径错误：本任务使用人民币分，不能解释为美分或美元。')
+
+
 def _revision_error(rec: TaskRecord, message: str, status_code: int) -> HTTPException:
     # 修订失败不伪造 v+1；保留上一版供复核，但旧批准已按状态机失效。
     rec.transition(TaskState.NEEDS_REVIEW)
@@ -191,6 +168,16 @@ def _public(value):
     return redact(str(value), dict(os.environ))
 
 
+def _sanitized(value):
+    if isinstance(value, str):
+        return _public(value)
+    if isinstance(value, list):
+        return [_sanitized(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _sanitized(v) for k, v in value.items()}
+    return value
+
+
 def _phase(task_id, label):
     db.update_context(get_conn(),task_id,phase=label)
 
@@ -198,7 +185,9 @@ def _phase(task_id, label):
 def _agent_event(task_id, stage, version, agent):
     db.activity(get_conn(),task_id,stage,{
         "version":version,"status":agent.get("status"),"summary":_public(agent.get("summary", "")),
-        "duration_s":agent.get("duration_s"),"error":_public(agent.get("error", ""))})
+        "duration_s":agent.get("duration_s"),"error":_public(agent.get("error", "")),
+        "model_advice":_public(agent.get('model_advice','')),
+        "tool_calls":_sanitized(agent.get('tool_calls', []))})
 
 
 def _dispatch(task_id, phase, work, prefer):
@@ -208,7 +197,7 @@ def _dispatch(task_id, phase, work, prefer):
     def run():
         try:
             result=work()
-            db.update_context(conn,task_id,result_json=_public(json.dumps(result,ensure_ascii=False)),
+            db.update_context(conn,task_id,result_json=json.dumps(_sanitized(result),ensure_ascii=False),
                               error=None,phase="本次操作完成")
             return result
         except Exception as exc:
@@ -320,20 +309,23 @@ def _create_work(task_id,req,snapshot):
         f"为任务 {task_id} 生成补货方案："
         f"1) 用 inspect_dataset(task_id=\"{task_id}\") 检查数据集；"
         f"2) 用 build_plan(task_id=\"{task_id}\", dataset_id=\"{dataset_id}\", policy={policy.model_dump_json()}) 生成方案；"
-        f"3) 根据工具返回的方案写复核摘要（低置信、跳过项、预算取舍）。"
+        f"3) 根据工具返回的方案给出简短非数值复核建议。不要复述任何金额、数量统计或商品编号。"
     )
     try:
-        agent=_run_agent_stage("planner",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"policy":policy.model_dump()}),planner_input)
-    except AgentStageError as exc:
+        with ToolSession(get_conn(), task_id, 'planner', snapshot, fixed_policy=policy).activate() as session:
+            agent=_run_agent_stage("planner",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"policy":policy.model_dump()}),planner_input)
+            _check_summary_currency(agent)
+            if agent.get('status') == 'disabled':
+                session.call('inspect_dataset', {'task_id':task_id})
+                session.call('build_plan', {'task_id':task_id,'dataset_id':dataset_id,'policy':policy.model_dump()})
+            elif session.draft is not None:
+                agent['model_advice'] = agent.get('summary','')
+                agent['summary'] = planner_review(session.draft, agent['model_advice'])
+            plan,h = session.commit(policy)
+    except (AgentStageError, ValueError) as exc:
         rec.transition(TaskState.FAILED)
         db.upsert_task(get_conn(),task_id,rec.state)
         raise HTTPException(503,str(exc))
-    # Planner 必须通过 MCP build_plan 生成方案；未生成则明确失败，不伪装成功。
-    plan,h=db.get_plan(get_conn(),task_id,1)
-    if plan is None:
-        rec.transition(TaskState.FAILED)
-        db.upsert_task(get_conn(),task_id,rec.state)
-        raise HTTPException(503,"Planner 未通过业务工具生成方案（MCP build_plan 未被成功调用）")
     _agent_event(task_id,"planner",1,agent)
     rec.transition(TaskState.NEEDS_REVIEW)
     db.upsert_task(get_conn(),task_id,rec.state)
@@ -397,51 +389,26 @@ def _revise_work(task_id,req):
         raise _revision_error(rec,"; ".join(problems),422)
     agent={"status":"not_requested","summary":"通过参数表单修改","duration_s":0}
     dataset_id=db.save_dataset(get_conn(),snapshot)
-    next_version=current.version+1 if current else 1
-    if req.comment.strip():
-        _phase(task_id,"理解修改意见并生成新版本")
-        reviser_input=(
-            f"为任务 {task_id} 修订方案：理解以下修改意见并生成新版本。"
-            f"当前 policy: {policy.model_dump_json()}。"
-            f"用 revise_plan(task_id=\"{task_id}\", dataset_id=\"{dataset_id}\", policy=<你理解的完整policy>) 生成 v{next_version}。"
-            f"修改意见: {req.comment}"
-        )
-        try:
-            agent=_run_agent_stage("reviser",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"current_policy":policy.model_dump(),"current_version":current.version if current else 0}),reviser_input)
-            if agent.get('status')=='disabled':
-                raise AgentStageError("离线模式不能理解自然语言，请使用参数表单。")
-        except AgentStageError as exc:
-            raise _revision_error(rec,str(exc),422)
-        # 不支持的/不完整的/legacy 修订决策：Reviser 声明的 decision 不完整则拒绝（422）。
-        summary=(agent.get('summary') or '').strip()
-        if summary.startswith('{'):
-            try:
-                decision=json.loads(summary)
-            except Exception:
-                decision=None
-            if decision is not None:
-                pol=decision.get('policy')
-                required={'budget_cents','cover_days','safety_days','priority_categories','excluded_skus'}
-                if (decision.get('unsupported_requests')
-                        or pol is None
-                        or not isinstance(pol,dict)
-                        or set(pol.keys())!=required
-                        or 'unsupported_requests' not in decision):
-                    reasons=decision.get('unsupported_requests') or ["修订决策不完整或格式不支持"]
-                    raise _revision_error(rec,"; ".join(reasons),422)
-        # Reviser 必须通过 MCP revise_plan 生成新版本；未生成则明确失败，不伪装成功。
-        plan,h=db.get_plan(get_conn(),task_id,next_version)
-        if plan is None:
-            raise _revision_error(rec,"Reviser 未通过业务工具生成新版本（MCP revise_plan 未被成功调用）",503)
-    else:
-        # 参数表单：后端直接调 MCP revise_plan（统一权限边界、幂等与撤销旧批准）。
-        from app import mcp_server
-        result=mcp_server.revise_plan(task_id,policy.model_dump(),dataset_id)
-        if "error" in result:
-            raise _revision_error(rec,str(result),422)
-        plan,h=db.get_plan(get_conn(),task_id,next_version)
-        if plan is None:
-            raise _revision_error(rec,"修订工具未生成新版本",503)
+    try:
+        with ToolSession(get_conn(), task_id, 'reviser', snapshot, current,
+                         fixed_policy=None if req.comment.strip() else policy).activate() as session:
+            if req.comment.strip():
+                _phase(task_id,"理解修改意见并计算候选方案")
+                reviser_input=(f"为任务 {task_id} 修订方案，数据版本 {dataset_id}。"
+                    f"先理解修改意见，支持时调用 revise_plan 计算候选；最后返回完整决策 JSON。修改意见：{req.comment}")
+                agent=_run_agent_stage("reviser",canonical_json({'task_id':task_id,'dataset_id':dataset_id,
+                    'current_policy':policy.model_dump(),'current_version':current.version if current else 0}),reviser_input)
+                if agent.get('status')=='disabled':
+                    raise AgentStageError('离线模式不能理解自然语言，请使用参数表单。')
+                # Validate before any authoritative plan write. Malformed output,
+                # unsupported constraints and exceptions discard the candidate.
+                policy=_policy_from_agent(agent.get('summary', ''))
+                _check_summary_currency(agent)
+            else:
+                session.call('revise_plan', {'task_id':task_id,'dataset_id':dataset_id,'policy':policy.model_dump()})
+            plan,h=session.commit(policy)
+    except (AgentStageError, ValueError) as exc:
+        raise _revision_error(rec,str(exc),422)
     _agent_event(task_id,"reviser",plan.version,agent)
     rec.transition(TaskState.NEEDS_REVIEW)
     db.upsert_task(get_conn(),task_id,rec.state)
@@ -507,12 +474,12 @@ def _execute_work(task_id):
         "final_task_state": rec.state.value,
     })
 
-    _phase(task_id,"核对完成，生成执行摘要")
+    _phase(task_id,"汇总申请与核对结果")
     try:
-        agent = _run_agent_stage(
-            "executor", canonical_json(report),
-            "请根据真实回执汇总执行结果；不要执行任何写操作。",
-        )
+        with ToolSession(get_conn(), task_id, 'executor', current=plan).activate():
+            agent = _run_agent_stage("executor", canonical_json({'task_id':task_id,'version':plan.version,'execution':report}),
+                "请根据真实回执汇总执行结果；可以调用 get_execution_result 核对，不允许写入或重试采购。")
+            _check_summary_currency(agent)
     except AgentStageError as exc:
         # 采购结果已经持久化，解释 Agent 故障不能掩盖或改变实际执行状态。
         agent = {"status": "error", "summary": "", "error": str(exc)}

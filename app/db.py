@@ -133,6 +133,36 @@ def get_plan(conn, plan_id: str, version: int):
     return plan, plan_hash(plan)
 
 
+def commit_candidate(conn, plan, expected_version, expected_hash):
+    """Compare-and-insert; never overwrite a published plan or reopen execution."""
+    from app.models import plan_hash
+    with _LOCK, conn:
+        row = get_task(conn, plan.plan_id)
+        versions = list_plan_versions(conn, plan.plan_id)
+        latest = versions[-1] if versions else 0
+        if (not row or row['state'] != 'ANALYZING' or not get_context(conn, plan.plan_id)['busy']
+                or latest != expected_version):
+            raise ValueError('任务状态或方案版本已改变，拒绝提交')
+        if latest:
+            _, actual = get_plan(conn, plan.plan_id, latest)
+            if actual != expected_hash:
+                raise ValueError('原方案指纹已改变，拒绝提交')
+        h = plan_hash(plan)
+        if plan.version == latest:
+            if h != expected_hash:
+                raise ValueError('不能覆盖历史版本')
+        elif plan.version == latest + 1:
+            conn.execute('''INSERT INTO plans
+                (plan_id,version,task_id,dataset_hash,policy_json,plan_json,plan_hash)
+                VALUES (?,?,?,?,?,?,?)''',
+                (plan.plan_id, plan.version, plan.plan_id, plan.dataset_hash,
+                 plan.policy.model_dump_json(), plan.model_dump_json(), h))
+        else:
+            raise ValueError('候选版本不连续')
+        conn.execute("UPDATE tasks SET state='NEEDS_REVIEW',approved_plan_hash=NULL,approved_version=NULL,updated_at=datetime('now') WHERE task_id=?", (plan.plan_id,))
+        return h
+
+
 def save_execution_record(conn, task_id: str, plan_id: str, version: int,
                           external_ref: str, status: str, receipt: dict) -> None:
     """每次执行尝试均追加审计记录；重复尝试不去重，便于回放。"""

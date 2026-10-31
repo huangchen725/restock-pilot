@@ -1,37 +1,15 @@
-# Codex 接入配置（$CODEX_HOME/config.toml，项目专用 CODEX_HOME 隔离）
-# 注意：TOML 中顶层键必须写在所有 [table] 段之前，
-# 否则会被解析进上一个 table（sandbox/approval 曾因此失效）
-
+# Reference only. Product runs generate a private CODEX_HOME per stage in
+# app/agent_runtime.py. No machine-specific paths or business database access.
 model = "intern-s2"
-model_provider = "intern_gateway"
-# 消除 "Model metadata not found" 警告：显式声明上下文窗口与输出上限
-# （端砚官方模型卡片：max_context_length 262144；LiteLLM 侧 max_tokens=8192）
-model_context_window = 262144
-model_max_output_tokens = 8192
-# 沙箱与审批策略：M2 权限边界采用 danger-full-access + 独立工作目录 + MCP 边界。
-# 已实测：workspace-write 沙箱把 MCP 工具也强制纳入审批且审批被禁（不兼容），
-# 故用独立 workdir（Agent 文件访问范围）+ MCP 工具层（业务数据受控边界）+
-# 批准凭证剥离（runner env.pop）实现系统级隔离，非提示词禁令。
-sandbox_mode = "danger-full-access"
+sandbox_mode = "read-only"
 approval_policy = "never"
-
-[model_providers.intern_gateway]
-name = "InternLM via LiteLLM"
-# LiteLLM 本地代理地址，不要写书生端点直连
-# （已确认最新版 Codex 仅支持 wire_api = "responses"，必须经转换层）
-base_url = "http://127.0.0.1:4000/v1"
-wire_api = "responses"
-# Codex 从该环境变量读取 key，作为 Bearer 发给 LiteLLM
-env_key = "INTERN_API_KEY"
-
-# M2 业务 MCP 工具层：inspect_dataset / build_plan / revise_plan / get_execution_result
-# MCP server 在项目根运行（读 data/、写业务 DB），与 Codex 的隔离工作目录无关；
-# 金额数量只能由规则引擎产生
-[mcp_servers.restock]
-command = ".venv/Scripts/python.exe"
-args = ["-m", "app.mcp_server"]
-cwd = "E:/restock-pilot"
-env = { RESTOCK_DB_PATH = "E:/restock-pilot/restock.db" }
-
-[projects.'e:\restock-pilot']
-trust_level = "trusted"
+project_doc_max_bytes = 0
+web_search = "disabled"
+[features]
+shell_tool = false
+view_image = false
+browser_use = false
+computer_use = false
+apps = false
+plugins = false
+code_mode = false
