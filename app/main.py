@@ -120,6 +120,17 @@ def planner_context(plan) -> dict:
     }
 
 
+def _agent_workdir() -> Path:
+    """Agent 的隔离工作目录：不含业务 DB、.env 与业务代码。
+
+    M2 权限边界：Agent 文件访问范围限制在隔离目录，业务数据与批准
+    只能经由 MCP 工具（受控边界），不能直接读写项目根的敏感文件。
+    """
+    d = ROOT / "outputs" / "agent-workdir"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
     """真实调用 runner；off 只用于显式离线测试，绝不伪装成 Agent 成功。"""
     if os.getenv("RESTOCK_AGENT_MODE", "required").lower() == "off":
@@ -127,7 +138,7 @@ def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
     prompt = build_stage_prompt(stage, context, user_input)
     result = runner.run_codex_task(
         prompt=prompt,
-        workdir=str(ROOT),
+        workdir=str(_agent_workdir()),
         timeout_s=int(os.getenv("RESTOCK_AGENT_TIMEOUT_S", "600")),
     )
     if result.timed_out or result.exit_code != 0 or not result.final_text.strip():

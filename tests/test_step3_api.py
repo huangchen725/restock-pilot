@@ -187,7 +187,13 @@ def test_main_agent_stage_calls_real_runner(monkeypatch):
     assert result["status"] == "ok"
     assert result["summary"] == "真实 Agent 摘要"
     assert "你是补货方案规划智能体" in captured["prompt"]
-    assert captured["workdir"] == str(main.ROOT)
+    # M2 权限边界：Agent 使用隔离工作目录，且该目录不含业务 DB 与 .env
+    from pathlib import Path
+    wd = Path(captured["workdir"])
+    assert wd == main._agent_workdir()
+    assert not (wd / "restock.db").exists()
+    assert not (wd / ".env").exists()
+    assert wd.name == "agent-workdir"
 
 
 def test_reviser_rejects_non_json_or_extra_policy_fields():

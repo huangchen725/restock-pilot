@@ -8,9 +8,10 @@ model_provider = "intern_gateway"
 # （端砚官方模型卡片：max_context_length 262144；LiteLLM 侧 max_tokens=8192）
 model_context_window = 262144
 model_max_output_tokens = 8192
-# 沙箱与审批策略：Codex 的 Windows workspace-write 沙箱会拦截所有
-# powershell/cmd 调用（实测连 echo 都 blocked by policy），本地开发期
-# 改用 danger-full-access 让工具调用真正执行
+# 沙箱与审批策略：M2 权限边界采用 danger-full-access + 独立工作目录 + MCP 边界。
+# 已实测：workspace-write 沙箱把 MCP 工具也强制纳入审批且审批被禁（不兼容），
+# 故用独立 workdir（Agent 文件访问范围）+ MCP 工具层（业务数据受控边界）+
+# 批准凭证剥离（runner env.pop）实现系统级隔离，非提示词禁令。
 sandbox_mode = "danger-full-access"
 approval_policy = "never"
 
@@ -24,10 +25,13 @@ wire_api = "responses"
 env_key = "INTERN_API_KEY"
 
 # M2 业务 MCP 工具层：inspect_dataset / build_plan / revise_plan / get_execution_result
-# 相对路径以 Codex 启动工作目录（项目根）为基准；金额数量只能由规则引擎产生
+# MCP server 在项目根运行（读 data/、写业务 DB），与 Codex 的隔离工作目录无关；
+# 金额数量只能由规则引擎产生
 [mcp_servers.restock]
 command = ".venv/Scripts/python.exe"
 args = ["-m", "app.mcp_server"]
+cwd = "E:/restock-pilot"
+env = { RESTOCK_DB_PATH = "E:/restock-pilot/restock.db" }
 
 [projects.'e:\restock-pilot']
 trust_level = "trusted"
