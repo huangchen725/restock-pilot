@@ -129,6 +129,60 @@ class PlaywrightProcurementAdapter:
                     results.append(self._failure(order, exc))
         return {"results": results, **summarize_execution(results)}
 
+    def reconcile_orders(self, plan: Plan) -> List[dict]:
+        """M3 受控核对：按 external_ref 只读查询每个供应商订单状态，不创建新单。
+
+        返回每个供应商的确定状态：
+        - created：订单已存在（保留，不重复提交），附回读一致性问题
+        - not_submitted：确定未提交（连接正常但无此单，可恢复）
+        - unknown：回查失败（后台异常，无法确认，需人工核对）
+        """
+        orders = build_supplier_orders(plan)
+        results: List[dict] = []
+        if not orders:
+            return results
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                headless=self.headless, args=["--no-proxy-server"])
+            try:
+                page = browser.new_page()
+                page.set_default_timeout(self.timeout_ms)
+                for order in orders:
+                    log: List[dict] = []
+                    try:
+                        existing = self._find_by_ref(page, order["external_ref"], log)
+                        if existing is not None:
+                            results.append({
+                                "supplier_id": order["supplier_id"],
+                                "external_ref": order["external_ref"],
+                                "state": "created",
+                                "order_id": existing.get("order_id"),
+                                "problems": reconcile_receipt(order, existing),
+                                "attempt_log": log,
+                            })
+                        else:
+                            results.append({
+                                "supplier_id": order["supplier_id"],
+                                "external_ref": order["external_ref"],
+                                "state": "not_submitted",
+                                "order_id": None,
+                                "problems": [],
+                                "attempt_log": log,
+                            })
+                    except Exception as exc:
+                        results.append({
+                            "supplier_id": order["supplier_id"],
+                            "external_ref": order["external_ref"],
+                            "state": "unknown",
+                            "order_id": None,
+                            "problems": [f"回查失败：{type(exc).__name__}: {exc}"],
+                            "attempt_log": log,
+                        })
+            finally:
+                browser.close()
+        return results
+
     def _execute_order(self, page, order: dict) -> dict:
         attempt_log: List[dict] = []
         try:

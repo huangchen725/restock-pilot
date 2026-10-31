@@ -488,6 +488,35 @@ def _execute_work(task_id):
             "executed_plan_hash": h, "execution": report, "agent": agent}
 
 
+@app.post("/tasks/{task_id}/reconcile")
+def reconcile(task_id: str):
+    """M3 受控核对：按原 external_ref 查询实际后台，返回确定状态，不创建新单。
+
+    仅 NEEDS_RECONCILIATION / PARTIAL 状态可调用（执行结果待核对的任务）。
+    返回每个供应商的确定状态（created / not_submitted / unknown），
+    供人工复核与后续受控恢复决策；本端点只读，不提交、不修改任务状态。
+    """
+    rec = get_record(task_id)
+    if rec.state not in (TaskState.NEEDS_RECONCILIATION, TaskState.PARTIAL):
+        raise HTTPException(409, "只有执行结果待核对的任务可以受控核对。")
+    version = rec.approved_version or _latest_version(task_id)
+    plan, _ = db.get_plan(get_conn(), task_id, version)
+    if plan is None:
+        raise HTTPException(404, "找不到已批准的方案。")
+    adapter = PlaywrightProcurementAdapter(
+        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
+        headless=True,
+    )
+    results = adapter.reconcile_orders(plan)
+    db.activity(get_conn(), task_id, "reconciled", {
+        "version": plan.version,
+        "states": [{"external_ref": r["external_ref"], "state": r["state"]}
+                   for r in results],
+    })
+    return {"task_id": task_id, "state": rec.state.value,
+            "version": plan.version, "reconciliation": results}
+
+
 @app.get("/tasks/{task_id}")
 def get_status(task_id: str):
     conn = get_conn()
@@ -511,13 +540,24 @@ def get_executions(task_id: str):
 
 @app.get("/tasks/{task_id}/audit-trail")
 def get_audit_trail(task_id: str):
-    """执行回放审计账本：append-only 事件链（seq 即回放顺序）。"""
-    get_record(task_id)
+    """执行回放审计账本：append-only 事件链（seq 即回放顺序）。
+
+    完整性校验（M3）：空账本不代表完整执行；必须有执行结束事件；
+    order_result 必须携带 plan_hash 且与当前批准版本一致。
+    """
+    rec = get_record(task_id)
     events = db.list_execution_events(get_conn(), task_id)
-    replay_ok = all(
-        event["event_type"] != "order_result" or event["payload"].get("plan_hash")
-        for event in events
-    )
+    if not events:
+        replay_ok = False  # 空账本不代表完整执行
+    else:
+        has_finish = any(e["event_type"] == "execution_finished" for e in events)
+        approved_hash = rec.approved_plan_hash
+        replay_ok = has_finish and all(
+            e["event_type"] != "order_result"
+            or (e["payload"].get("plan_hash")
+                and (approved_hash is None or e["payload"]["plan_hash"] == approved_hash))
+            for e in events
+        )
     return {"task_id": task_id, "events": events,
             "replay_complete": replay_ok, "event_count": len(events)}
 

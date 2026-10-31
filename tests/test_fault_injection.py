@@ -341,3 +341,41 @@ def test_f7_delayed_commit_lookup_miss_is_unknown_not_failure(tmp_path):
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+def test_reconcile_orders_returns_determined_states_without_new_orders(tmp_path):
+    """M3 受控核对：按 external_ref 返回每个供应商的确定状态，不创建新单。
+
+    已创建的订单返回 created（保留），未提交的返回 not_submitted（可恢复），
+    回读不一致的返回 created + problems；reconcile 为只读操作，订单数不变。
+    """
+    injector = FaultInjector(create_portal_app(tmp_path / "p.db"))
+    base_url, store_app, server, thread = _start_portal(tmp_path, injector)
+    try:
+        adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True)
+        # 先创建订单
+        adapter.execute_plan(_plan("recon"))
+        assert len(store_app.state.store.list()) == 1
+
+        # 受控核对：已创建的订单应返回 created，不创建新单
+        results = adapter.reconcile_orders(_plan("recon"))
+        assert len(results) == 1
+        assert results[0]["state"] == "created"
+        assert results[0]["order_id"] is not None
+        assert results[0]["problems"] == []  # 回读一致
+        assert len(store_app.state.store.list()) == 1  # 只读，订单数不变
+
+        # 未提交的订单（不同 plan，未执行过）应返回 not_submitted
+        other = adapter.reconcile_orders(_plan("other"))
+        assert other[0]["state"] == "not_submitted"
+        assert other[0]["order_id"] is None
+        assert len(store_app.state.store.list()) == 1  # 不创建新单
+
+        # 回读不一致：篡改后 reconcile 返回 created + problems
+        injector.tamper_total_delta = 1
+        mismatched = adapter.reconcile_orders(_plan("recon"))
+        assert mismatched[0]["state"] == "created"
+        assert any("total mismatch" in p for p in mismatched[0]["problems"])
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
