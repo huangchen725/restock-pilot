@@ -102,7 +102,7 @@ class PlaywrightProcurementAdapter:
         self.headless = headless
         self.timeout_ms = timeout_ms
 
-    def execute_plan(self, plan: Plan, on_order_result=None, only_refs=None) -> dict:
+    def execute_plan(self, plan: Plan, on_order_result=None, only_refs=None, on_submit_intent=None) -> dict:
         orders = build_supplier_orders(plan)
         # M3 受控恢复：only_refs 限定只恢复指定订单（其余不触碰，不生成新版本）。
         if only_refs is not None:
@@ -122,7 +122,7 @@ class PlaywrightProcurementAdapter:
                     page = browser.new_page()
                     page.set_default_timeout(self.timeout_ms)
                     for order in orders:
-                        result = self._execute_order(page, order)
+                        result = self._execute_order(page, order, on_submit_intent=on_submit_intent)
                         results.append(result)
                         # M3 逐步落账：每个订单完成时立即回调持久化，
                         # 中断时已完成订单的过程记录不丢失（不再整批结束才落账）。
@@ -169,6 +169,9 @@ class PlaywrightProcurementAdapter:
                                 "external_ref": order["external_ref"],
                                 "state": "created",
                                 "order_id": existing.get("order_id"),
+                                # P0-2：保留完整回执（含订单行），供受控核对写入
+                                # execution_records 后跨版本覆盖量（covered）正确计算。
+                                "receipt": existing,
                                 "problems": reconcile_receipt(order, existing),
                                 "attempt_log": log,
                             })
@@ -194,7 +197,7 @@ class PlaywrightProcurementAdapter:
                 browser.close()
         return results
 
-    def _execute_order(self, page, order: dict) -> dict:
+    def _execute_order(self, page, order: dict, on_submit_intent=None) -> dict:
         attempt_log: List[dict] = []
         try:
             existing = self._find_by_ref(page, order["external_ref"], attempt_log)
@@ -220,6 +223,10 @@ class PlaywrightProcurementAdapter:
                 row.locator('[data-field="name"]').fill(line["name"])
                 row.locator('[data-field="order_qty"]').fill(str(line["order_qty"]))
                 row.locator('[data-field="unit_cost_cents"]').fill(str(line["unit_cost_cents"]))
+            # P1-8：提交意图及时落账——在发出提交前先持久化提交意图，
+            # 进程在提交后、订单结果前崩溃时，数据库能说明已对哪个 external_ref 发出提交。
+            if on_submit_intent is not None:
+                on_submit_intent(order)
             attempt_log.append({"step": "submit", "lines": len(order["lines"])})
             page.click("#submit-order")
             page.wait_for_url(re.compile(r"/purchase-orders/(?!new$)[^/]+$"),
@@ -268,7 +275,15 @@ class PlaywrightProcurementAdapter:
         # 不能当作"无此单"误判为确定未提交。
         if response is not None and response.status >= 500:
             raise RuntimeError(f"回查后台返回 {response.status}，无法确认订单状态")
+        # P0-6：非 5xx 的错误响应（401/403/404/429 权限失败/限流/错误部署）同样不能
+        # 当作"确定无单"——只有明确成功的空查询才能作为"确定未提交"的依据。
+        if response is not None and response.status >= 400:
+            raise RuntimeError(f"回查返回 {response.status}，无法确认订单状态（非成功的空查询）")
         if page.locator("a.order-link").count() == 0:
+            # P0-6：空查询只有在"预期的订单列表页"（含 #no-orders 空态标识）才算确定无单；
+            # 错误页面/登录页/部署错误页面结构异常，无法确认订单状态。
+            if page.locator("#no-orders").count() == 0:
+                raise RuntimeError("回查页面结构异常（非预期订单列表页），无法确认订单状态")
             if attempt_log is not None:
                 attempt_log.append({"step": "duplicate_check_result", "found": False})
             return None

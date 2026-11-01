@@ -148,12 +148,36 @@ class ToolSession:
                     # M3：查询当前任务已创建申请覆盖的 SKU 数量，修订时扣除
                     # （恢复或修订不能再次采购已有申请覆盖的数量）。
                     covered: dict = {}
+                    seen_orders: set = set()  # (order_id, sku) 去重，同一订单不重复扣减
+                    # P1-10：covered 只统计当前数据集的订单（不跨数据版本，
+                    # 防止旧数据订单错误抵扣新口径下同名 SKU）。
+                    current_dataset_hash = snapshot_hash(self.snapshot)
+                    version_hashes: dict = {}
                     for record in db.list_execution_records(self.conn, self.task_id):
-                        if record.get('status') == 'created':
-                            receipt = (record.get('receipt') or {}).get('receipt')
-                            if receipt:
-                                for line in receipt.get('lines', []):
-                                    covered[line['sku']] = covered.get(line['sku'], 0) + line['order_qty']
+                        v = record.get('version')
+                        if v not in version_hashes:
+                            plan_v, _ = db.get_plan(self.conn, self.task_id, v)
+                            version_hashes[v] = plan_v.dataset_hash if plan_v else None
+                        if version_hashes[v] != current_dataset_hash:
+                            continue  # 不统计其他数据集的订单
+                        # P0-4：created/recovered_after_error/already_exists 均表示实际订单
+                        # 存在且带完整回执，都应计入跨版本覆盖量（不只是 created）。
+                        if record.get('status') not in ('created', 'recovered_after_error', 'already_exists'):
+                            continue
+                        result = record.get('receipt') or {}
+                        # P1-5：回读不一致的订单不计入有效覆盖（需人工核对，不能当作已满足需求）。
+                        if result.get('problems'):
+                            continue
+                        receipt = result.get('receipt')
+                        if not receipt:
+                            continue
+                        order_id = receipt.get('order_id') or record.get('external_ref')
+                        for line in receipt.get('lines', []):
+                            key = (order_id, line['sku'])
+                            if key in seen_orders:
+                                continue  # P1-5：同一订单的同一 SKU 不重复扣减
+                            seen_orders.add(key)
+                            covered[line['sku']] = covered.get(line['sku'], 0) + line['order_qty']
                     self.draft = (self.current.model_copy(deep=True) if reuse else
                         build_plan(self.task_id, self.base_version + 1, snapshot_hash(self.snapshot), policy,
                                    merged_rows(self.snapshot), self.snapshot, covered=covered))

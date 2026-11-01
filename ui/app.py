@@ -70,11 +70,17 @@ def policy_fields(prefix, default, categories, skus):
 
 
 def open_task(task_id):
-    st.query_params["task"] = task_id
+    # P1-13：form 内的 st.query_params 设置不生效——改用 session_state 标记，
+    # 在脚本顶部（form 外）统一设置 query_params 并跳转。
+    st.session_state['_open_task'] = task_id
     st.rerun()
 
 
 st.set_page_config(page_title="RestockPilot · 补货工作台",page_icon="📦",layout="wide")
+# P1-13：在脚本顶部（form 外）处理任务跳转，确保 query_params 设置生效。
+if st.session_state.get('_open_task'):
+    st.query_params['task'] = st.session_state.pop('_open_task')
+    st.rerun()
 st.markdown("""<style>
 .stApp{background:#f5f7f6} h1,h2,h3{color:#163d36}
 [data-testid="stMetric"]{background:white;border:1px solid #dce6e2;border-radius:12px;padding:16px}
@@ -175,7 +181,9 @@ def task_panel():
     if operation.get('error'): st.error(operation['error'])
     for problem in (operation.get('result') or {}).get('data_problems',[]): show_problem(problem)
     plan=state.get('latest_plan')
-    editable=state['state'] in ('NEEDS_INPUT','NEEDS_REVIEW','APPROVED') and not busy
+    # P1-9：PARTIAL/NEEDS_RECONCILIATION 允许人工重新决策修订（revise 端点已支持，
+    # NEEDS_RECONCILIATION 修订前会先受控核对，unknown 拒绝）。
+    editable=state['state'] in ('NEEDS_INPUT','NEEDS_REVIEW','APPROVED','PARTIAL','NEEDS_RECONCILIATION') and not busy
     if dataset and editable and (not plan or dataset['dataset_id']!=plan.get('dataset_id')):
         st.warning("选中了不同的数据版本，应用后旧批准立即失效。")
         if st.button("应用新数据并重新生成",key='replace-data'):
@@ -259,8 +267,37 @@ def task_panel():
             st.write(f"申请单 {receipt.get('order_id') or '未获得单号'} · {receipt.get('supplier_id','')}")
             if receipt.get('receipt') and not problems: st.success("申请已创建，回读核对一致。")
             else: st.warning("申请未完成或需要核对："+str(problems or receipt.get('error','未知结果')))
+    # P1-9：当前任务整体有效申请与未完成事项汇总（跨版本）
+    summary=call('GET',f'/tasks/{task_id}/summary') or {}
+    if summary.get('valid_orders') or summary.get('pending_items'):
+        with st.expander("当前任务整体申请总览（跨版本）",expanded=bool(summary.get('pending_items'))):
+            if summary.get('valid_orders'):
+                st.write("有效申请（所有版本合计）：")
+                for o in summary['valid_orders']:
+                    st.write(f"  · {o.get('order_id') or '未获得单号'} · {o.get('supplier_id','')} · v{o.get('version')} · {o.get('total_cost_cents',0)} 分")
+            if summary.get('pending_items'):
+                st.warning("未完成事项：")
+                for p in summary['pending_items']:
+                    st.write(f"  · {p.get('external_ref')} · {p.get('supplier_id','')} · {p.get('status')} · {p.get('problems') or p.get('error','结果未知')}")
     if state['state'] in ('PARTIAL','NEEDS_RECONCILIATION','FAILED'):
-        st.warning("请核对已存在的申请；不要通过新建任务重复采购。异常恢复入口将在后续阶段完善。")
+        st.warning("请核对已存在的申请；不要通过新建任务重复采购。")
+        # P1-9：M3 人工核对与恢复闭环——受控核对确定订单状态，受控恢复只恢复确定未提交的订单。
+        col_recon, col_recover = st.columns(2)
+        with col_recon:
+            if st.button("核对申请状态（受控核对）", key=f'reconcile-{task_id}-{selected}'):
+                result = call('POST', f'/tasks/{task_id}/reconcile')
+                if result:
+                    st.write("各供应商订单的确定状态：")
+                    st.json(result.get('reconciliation', []))
+        with col_recover:
+            if st.button("恢复未完成的申请（受控恢复）", key=f'recover-{task_id}-{selected}'):
+                result = call('POST', f'/tasks/{task_id}/recover')
+                if result:
+                    if result.get('recovered'):
+                        st.success(f"已恢复 {len(result['recovered'])} 个申请；结果未知的订单需先人工核对。")
+                    else:
+                        st.info(result.get('message', '没有可恢复的确定未提交订单。'))
+                    st.rerun()
     activity=call('GET',f'/tasks/{task_id}/activity') or {'events':[]}
     with st.expander("阶段记录与分析摘要"):
         for event in activity['events']:

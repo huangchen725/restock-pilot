@@ -79,7 +79,12 @@ def test_full_workbench_api_flow_diff_approval_execution_exports(client,dataset,
     html=client.get(f'/tasks/{task}/artifacts/2/html')
     assert 'PO-S' in html.text and 'SUBMITTED' in html.text and '1800' in html.text
     old=client.get(f'/tasks/{task}/artifacts/1/html').text
-    assert 'PO-S' not in old
+    # v1 的"采购申请与回读核对"部分只含本版本回执（v1 未执行，应为空）。
+    # 跨版本汇总（P1-9）会包含 v2 的有效申请——这是预期的新语义，
+    # 但 v1 的回执部分不能含 v2 的单号（回执按版本过滤）。
+    readback_section = old.split('<h2>采购申请与回读核对</h2>')[-1]
+    assert 'PO-S' not in readback_section
+    assert '本版本暂无申请回执' in old
 
 
 def test_background_request_returns_before_model_and_blocks_conflicts(client,dataset,monkeypatch):
@@ -130,9 +135,9 @@ def test_background_execution_rejects_overlapping_writes(client,dataset,monkeypa
     entered,release=threading.Event(),threading.Event()
     original=main.PlaywrightProcurementAdapter.execute_plan
     calls=[]
-    def slow(adapter,plan,on_order_result=None):
+    def slow(adapter,plan,on_order_result=None,on_submit_intent=None):
         calls.append(plan.version); entered.set(); release.wait(5)
-        return original(adapter,plan,on_order_result=on_order_result)
+        return original(adapter,plan,on_order_result=on_order_result,on_submit_intent=on_submit_intent)
     monkeypatch.setattr(main.PlaywrightProcurementAdapter,'execute_plan',slow)
     try:
         assert client.post(f'/tasks/{task}/execute',headers={'Prefer':''}).status_code==202

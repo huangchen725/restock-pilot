@@ -60,6 +60,43 @@ def export_html(plan, task_state, events, records, plan_hash):
                        f"{e(receipt.get('problems') or receipt.get('error') or '')}</li>")
     approvals=[ev for ev in relevant if ev['kind']=='approved']
     approval_text='；'.join(e(ev['created_at'])+' UTC 人工批准 v'+str(plan.version) for ev in approvals) or '本版本暂无批准记录'
+    # P1-9：当前任务整体有效申请与未完成事项汇总（跨版本）
+    valid_orders = {}
+    pending_items = []
+    for r in records:
+        result = r.get('receipt') or {}
+        if r.get('status') in ('created', 'recovered_after_error', 'already_exists'):
+            if not result.get('problems') and result.get('receipt'):
+                receipt = result['receipt']
+                key = (r['external_ref'], receipt.get('order_id'))
+                valid_orders[key] = {
+                    'order_id': receipt.get('order_id'),
+                    'supplier_id': result.get('supplier_id'),
+                    'version': r.get('version'),
+                    'total_cost_cents': receipt.get('total_cost_cents'),
+                }
+        if (result.get('submission_state') == 'unknown' or result.get('problems')
+                or r.get('status') in ('unknown', 'failed')):
+            pending_items.append({
+                'external_ref': r['external_ref'],
+                'supplier_id': result.get('supplier_id'),
+                'status': r['status'],
+                'problems': result.get('problems') or result.get('error') or '结果未知',
+            })
+    cross_summary = ''
+    if valid_orders or pending_items:
+        parts = ['<h2>当前任务整体申请总览（跨版本）</h2>']
+        if valid_orders:
+            parts.append('<p>有效申请（所有版本合计）：</p><ul>')
+            for o in valid_orders.values():
+                parts.append(f"<li>{e(o.get('order_id') or '未获得单号')} · {e(o.get('supplier_id',''))} · v{o.get('version')} · {o.get('total_cost_cents',0)} 分</li>")
+            parts.append('</ul>')
+        if pending_items:
+            parts.append('<p>未完成事项：</p><ul>')
+            for p in pending_items:
+                parts.append(f"<li>{e(p['external_ref'])} · {e(p.get('supplier_id',''))} · {e(p['status'])} · {e(p['problems'])}</li>")
+            parts.append('</ul>')
+        cross_summary = ''.join(parts)
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>RestockPilot 补货报告</title>
 <style>body{{font:16px/1.65 sans-serif;max-width:1100px;margin:40px auto;color:#183332;padding:20px}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ccd8d6;padding:8px;text-align:left}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f6f5;padding:14px}}</style>
 <h1>RestockPilot 补货与采购申请报告</h1><p>方案 {e(plan.plan_id)} · 版本 {plan.version} · 任务当前状态 {e(state_labels.get(task_state,task_state))}</p>
@@ -70,5 +107,6 @@ def export_html(plan, task_state, events, records, plan_hash):
 <p>主动排除：{e(', '.join(plan.excluded_skus) or '无')}；预算跳过：{e(', '.join(plan.skipped) or '无')}</p>
 <h2>批准与阶段记录</h2><p>{approval_text}。历史批准记录不代表当前仍有执行权限。</p>
 <details><summary>查看需求、修改与阶段记录</summary>{blocks(relevant)}</details>
+{cross_summary}
 <h2>采购申请与回读核对</h2>{'<ul>'+''.join(summary)+'</ul>' if summary else '<p>本版本暂无申请回执，不能据此认定执行成功。</p>'}
 <details><summary>查看申请明细与核对证据</summary>{blocks(receipts)}</details></html>'''
