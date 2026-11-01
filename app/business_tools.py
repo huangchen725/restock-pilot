@@ -145,9 +145,18 @@ class ToolSession:
                     if problems:
                         raise ValueError('; '.join(problems))
                     reuse = self.current is not None and self.current.policy == policy and self.current.dataset_hash == snapshot_hash(self.snapshot)
+                    # M3：查询当前任务已创建申请覆盖的 SKU 数量，修订时扣除
+                    # （恢复或修订不能再次采购已有申请覆盖的数量）。
+                    covered: dict = {}
+                    for record in db.list_execution_records(self.conn, self.task_id):
+                        if record.get('status') == 'created':
+                            receipt = (record.get('receipt') or {}).get('receipt')
+                            if receipt:
+                                for line in receipt.get('lines', []):
+                                    covered[line['sku']] = covered.get(line['sku'], 0) + line['order_qty']
                     self.draft = (self.current.model_copy(deep=True) if reuse else
                         build_plan(self.task_id, self.base_version + 1, snapshot_hash(self.snapshot), policy,
-                                   merged_rows(self.snapshot), self.snapshot))
+                                   merged_rows(self.snapshot), self.snapshot, covered=covered))
                     result = {'plan': compact_plan(self.draft), 'plan_hash': plan_hash(self.draft),
                               'reused': reuse, 'candidate_only': True}
                 self._audit(tool, arguments, result=result)

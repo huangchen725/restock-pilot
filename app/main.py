@@ -360,7 +360,9 @@ def approve(task_id:str,req:ApprovalRequest,x_restock_approval:str=Header(defaul
 @app.post("/tasks/{task_id}/revise")
 def revise(task_id:str,req:ReviseRequest,prefer:str=Header(default="")):
     rec=get_record(task_id)
-    if rec.state not in (TaskState.NEEDS_REVIEW,TaskState.APPROVED,TaskState.NEEDS_INPUT):
+    # M3：PARTIAL / NEEDS_RECONCILIATION 允许人工重新决策并修订（新版本扣除已覆盖需求）。
+    if rec.state not in (TaskState.NEEDS_REVIEW,TaskState.APPROVED,TaskState.NEEDS_INPUT,
+                         TaskState.PARTIAL,TaskState.NEEDS_RECONCILIATION):
         raise HTTPException(409,"当前状态不能修改方案。")
     if req.comment.strip() and req.policy is not None:
         raise HTTPException(422,"请选择自然语言或参数修改中的一种。")
@@ -373,6 +375,10 @@ def revise(task_id:str,req:ReviseRequest,prefer:str=Header(default="")):
 
 def _revise_work(task_id,req):
     rec=get_record(task_id)
+    # M3：PARTIAL / NEEDS_RECONCILIATION 先转为 NEEDS_REVIEW（人工重新决策），
+    # 再进入 ANALYZING 修订；新版本扣除已创建申请覆盖的需求。
+    if rec.state in (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION):
+        rec.transition(TaskState.NEEDS_REVIEW)
     current,_=db.get_plan(get_conn(),task_id,_latest_version(task_id))
     rec.transition(TaskState.ANALYZING)
     db.upsert_task(get_conn(),task_id,rec.state)  # Revokes approval before changing data or policy.

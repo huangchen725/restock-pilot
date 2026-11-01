@@ -145,6 +145,32 @@ def test_plan_hash_changes_on_policy_change():
     assert plan_hash(p1) != plan_hash(p2)
 
 
+def test_build_plan_covered_deducts_created_quantities():
+    """M3：covered 扣除已创建申请覆盖的数量，不重复采购。"""
+    from app.rules import build_plan
+    rows = [{
+        "sku": "SKU-A", "name": "A", "category": "c",
+        "daily_sales": [1.0] * 28, "lead_days": 3, "available_qty": 0,
+        "inbound_qty": 0, "inbound_eta_days": None,
+        "unit_cost_cents": 100, "supplier_id": "SUP-A",
+        "pack_size": 1, "min_order_qty": 1,
+    }]
+    policy = Policy(budget_cents=100000)
+    base = build_plan("t", 1, "ds", policy, rows)
+    original_qty = base.items[0].order_qty
+    assert original_qty == 40  # ceil(1.0*(3+30+7))=40，pack=1/moq=1
+    # 全部扣除：covered = 40 → order_qty = 0（不重复采购）
+    full = build_plan("t", 2, "ds", policy, rows, covered={"SKU-A": 40})
+    assert full.items[0].order_qty == 0
+    assert "已扣除已创建申请" in full.items[0].reason
+    # 部分扣除：covered = 37 → order_qty = 3
+    partial = build_plan("t", 3, "ds", policy, rows, covered={"SKU-A": 37})
+    assert partial.items[0].order_qty == 3
+    # covered 超出缺口：扣除到 0，不为负
+    over = build_plan("t", 4, "ds", policy, rows, covered={"SKU-A": 999})
+    assert over.items[0].order_qty == 0
+
+
 def _plan(item, budget=100000, version=1):
     from app.models import Plan
     return Plan(plan_id="p", version=version, dataset_hash="ds",

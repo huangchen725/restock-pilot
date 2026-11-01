@@ -96,9 +96,14 @@ def build_plan(
     policy: Policy,
     sku_rows: List[Dict],
     dataset_snapshot: DatasetSnapshot | None = None,
+    covered: Dict[str, int] | None = None,
 ) -> Plan:
     """从校验后的合并数据行生成方案，daily_sales 为已确认的 28 天序列。
+
+    covered（M3）：已创建申请覆盖的 SKU 数量；恢复或修订时扣除，
+    不再次采购已有申请覆盖的需求（防止重复购买）。
     """
+    covered = covered or {}
     items: List[PlanItem] = []
     daily_by_sku = {}
     for row in sorted(sku_rows, key=lambda r: r["sku"]):
@@ -114,10 +119,16 @@ def build_plan(
         eligible = row["inbound_qty"] if eta is not None and 0 <= eta <= horizon else 0
         target = target_qty(d, row["lead_days"], policy.cover_days, policy.safety_days)
         gap = reorder_gap(target, row["available_qty"], eligible)
+        # M3：恢复/修订时扣除已创建申请覆盖的数量，不再次采购已有申请覆盖的需求
+        covered_qty = covered.get(row["sku"], 0)
+        if covered_qty:
+            gap = max(0, gap - covered_qty)
         qty = purchase_qty(gap, row["min_order_qty"], row["pack_size"])
         # Check both intervals around an inbound arrival, independently of gap/confidence.
         risk = stockout_before_arrival(d, row["available_qty"], row["lead_days"], eta, row["inbound_qty"])
         warnings, reasons = [], []
+        if covered_qty:
+            reasons.append(f"已扣除已创建申请覆盖的 {covered_qty} 件，不重复采购")
         if gap == 0:
             reasons.append("缺口为 0，无需采购")
         if tier == "low":

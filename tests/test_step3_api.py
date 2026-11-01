@@ -208,3 +208,42 @@ def test_reviser_rejects_non_json_or_extra_policy_fields():
             "budget_cents": 100, "cover_days": 30, "safety_days": 7,
             "priority_categories": [], "excluded_skus": [], "order_qty": 999,
         }}))
+
+
+def test_revise_deducts_created_order_quantities(client):
+    """M3：已执行任务的修订，新版本扣除已创建申请覆盖的需求（不重复采购）。"""
+    from app.models import TaskState
+    created = client.post("/tasks", json={"policy": {"budget_cents": 500000}}).json()
+    task_id = created["task_id"]
+    plan, _ = db.get_plan(main.get_conn(), task_id, 1)
+    created_item = next(it for it in plan.items if it.order_qty > 0)
+    # 手动模拟部分成功：该供应商的订单已创建（execution_records 有 created 记录）
+    db.save_execution_record(main.get_conn(), task_id, plan.plan_id, 1,
+                             f"{task_id}-v1-{created_item.supplier_id}", "created", {
+        "supplier_id": created_item.supplier_id,
+        "external_ref": f"{task_id}-v1-{created_item.supplier_id}",
+        "status": "created",
+        "receipt": {"order_id": "PO-1",
+                    "lines": [{"sku": created_item.sku, "name": created_item.name,
+                               "order_qty": created_item.order_qty,
+                               "unit_cost_cents": created_item.unit_cost_cents}]},
+    })
+    # 转为 PARTIAL 状态（部分成功，允许人工重新决策并修订）
+    client.post(f"/tasks/{task_id}/approve")
+    rec = main.get_record(task_id)
+    rec.transition(TaskState.EXECUTING)
+    rec.transition(TaskState.PARTIAL)
+    db.upsert_task(main.get_conn(), task_id, rec.state,
+                   rec.approved_plan_hash, rec.approved_version)
+    # 修订（PARTIAL 允许 revise；改 budget 触发重新计算，cover_days 相同使 gap 可比）
+    revised = client.post(f"/tasks/{task_id}/revise", json={
+        "policy": {"budget_cents": 400000, "cover_days": 30, "safety_days": 7,
+                   "priority_categories": [], "excluded_skus": []}})
+    assert revised.status_code == 200, revised.text
+    v2 = revised.json()["plan"]
+    v2_item = next(it for it in v2["items"] if it["sku"] == created_item.sku)
+    # covered 扣除后，新版本的 gap 减少 covered 数量（不重复采购已创建的部分）
+    expected_gap = max(0, created_item.gap - created_item.order_qty)
+    assert v2_item["gap"] == expected_gap, \
+        f"covered 扣除后 gap 应减少 {created_item.order_qty}：v1_gap={created_item.gap}, v2_gap={v2_item['gap']}"
+    assert "已扣除已创建申请" in v2_item["reason"]
