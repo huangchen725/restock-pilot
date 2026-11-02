@@ -62,9 +62,14 @@ def test_broker_rejects_uncredentialed_calls_and_unknown_routes():
     with AgentRuntime(None,upstream_key='unused') as runtime:
         with httpx.Client(trust_env=False) as client:
             assert client.post(runtime.url+'/tools',json={}).status_code==403
-            auth={'Authorization':'Bearer '+runtime.token}
-            assert client.post(runtime.url+'/tasks/x/approve',json={},headers=auth).status_code==404
-            assert client.post(runtime.url+'/tools',json={'tool':'build_plan','arguments':{}},headers=auth).status_code==400
+            # P2-3：凭证分离——/tools 用 tool_token，其他路径用 model_token。
+            auth_model={'Authorization':'Bearer '+runtime.model_token}
+            auth_tool={'Authorization':'Bearer '+runtime.tool_token}
+            assert client.post(runtime.url+'/tasks/x/approve',json={},headers=auth_model).status_code==404
+            assert client.post(runtime.url+'/tools',json={'tool':'build_plan','arguments':{}},headers=auth_tool).status_code==400
+            # P2-3：tool_token 不能调模型路由（/v1/responses），model_token 不能调业务工具（/tools）。
+            assert client.post(runtime.url+'/v1/responses',json={},headers=auth_tool).status_code==403
+            assert client.post(runtime.url+'/tools',json={'tool':'build_plan','arguments':{}},headers=auth_model).status_code==403
         home=runtime.home
         config=(home/'config.toml').read_text(encoding='utf-8')
         assert 'danger-full-access' not in config and 'read-only' in config

@@ -61,9 +61,13 @@ def validate_model_output(content, content_type, allowed):
             kind = value.get('type', '')
             if kind == 'function_call':
                 if value.get('name') not in allowed or value.get('namespace'):
-                    raise ValueError('模型请求了未授权的工具')
+                    # P2-2：异常信息包含实际工具名、call_id 和输入（恶意调用可还原）
+                    raise ValueError(f'模型请求了未授权的工具: name={value.get("name")}, '
+                                     f'call_id={value.get("call_id")}, '
+                                     f'arguments={str(value.get("arguments"))[:200]}')
             elif isinstance(kind, str) and (kind.endswith('_call') or kind == 'tool_call'):
-                raise ValueError('禁止通用命令、文件、网络及其他工具调用')
+                raise ValueError(f'禁止通用命令、文件、网络及其他工具调用: type={kind}, '
+                                 f'name={value.get("name")}, call_id={value.get("call_id")}')
             for child in value.values():
                 inspect(child)
         elif isinstance(value, list):
@@ -105,7 +109,9 @@ def namespace_reply(content, content_type, mapping):
 class AgentRuntime:
     def __init__(self, session, upstream_url=None, upstream_key=None):
         self.session = session
-        self.token = secrets.token_urlsafe(32)
+        # P2-3：业务工具与模型路由凭证分离——能力范围最小化。
+        self.model_token = secrets.token_urlsafe(32)  # 模型路由凭证（仅 /v1/responses 和 /v1/models）
+        self.tool_token = secrets.token_urlsafe(32)   # 业务工具凭证（仅 /tools）
         self.allowed = {PREFIX + t for t in session.allowed} if session else set()
         self.upstream = (upstream_url or os.getenv('RESTOCK_LITELLM_URL', 'http://127.0.0.1:4000')).rstrip('/')
         parsed = urlparse(self.upstream)
@@ -133,8 +139,13 @@ class AgentRuntime:
                     pass
 
             def authorized(self):
-                return not runtime.closed and secrets.compare_digest(
-                    self.headers.get('Authorization', ''), 'Bearer ' + runtime.token)
+                # P2-3：按路径校验不同凭证——/tools 用 tool_token，/v1/* 用 model_token。
+                # MCP 子进程的 tool_token 不能调模型路由，模型路由的 model_token 不能调业务工具。
+                if runtime.closed:
+                    return False
+                token = runtime.tool_token if self.path == '/tools' else runtime.model_token
+                return secrets.compare_digest(
+                    self.headers.get('Authorization', ''), 'Bearer ' + token)
 
             def do_GET(self):
                 if not self.authorized():
@@ -224,8 +235,8 @@ required = true
 env_vars = ["RESTOCK_AGENT_URL", "RESTOCK_AGENT_TOKEN"]
 '''
         (self.home / 'config.toml').write_text(config, encoding='utf-8')
-        self.env = {'RESTOCK_MODEL_TOKEN': self.token, 'RESTOCK_AGENT_URL': self.url,
-                    'RESTOCK_AGENT_TOKEN': self.token}
+        self.env = {'RESTOCK_MODEL_TOKEN': self.model_token, 'RESTOCK_AGENT_URL': self.url,
+                    'RESTOCK_AGENT_TOKEN': self.tool_token}
         return self
 
     def __exit__(self, *args):

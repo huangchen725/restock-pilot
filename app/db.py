@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS datasets (
 CREATE TABLE IF NOT EXISTS task_context (
     task_id TEXT PRIMARY KEY, busy INTEGER NOT NULL DEFAULT 0,
     phase TEXT NOT NULL DEFAULT '', error TEXT,
-    result_json TEXT, request_json TEXT
+    result_json TEXT, request_json TEXT, operation_id TEXT
 );
 CREATE TABLE IF NOT EXISTS task_activity (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
@@ -80,6 +80,10 @@ def init_db(db_path: str | Path) -> sqlite3.Connection:
     conn = connect(db_path)
     with _LOCK, conn:
         conn.executescript(_SCHEMA)
+        # P2-4：operation_id 列（操作生命周期绑定）——已有表的迁移。
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(task_context)")}
+        if "operation_id" not in cols:
+            conn.execute("ALTER TABLE task_context ADD COLUMN operation_id TEXT")
     return conn
 
 
@@ -161,6 +165,18 @@ def commit_candidate(conn, plan, expected_version, expected_hash):
             raise ValueError('候选版本不连续')
         conn.execute("UPDATE tasks SET state='NEEDS_REVIEW',approved_plan_hash=NULL,approved_version=NULL,updated_at=datetime('now') WHERE task_id=?", (plan.plan_id,))
         return h
+
+
+def rollback_candidate(conn, plan_id: str, version: int, restore_state: str = 'ANALYZING') -> None:
+    """P1-11：commit_candidate 后的后续持久化失败时回滚已提交的候选版本。
+
+    删除候选版本并恢复任务状态，避免"本次操作报告失败，但新版本仍可批准"
+    的不一致状态。仅在候选版本尚未被批准或执行时使用。
+    """
+    with _LOCK, conn:
+        conn.execute('DELETE FROM plans WHERE plan_id=? AND version=?', (plan_id, version))
+        conn.execute("UPDATE tasks SET state=?,updated_at=datetime('now') WHERE task_id=?",
+                     (restore_state, plan_id))
 
 
 def save_execution_record(conn, task_id: str, plan_id: str, version: int,
@@ -250,7 +266,7 @@ def get_dataset(conn, identifier):
 
 
 def update_context(conn, task_id, **fields):
-    allowed = {"busy", "phase", "error", "result_json", "request_json"}
+    allowed = {"busy", "phase", "error", "result_json", "request_json", "operation_id"}
     if not fields or not set(fields) <= allowed:
         raise ValueError("invalid context update")
     with _LOCK, conn:

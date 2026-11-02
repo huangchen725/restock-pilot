@@ -42,8 +42,9 @@ def planner_review(plan, advice):
     """Authoritative quantities are rendered by code; model supplies advice only."""
     import re
     advice = advice.strip()
-    if not advice or len(advice) > 240 or re.search(r'[0-9]|[零一二三四五六七八九十百千万]+\s*(?:件|种|个|分|元|成|%)', advice):
-        raise ValueError('Planner 只能提供简短非数值建议；金额、数量和商品编号由程序展示')
+    # P2-1：长度契约与提示词一致（不超过 180 字）；支持全角数字。
+    if not advice or len(advice) > 180 or re.search(r'[0-9０-９]|[零一二三四五六七八九十百千万]+\s*(?:件|种|个|分|元|成|%)', advice):
+        raise ValueError('Planner 只能提供简短非数值建议（不超过 180 字）；金额、数量和商品编号由程序展示')
     def money(cents):
         whole, fraction = divmod(cents, 100)
         return f'{whole}.{fraction:02d} 元'
@@ -82,6 +83,8 @@ class ToolSession:
     @contextmanager
     def activate(self):
         token = _current.set(self)
+        # P2-4：操作生命周期绑定——operation_id 写入 context，授权时校验。
+        db.update_context(self.conn, self.task_id, operation_id=self.operation_id)
         try:
             yield self
         finally:
@@ -94,10 +97,16 @@ class ToolSession:
         row = db.get_task(self.conn, self.task_id)
         if not row:
             raise ValueError('找不到授权任务')
+        # P2-4：operation_id 生命周期校验——操作被替换时旧 ToolSession 失效。
+        if db.get_context(self.conn, self.task_id).get('operation_id') != self.operation_id:
+            raise ValueError('操作已被替换，工具授权已失效')
         if self.stage == 'executor':
             if (not self.base_version or row['approved_version'] != self.base_version
                     or row['state'] not in {'COMPLETED','PARTIAL','FAILED','NEEDS_RECONCILIATION'}):
                 raise ValueError('执行版本已改变')
+            # P2-4：Executor 也必须重查 approved_plan_hash（不只 approved_version）。
+            if self.base_hash and row['approved_plan_hash'] != self.base_hash:
+                raise ValueError('批准指纹已改变，请重新复核')
             return
         if row['state'] != TaskState.ANALYZING.value or not db.get_context(self.conn, self.task_id)['busy']:
             raise ValueError('当前任务不允许生成或修订方案')

@@ -140,9 +140,12 @@ def _policy_from_agent(text: str) -> Policy:
 
 
 def _check_summary_currency(agent):
-    # This catches a reproduced translation error, not every possible semantic
-    # error in free-form model explanations. Tables/amounts remain authoritative.
-    if re.search(r'\d[\d,.]*\s*(?:美分|美元|USD\b)', agent.get('summary',''), re.IGNORECASE):
+    # P2-1：支持中文数字和全角数字（防止"一百美元"或"１００美元"绕过校验）。
+    # 全角数字先转半角，便于统一匹配。
+    summary = agent.get('summary', '')
+    normalized = summary.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+    if re.search(r'[\d零一二三四五六七八九十百千万][\d,.零一二三四五六七八九十百千万]*\s*(?:美分|美元|USD\b)',
+                 normalized, re.IGNORECASE):
         raise AgentStageError('模型摘要金额口径错误：本任务使用人民币分，不能解释为美分或美元。')
 
 
