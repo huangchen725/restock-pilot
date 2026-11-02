@@ -184,11 +184,12 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
             def read_events():
                 total = 0
                 for raw_line in proc.stdout:
-                    total += len(raw_line)
-                    if total > 8 * 1024 * 1024:
+                    # P2-5：在读取完整长行前检查——长行本身可能超过上限，立即截断。
+                    if total + len(raw_line) > 8 * 1024 * 1024:
                         stream_error.append('CLI event stream exceeded 8 MB')
                         _stop_owned_process(proc)
                         break
+                    total += len(raw_line)
                     try:
                         events.append(CodexEvent(json.loads(raw_line)))
                     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -225,11 +226,15 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
 
 def _stop_owned_process(proc):
     """Terminate only the child started by this call and its descendants."""
-    if proc.poll() is not None:
-        return
+    # P2-5：父进程已退出但后代仍存活时也要清理（不因 proc.poll() 提前返回）。
     if os.name == 'nt':
-        subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
-                       capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        result = subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
+                                capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        # P2-5：taskkill 返回码检查——失败时记录（但不抛出，清理失败不影响主流程）。
+        if result.returncode != 0 and b'not found' not in result.stderr.lower():
+            import sys
+            print(f'taskkill 清理后代失败（返回码 {result.returncode}）: '
+                  f'{result.stderr.decode(errors="replace")[:200]}', file=sys.stderr)
     else:
         import signal
         try:

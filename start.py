@@ -56,11 +56,12 @@ def services(offline: bool) -> list[Service]:
 
 
 def redact(text: str, env: dict[str, str]) -> str:
-    # 短值不可能是密钥：形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量
-    # 若参与替换会把 JSON 里的数字（如 "version": 1）误脱敏为 [REDACTED]，
-    # 污染持久化数据（result_json）导致 json.loads 失败。
-    values = {v for k, v in env.items() if v and len(v) >= 8 and any(
-        word in k.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD"))}
+    # P2-7：短密钥（< 8 位）也脱敏——短密钥同样可能泄露。
+    # 但排除纯数字开关（形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量，
+    # 若参与替换会把 JSON 里的数字误脱敏，污染持久化数据）。
+    values = {v for k, v in env.items() if v and any(
+        word in k.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
+        and not (v.isdigit() and len(v) < 8)}
     for value in sorted(values, key=len, reverse=True):
         text = text.replace(value, "[REDACTED]")
     return re.sub(r"(?i)(bearer\s+)[^\s\"',}]+", r"\1[REDACTED]", text)
@@ -75,6 +76,19 @@ def check_port(port: int) -> None:
 
 
 def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
+    # P2-8：Python 和 LiteLLM 版本校验（启动预检，防止环境不一致）。
+    import sys
+    if sys.version_info < (3, 12):
+        raise StartupError(f"Python 版本过低（{sys.version.split()[0]}），需要 >= 3.12。")
+    try:
+        from importlib.metadata import version
+        litellm_version = version("litellm")
+        # 与 requirements.txt 固定的版本不一致时警告（允许兼容版本，但提示风险）。
+        if litellm_version != "1.106.5":
+            print(f"警告：LiteLLM 版本为 {litellm_version}，与 requirements.txt 固定的 1.106.5 "
+                  f"不一致，可能存在兼容性问题。", file=sys.stderr)
+    except Exception:
+        pass  # LiteLLM 未安装时由后续依赖检查报错
     missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright", "streamlit")
                if importlib.util.find_spec(name) is None]
     if missing:

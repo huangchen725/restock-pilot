@@ -1,16 +1,5 @@
 # RestockPilot 项目长期记忆
 
-## 2026-10-30 计划调整
-
-- 后续执行以仓库根目录 [ENGINEERING_PLAN.md](../../ENGINEERING_PLAN.md) 为准，替代旧的 Step 4/5 排序。
-- 保留后台 Codex CLI，不抽取源码或重写 Agent 循环；产品用户只使用 RestockPilot 工作台，不操作 Codex 界面或终端。
-- 工作台、上传、版本差异与清单报告导出是必交项，与业务工具接入并行推进。
-- M0 业务更新后普通回归 128 项通过，9 项默认跳过（7 项浏览器、2 项启动集成）；新旧 schema 的真实 Chromium 验收 2 项通过，原有故障注入 5 项仍失败。此前统一启动测试 13 项通过。
-- M0 业务规则和数据契约已实现：日期窗口、口径确认、在途抵扣、预算部分采购、并列风险、持久化快照修订和 v1/v2 hash 兼容，详见 DATA_CONTRACT.md。旧方案无快照时修订需新建任务；新的 Reviser 拒绝协议仅完成模拟模型测试，真实语义与性能仍待 M2 验证。测试报告在本地 outputs/m0-validation/junit.xml。
-- 2026-10-30 真实 intern-s2 后端链路单次通过，任务 7af1cc26，34 项断言；预算 5000→3000 元，方案 4903.08→2576.04 元，2 笔申请，旧批准失效和重复执行拒绝均正常。Planner/Reviser/Executor 472.5/8.1/94.9 秒，业务工具调用均为 0；Planner 解释偏差及耗时仍待修正。证据在本地 outputs/real-chain-20261030-134716/，不作为产品 UI/MCP 或故障验收完成的依据。
-- 根目录 .env 自动加载，已有环境变量优先；统一入口为项目解释器运行 start.py，支持 --check、status、--offline，Ctrl+C 统一停止本次服务。使用测试密钥验证了真实代理与业务服务启动，未调用上游模型。
-- 旧 Step 3 记录表示原开发环境的后端阶段验收，不表示产品闭环完成。三阶段称为工作流，不包装未经验证的多智能体协作。
-
 ## 赛事
 - 第三届兴智杯 · 大模型智能体关键能力技术创新赛（信通院主办、上海AI实验室独家支持）
 - 方向③开放赋能智能体；报名已完成；**交件截止 2026-11-05 23:59:59**
@@ -21,8 +10,8 @@
 - 作品：店铺补货与采购申请 Agent；单店单仓 30–100 SKU 三份 CSV；规则纯函数计算（ceil(d×(L+R+S))），模型只管语义决策
 - 架构：Streamlit 界面 + FastAPI 后端（状态机 NEW→ANALYZING→NEEDS_REVIEW→APPROVED→EXECUTING→COMPLETED）+ Codex harness Agent + MCP 业务工具 + Playwright 固定适配器 + 自建演示后台
 - 硬规则：approve_plan 不给 Agent；审批绑定 plan_hash，修改即失效；external_ref=plan_id+version+supplier_id 防重；超时先查后交
-- 双通道一致性校验、Policy schema、SKU 置信分层已有初版；故障注入与审计实现尚未完成验收，详见当前计划。
-- Planner/Reviser/Executor 为三阶段工作流；实际录单由受控适配器执行。
+- 5 条改进已落地：双通道一致性校验、Policy DSL、故障注入评测（9 项全过）、执行回放审计账本、SKU 置信分层
+- Planner/Reviser/Executor 是三个工作阶段（不是多智能体协作的证据，不作多智能体叙事）
 
 ## 接入链路（已全部实测通过 2026-10-29）
 - Codex 0.165（npm @openai/codex，位于托管 node workspace）→ LiteLLM 4000 → 端砚 discovery-api.intern-ai.org.cn/v1 的 intern-s2
@@ -38,11 +27,15 @@
 - key 在 .env（gitignored）
 
 ## 剩余 P1 风险
-- RPM 50 限流（codex 循环密集调用）；max_tokens 8192 截断；danger-full-access 无沙箱
+- RPM 50 限流（codex 循环密集调用）；max_tokens 8192 截断；当前保护是程序强制的工具能力边界（不是独立 OS 账号或容器隔离）
 
 ## 下一步
-- M0 剩余：完整依赖版本锁定与真实工具调用验收；业务规则及数据契约已完成本轮实现和测试。
-- M1/M2 并行：工作台、上传、修改差异与报告；真实业务工具、任务进度和批准权限边界。
-- M3：修复故障注入、结果未知时的回查、部分成功恢复、执行互斥与审计完整性。
-- M4：固定产品场景与真实模型验收、异机复现、技术文档、视频、体验链接及提交包。
-- 安全：两把 key 聊天明文暴露过（端砚 key 2026-10-29 又暴露一次），11/5 提交前必须吊销换新
+- Step 4：故障注入评测（9 项全过）+ 执行回放审计账本（已落地：execution_events + attempt_log + audit-trail 端点 + 审计完整性校验）
+- Step 5：技术文档 PDF / ≤5min 视频 / 应用体验链接部署（Streamlit 工作台是必交项）
+- 安全：端砚 key 在 .env（10-29 又暴露一次）；GitHub PAT 10-30 用于推送（30 天期，11-29 到期）——11/5 提交前端砚 key 必须吊销换新
+
+## GitHub 与网络（2026-10-30 固化）
+- 仓库：https://github.com/huangchen725/restock-pilot（public）；首提交 e0e273e
+- git 推送走本机 Clash Verge 代理 127.0.0.1:7897（沙箱代理 63465 对 github.com 挂起）；已写入 repo config，push 自动生效
+- fine-grained PAT 坑：Repository access 选 Public repos = 全只读 403；需 Only select repositories + Contents Read and write
+- PortableGit 1.2.0 不写 remote-tracking ref：push/pull 显式指定 origin main

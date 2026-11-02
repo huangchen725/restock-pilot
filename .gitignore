@@ -25,3 +25,6 @@ agent-integration/*
 
 # 大体积参考包（本地解压研究用）
 codex-main.tar.gz
+
+# 损坏的 Git 元数据备份（历史 objects/refs/logs/配置，可能含敏感信息，不进 git 与交付包）
+.git-broken/

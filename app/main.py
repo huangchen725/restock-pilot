@@ -34,7 +34,7 @@ async def lifespan(app):
     jobs.shutdown()
 
 
-app = FastAPI(title="RestockPilot", version="0.6.0-m2", lifespan=lifespan)
+app = FastAPI(title="RestockPilot", version="0.7.0-m3", lifespan=lifespan)
 _conn = None
 _tasks: dict = {}
 _conn_lock = threading.Lock()
@@ -43,7 +43,7 @@ APPROVAL_TOKEN = os.getenv("RESTOCK_APPROVAL_TOKEN") or secrets.token_urlsafe(32
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "restock-pilot", "version":"0.6.0-m2",
+    return {"status": "ok", "service": "restock-pilot", "version":"0.7.0-m3",
             "agent_mode":os.getenv("RESTOCK_AGENT_MODE","required")}
 
 

@@ -13,9 +13,13 @@ READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldH
 
 
 def call(tool, arguments):
+    from urllib.parse import urlparse
     url = os.environ.get('RESTOCK_AGENT_URL', '')
     token = os.environ.get('RESTOCK_AGENT_TOKEN', '')
-    if not url.startswith('http://127.0.0.1:') or not token:
+    # P2-6：用 urllib.parse 解析 URL，校验 hostname 是 127.0.0.1（防止 userinfo 绕过，
+    # 如 http://127.0.0.1:端口@外部主机 的 userinfo 形式）。
+    parsed = urlparse(url)
+    if parsed.scheme != 'http' or parsed.hostname != '127.0.0.1' or not token:
         raise ValueError('必须由后端创建有范围和有效期的工具会话')
     with httpx.Client(trust_env=False, timeout=20) as client:
         response = client.post(url + '/tools', headers={'Authorization': 'Bearer ' + token},

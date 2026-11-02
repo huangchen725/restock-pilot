@@ -157,6 +157,7 @@ class ToolSession:
                     # M3：查询当前任务已创建申请覆盖的 SKU 数量，修订时扣除
                     # （恢复或修订不能再次采购已有申请覆盖的数量）。
                     covered: dict = {}
+                    covered_amount = 0  # P2-10：已创建订单的总金额（任务累计额度，从可用预算中扣减）
                     seen_orders: set = set()  # (order_id, sku) 去重，同一订单不重复扣减
                     # P1-10：covered 只统计当前数据集的订单（不跨数据版本，
                     # 防止旧数据订单错误抵扣新口径下同名 SKU）。
@@ -187,9 +188,12 @@ class ToolSession:
                                 continue  # P1-5：同一订单的同一 SKU 不重复扣减
                             seen_orders.add(key)
                             covered[line['sku']] = covered.get(line['sku'], 0) + line['order_qty']
+                            # P2-10：已创建订单的金额（任务累计额度，从可用预算中扣减）
+                            covered_amount += line['order_qty'] * line.get('unit_cost_cents', 0)
                     self.draft = (self.current.model_copy(deep=True) if reuse else
                         build_plan(self.task_id, self.base_version + 1, snapshot_hash(self.snapshot), policy,
-                                   merged_rows(self.snapshot), self.snapshot, covered=covered))
+                                   merged_rows(self.snapshot), self.snapshot, covered=covered,
+                                   covered_amount=covered_amount))
                     result = {'plan': compact_plan(self.draft), 'plan_hash': plan_hash(self.draft),
                               'reused': reuse, 'candidate_only': True}
                 self._audit(tool, arguments, result=result)

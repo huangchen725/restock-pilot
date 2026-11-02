@@ -88,6 +88,17 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
             assert any(c['stage']=='planner' and c['tool']=='inspect_dataset' for c in calls)
             assert any(c['stage']=='planner' and c['tool']=='build_plan' for c in calls)
             assert any(c['stage']=='reviser' and c['tool']=='revise_plan' for c in calls)
+            # P2-9：第四个工具 get_execution_result（executor 阶段）必须覆盖。
+            assert any(c['stage']=='executor' and c['tool']=='get_execution_result' for c in calls)
+            # P2-9：R14——planner 摘要必须包含币种（人民币）、风险统计，且模型建议长度 <= 180 字。
+            planner_events = [e for e in events if e['kind'] == 'planner' and e['payload'].get('summary')]
+            assert planner_events, 'planner 阶段必须有摘要'
+            for e in planner_events:
+                summary = e['payload']['summary']
+                assert '人民币' in summary, 'planner 摘要必须包含人民币币种'
+                assert '预计到货前缺货风险' in summary, 'planner 摘要必须包含风险统计'
+                advice = summary.split('模型建议：', 1)[-1]
+                assert len(advice.strip()) <= 180, f'模型建议长度 {len(advice.strip())} 超过 180 字'
             orders=httpx.get(urls['portal']+'/api/purchase-orders',trust_env=False).json()
             evidence['independent_orders']=orders
             expected={}

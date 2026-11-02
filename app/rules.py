@@ -97,11 +97,14 @@ def build_plan(
     sku_rows: List[Dict],
     dataset_snapshot: DatasetSnapshot | None = None,
     covered: Dict[str, int] | None = None,
+    covered_amount: int = 0,
 ) -> Plan:
     """从校验后的合并数据行生成方案，daily_sales 为已确认的 28 天序列。
 
     covered（M3）：已创建申请覆盖的 SKU 数量；恢复或修订时扣除，
     不再次采购已有申请覆盖的需求（防止重复购买）。
+    covered_amount（P2-10）：已创建订单的总金额（任务累计额度），
+    在预算分配时从可用预算中扣减（累计采购不超过原预算）。
     """
     covered = covered or {}
     items: List[PlanItem] = []
@@ -163,7 +166,8 @@ def build_plan(
     need = [it for it in items if it.order_qty > 0]
     need.sort(key=lambda it: (0 if it.category in policy.priority_categories else 1,
                              days_to_stockout(daily_by_sku[it.sku], it.available_qty), it.sku))
-    budget_left = policy.budget_cents
+    # P2-10：任务累计额度——已创建订单金额从可用预算中扣减（累计采购不超过原预算）。
+    budget_left = policy.budget_cents - covered_amount
     skipped: List[str] = []
     partial: List[str] = []
     for it in need:
