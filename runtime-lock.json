@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "platform": "win32",
+  "machine": "AMD64",
+  "python": "3.12.14",
+  "codex": "0.166.0-alpha.5.1",
+  "playwright": "1.64.1",
+  "chromium_revision": "1248",
+  "chromium_version": "156.0.8078.4"
+}

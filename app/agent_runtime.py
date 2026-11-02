@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 import httpx
+from app.redaction import audit_call, redact
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 4 * 1024 * 1024
@@ -52,6 +53,12 @@ def restrict_request(payload, allowed):
     return payload
 
 
+class BoundaryViolation(ValueError):
+    def __init__(self, reason, call):
+        super().__init__(reason)
+        self.call = call
+
+
 def validate_model_output(content, content_type, allowed):
     """Buffer and check the entire reply; never release an unchecked tool call."""
     if len(content) > MAX_BYTES:
@@ -61,15 +68,9 @@ def validate_model_output(content, content_type, allowed):
             kind = value.get('type', '')
             if kind == 'function_call':
                 if value.get('name') not in allowed or value.get('namespace'):
-                    # P2-2：异常信息包含实际工具名、call_id 和输入（恶意调用可还原）
-                    raise ValueError(f'模型请求了未授权的工具: name={value.get("name")}, '
-                                     f'call_id={value.get("call_id")}, '
-                                     f'arguments={str(value.get("arguments"))[:200]}')
+                    raise BoundaryViolation('模型请求了未授权的工具', value)
             elif isinstance(kind, str) and (kind.endswith('_call') or kind == 'tool_call'):
-                # P2-2：custom_tool_call 等其他 _call 类型也必须记录 input（恶意调用可还原）。
-                raise ValueError(f'禁止通用命令、文件、网络及其他工具调用: type={kind}, '
-                                 f'name={value.get("name")}, call_id={value.get("call_id")}, '
-                                 f'input={str(value.get("input"))[:200]}')
+                raise BoundaryViolation('禁止通用命令、文件、网络及其他工具调用', value)
             for child in value.values():
                 inspect(child)
         elif isinstance(value, list):
@@ -158,6 +159,16 @@ class AgentRuntime:
 
             def do_POST(self):
                 if not self.authorized():
+                    # Drain a bounded ordinary body before closing: unread POST
+                    # bytes can otherwise reset the connection before 403 reaches
+                    # Windows clients. Never buffer an unbounded unauthorized body.
+                    try:
+                        size = int(self.headers.get('Content-Length', '0'))
+                        if 0 < size <= MAX_BYTES:
+                            self.connection.settimeout(3)
+                            self.rfile.read(size)
+                    except (ValueError, OSError):
+                        pass
                     return self.reply(403, {'error': '授权无效'})
                 try:
                     size = int(self.headers.get('Content-Length', '0'))
@@ -189,18 +200,14 @@ class AgentRuntime:
                         content_type = response.headers.get('content-type', 'application/json')
                     validate_model_output(bytes(chunks), content_type, runtime.allowed)
                     return self.reply(200, namespace_reply(bytes(chunks), content_type, mapping), content_type)
-                except (ValueError, TypeError, KeyError) as exc:
+                except (ValueError, TypeError, KeyError, RecursionError) as exc:
+                    secrets_env = {**os.environ, 'UPSTREAM_KEY': runtime.key,
+                        'MODEL_TOKEN': runtime.model_token, 'TOOL_TOKEN': runtime.tool_token}
+                    reason = redact(str(exc), secrets_env)[:1024]
                     if runtime.session:
-                        # P2-2：审计 arguments 记录恶意调用的完整详情（从异常信息提取
-                        # name/call_id/arguments/input，不是空 {}）。
-                        import re as _re
-                        audit_args = {'error': str(exc)}
-                        for key in ('name', 'call_id', 'arguments', 'input', 'type'):
-                            match = _re.search(rf'{key}=([^,}}]+)', str(exc))
-                            if match:
-                                audit_args[key] = match.group(1).strip()
-                        runtime.session._audit('runtime_guard', audit_args, error=str(exc))
-                    self.reply(400, {'error': {'message': str(exc), 'type': 'boundary_rejection'}})
+                        details = audit_call(exc.call, secrets_env) if isinstance(exc, BoundaryViolation) else {}
+                        runtime.session._audit('runtime_guard', details, error=reason)
+                    self.reply(400, {'error': {'message': reason, 'type': 'boundary_rejection'}})
                 except httpx.HTTPError:
                     self.reply(502, {'error': {'message': '模型网关不可达或超时', 'type': 'upstream_error'}})
 

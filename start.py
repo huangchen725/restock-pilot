@@ -55,16 +55,7 @@ def services(offline: bool) -> list[Service]:
     return result
 
 
-def redact(text: str, env: dict[str, str]) -> str:
-    # P2-7：排除布尔开关（=0 或 =1，形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量，
-    # 若参与替换会把 JSON 里的数字误脱敏，污染持久化数据）；
-    # 但其他数字密钥（如 1234567，7 位数字）仍脱敏——数字密钥同样可能泄露。
-    values = {v for k, v in env.items() if v and any(
-        word in k.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
-        and v not in ('0', '1')}
-    for value in sorted(values, key=len, reverse=True):
-        text = text.replace(value, "[REDACTED]")
-    return re.sub(r"(?i)(bearer\s+)[^\s\"',}]+", r"\1[REDACTED]", text)
+from app.redaction import redact
 
 
 def check_port(port: int) -> None:
@@ -76,31 +67,21 @@ def check_port(port: int) -> None:
 
 
 def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
-    # P2-8：Python 和 LiteLLM 版本校验（启动预检，防止环境不一致）。
-    import sys
-    if sys.version_info < (3, 12):
-        raise StartupError(f"Python 版本过低（{sys.version.split()[0]}），需要 >= 3.12。")
+    if not offline:
+        key = env.get("INTERN_API_KEY", "").strip()
+        if not key or key in {"在这里填端砚key", "你的端砚API密钥", "端砚key"}:
+            raise StartupError("请在项目根目录 .env 中填写 INTERN_API_KEY，再重新启动。")
+    from app.runtime_versions import check_runtime
     try:
-        from importlib.metadata import version
-        litellm_version = version("litellm")
-        # P2-8：LiteLLM 版本强制锁定——1.106.x 兼容（minor 版本内允许），
-        # 其他版本强制失败（不允许兼容版本掩盖接入失败）。
-        if not litellm_version.startswith("1.106."):
-            raise StartupError(f"LiteLLM 版本为 {litellm_version}，与 requirements.txt 固定的 "
-                               f"1.106.x 不兼容，请安装 requirements.txt 中的依赖。")
-    except StartupError:
-        raise
-    except Exception:
-        pass  # LiteLLM 未安装时由后续依赖检查报错
+        check_runtime(env, include_cli=not offline)
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        raise StartupError(str(exc)) from exc
     missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright", "streamlit")
                if importlib.util.find_spec(name) is None]
     if missing:
         raise StartupError("缺少依赖：" + ", ".join(missing) +
                            "；请用当前解释器执行 -m pip install -r requirements.txt。")
     if not offline:
-        key = env.get("INTERN_API_KEY", "").strip()
-        if not key or key in {"在这里填端砚key", "你的端砚API密钥", "端砚key"}:
-            raise StartupError("请在项目根目录 .env 中填写 INTERN_API_KEY，再重新启动。")
         try:
             entries = distribution("litellm").entry_points
         except PackageNotFoundError as exc:
