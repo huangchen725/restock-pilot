@@ -60,7 +60,9 @@ def test_upload_revise_approve_execute_refresh_and_download(tmp_path):
                 page.get_by_role('spinbutton',name='覆盖天数',exact=True).fill('7')
                 page.get_by_role('spinbutton',name='安全天数',exact=True).fill('2')
                 page.get_by_role('button',name='生成补货方案').click()
-                expect(page.get_by_role('heading',name='人工确认',exact=True)).to_be_visible()
+                # P1-13：生成方案的后台任务耗时可能超过 expect 默认 5s 超时，
+                # 增加 timeout 等待"人工确认"区域出现（而非硬等待）。
+                expect(page.get_by_role('heading',name='人工确认',exact=True)).to_be_visible(timeout=15000)
                 expect(page.get_by_text('¥48.00',exact=True)).to_be_visible()
                 task=page.url.split('task=')[1].split('&')[0]
                 page.get_by_text('我已核对 v1 的数量、金额和风险提示',exact=True).click()

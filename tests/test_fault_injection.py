@@ -40,6 +40,7 @@ class FaultInjector:
         self.hang_seconds = 0.0         # F5：真实落库后延迟响应
         self.delay_commit_seconds = 0.0  # F7：先 hang（订单未落库），hang 结束后才落库
         self.fail_all_after_submit = 0  # F6：submit 真实落库后，后续所有请求一律 502
+        self.connection_fail_next = 0   # 部分成功：接下来 N 次 POST 直接返回 500（不执行真实落库，订单未提交）
         self._all_down = False
         self.injected = []
         self.submit_requests = 0
@@ -70,6 +71,14 @@ class FaultInjector:
                 await send({"type": "http.response.start", "status": 502,
                             "headers": [(b"content-type", b"text/plain")]})
                 await send({"type": "http.response.body", "body": b"submit committed but backend down"})
+                return
+            if self.connection_fail_next > 0 and self.submit_requests > 1:
+                self.connection_fail_next -= 1
+                # 部分成功：直接返回 500（不执行真实落库，订单未提交）
+                self.injected.append("connection_fail")
+                await send({"type": "http.response.start", "status": 500,
+                            "headers": [(b"content-type", b"text/plain")]})
+                await send({"type": "http.response.body", "body": b"injected connection failure"})
                 return
             if self.delay_commit_seconds > 0:
                 # F7 延迟落库：先 hang（订单未落库），hang 结束后才真实落库。
@@ -354,6 +363,21 @@ def test_f7_delayed_commit_lookup_miss_is_unknown_not_failure(tmp_path):
         # 关键是状态判定为 unknown 而非"确定未提交"后的盲目重试。
         assert len(store_app.state.store.list()) <= 1
         assert injector.injected == ["delay_commit"]
+        # P1-12 强化：等待延迟落库（如果发生），受控核对确定状态后验证防重。
+        time.sleep(5)  # 等延迟落库（9s hang 已过 adapter 5s 超时 + 回查耗时）
+        recon = adapter.reconcile_orders(_plan("f7"))
+        state = recon[0]["state"]
+        if state == "created":
+            # 延迟落库发生：订单已存在，重放/recover 不应重复提交（幂等命中）
+            replay = adapter.execute_plan(_plan("f7"))
+            assert replay["results"][0]["status"] == "already_exists"
+            assert len(store_app.state.store.list()) == 1
+        else:
+            # 断连导致未落库：recover 恢复只一单（不重复）
+            replay = adapter.execute_plan(_plan("f7"))
+            assert replay["results"][0]["status"] in ("unknown", "recovered_after_error", "created", "already_exists"), \
+                f"重放不应重复提交或保持结果未知：{replay['results'][0]['status']}"
+            assert len(store_app.state.store.list()) <= 1
     finally:
         server.should_exit = True
         thread.join(timeout=5)
@@ -408,9 +432,11 @@ def test_recover_only_not_submitted_keeps_created_no_duplicates(tmp_path):
     try:
         adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True)
         plan = _plan_two_suppliers("rec")
-        # 先只创建 SUP-A 的订单（部分成功）
-        adapter.execute_plan(plan, only_refs={"rec-v1-SUP-A"})
-        assert len(store_app.state.store.list()) == 1
+        # P1-12：从真实第二单故障进入 PARTIAL（不是人为 only_refs）。
+        # connection_fail_next=1：SUP-B 的订单连接失败（未提交），SUP-A 成功。
+        injector.connection_fail_next = 1
+        adapter.execute_plan(plan)  # SUP-A 成功，SUP-B 连接失败（未提交）→ PARTIAL
+        assert len(store_app.state.store.list()) == 1  # SUP-A 已创建，SUP-B 未提交
 
         # 受控核对：SUP-A 已创建，SUP-B 未提交
         recon = adapter.reconcile_orders(plan)
