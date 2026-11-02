@@ -1,2 +1,0 @@
-@echo off
-"%LOCAL_TEST_PYTHON%" "%LOCAL_TEST_SCRIPT%"
