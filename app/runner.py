@@ -183,8 +183,13 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
 
             def read_events():
                 total = 0
-                for raw_line in proc.stdout:
-                    # P2-5：在读取完整长行前检查——长行本身可能超过上限，立即截断。
+                max_line = 1024 * 1024  # 单行上限 1 MB（防止超长行突破内存控制）
+                while True:
+                    # P2-5：用 readline(size) 限制每行大小——超长行只读取 size 字节，
+                    # 不会读取完整长行（防止超长行突破内存控制）。
+                    raw_line = proc.stdout.readline(max_line)
+                    if not raw_line:
+                        break
                     if total + len(raw_line) > 8 * 1024 * 1024:
                         stream_error.append('CLI event stream exceeded 8 MB')
                         _stop_owned_process(proc)
@@ -205,6 +210,8 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
                 _stop_owned_process(proc)
                 raise
             finally:
+                # P2-5：父进程退出时（无论正常还是异常）都清理残留子进程。
+                _stop_owned_process(proc)
                 for reader in readers:
                     reader.join(timeout=5)
                 proc.stdout.close(); proc.stderr.close()

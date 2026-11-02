@@ -42,8 +42,8 @@ def planner_review(plan, advice):
     """Authoritative quantities are rendered by code; model supplies advice only."""
     import re
     advice = advice.strip()
-    # P2-1：长度契约与提示词一致（不超过 180 字）；支持全角数字。
-    if not advice or len(advice) > 180 or re.search(r'[0-9０-９]|[零一二三四五六七八九十百千万]+\s*(?:件|种|个|分|元|成|%)', advice):
+    # P2-1：长度契约与提示词一致（不超过 180 字）；支持全角数字与"两"（"需要两件商品"）。
+    if not advice or len(advice) > 180 or re.search(r'[0-9０-９]|[零一二两三四五六七八九十百千万]+\s*(?:件|种|个|分|元|成|%)', advice):
         raise ValueError('Planner 只能提供简短非数值建议（不超过 180 字）；金额、数量和商品编号由程序展示')
     def money(cents):
         whole, fraction = divmod(cents, 100)

@@ -113,6 +113,12 @@ def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path)
         return Process()
 
     monkeypatch.setattr(runner.subprocess, "Popen", launch)
+    # P2-5：_stop_owned_process 在 finally 调用 subprocess.run（taskkill 清理残留子进程），
+    # 测试环境也需要 mock subprocess.run（不实际执行 taskkill）。
+    class _RunResult:
+        returncode = 0
+        stderr = b''
+    monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: _RunResult())
     result = runner.run_codex_task(prompt, str(tmp_path), codex_home=str(tmp_path / "agent config"))
     assert result.final_text == "done"
     assert observed["prompt"] == prompt

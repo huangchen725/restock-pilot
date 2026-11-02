@@ -141,10 +141,10 @@ def _policy_from_agent(text: str) -> Policy:
 
 def _check_summary_currency(agent):
     # P2-1：支持中文数字和全角数字（防止"一百美元"或"１００美元"绕过校验）。
-    # 全角数字先转半角，便于统一匹配。
+    # 全角数字先转半角，便于统一匹配；包含"两"（"需要两件商品""采购金额两美元"）。
     summary = agent.get('summary', '')
     normalized = summary.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
-    if re.search(r'[\d零一二三四五六七八九十百千万][\d,.零一二三四五六七八九十百千万]*\s*(?:美分|美元|USD\b)',
+    if re.search(r'[\d零一二两三四五六七八九十百千万][\d,.零一二两三四五六七八九十百千万]*\s*(?:美分|美元|USD\b)',
                  normalized, re.IGNORECASE):
         raise AgentStageError('模型摘要金额口径错误：本任务使用人民币分，不能解释为美分或美元。')
 

@@ -66,8 +66,10 @@ def validate_model_output(content, content_type, allowed):
                                      f'call_id={value.get("call_id")}, '
                                      f'arguments={str(value.get("arguments"))[:200]}')
             elif isinstance(kind, str) and (kind.endswith('_call') or kind == 'tool_call'):
+                # P2-2：custom_tool_call 等其他 _call 类型也必须记录 input（恶意调用可还原）。
                 raise ValueError(f'禁止通用命令、文件、网络及其他工具调用: type={kind}, '
-                                 f'name={value.get("name")}, call_id={value.get("call_id")}')
+                                 f'name={value.get("name")}, call_id={value.get("call_id")}, '
+                                 f'input={str(value.get("input"))[:200]}')
             for child in value.values():
                 inspect(child)
         elif isinstance(value, list):
@@ -189,7 +191,15 @@ class AgentRuntime:
                     return self.reply(200, namespace_reply(bytes(chunks), content_type, mapping), content_type)
                 except (ValueError, TypeError, KeyError) as exc:
                     if runtime.session:
-                        runtime.session._audit('runtime_guard', {}, error=str(exc))
+                        # P2-2：审计 arguments 记录恶意调用的完整详情（从异常信息提取
+                        # name/call_id/arguments/input，不是空 {}）。
+                        import re as _re
+                        audit_args = {'error': str(exc)}
+                        for key in ('name', 'call_id', 'arguments', 'input', 'type'):
+                            match = _re.search(rf'{key}=([^,}}]+)', str(exc))
+                            if match:
+                                audit_args[key] = match.group(1).strip()
+                        runtime.session._audit('runtime_guard', audit_args, error=str(exc))
                     self.reply(400, {'error': {'message': str(exc), 'type': 'boundary_rejection'}})
                 except httpx.HTTPError:
                     self.reply(502, {'error': {'message': '模型网关不可达或超时', 'type': 'upstream_error'}})

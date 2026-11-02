@@ -56,12 +56,12 @@ def services(offline: bool) -> list[Service]:
 
 
 def redact(text: str, env: dict[str, str]) -> str:
-    # P2-7：短密钥（< 8 位）也脱敏——短密钥同样可能泄露。
-    # 但排除纯数字开关（形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量，
-    # 若参与替换会把 JSON 里的数字误脱敏，污染持久化数据）。
+    # P2-7：排除布尔开关（=0 或 =1，形如 CODEBUDDY_API_KEY_HELPER_DISABLED=1 的开关变量，
+    # 若参与替换会把 JSON 里的数字误脱敏，污染持久化数据）；
+    # 但其他数字密钥（如 1234567，7 位数字）仍脱敏——数字密钥同样可能泄露。
     values = {v for k, v in env.items() if v and any(
         word in k.upper() for word in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
-        and not (v.isdigit() and len(v) < 8)}
+        and v not in ('0', '1')}
     for value in sorted(values, key=len, reverse=True):
         text = text.replace(value, "[REDACTED]")
     return re.sub(r"(?i)(bearer\s+)[^\s\"',}]+", r"\1[REDACTED]", text)
@@ -83,10 +83,13 @@ def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
     try:
         from importlib.metadata import version
         litellm_version = version("litellm")
-        # 与 requirements.txt 固定的版本不一致时警告（允许兼容版本，但提示风险）。
-        if litellm_version != "1.106.5":
-            print(f"警告：LiteLLM 版本为 {litellm_version}，与 requirements.txt 固定的 1.106.5 "
-                  f"不一致，可能存在兼容性问题。", file=sys.stderr)
+        # P2-8：LiteLLM 版本强制锁定——1.106.x 兼容（minor 版本内允许），
+        # 其他版本强制失败（不允许兼容版本掩盖接入失败）。
+        if not litellm_version.startswith("1.106."):
+            raise StartupError(f"LiteLLM 版本为 {litellm_version}，与 requirements.txt 固定的 "
+                               f"1.106.x 不兼容，请安装 requirements.txt 中的依赖。")
+    except StartupError:
+        raise
     except Exception:
         pass  # LiteLLM 未安装时由后续依赖检查报错
     missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright", "streamlit")

@@ -90,13 +90,29 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
             assert any(c['stage']=='reviser' and c['tool']=='revise_plan' for c in calls)
             # P2-9：第四个工具 get_execution_result（executor 阶段）必须覆盖。
             assert any(c['stage']=='executor' and c['tool']=='get_execution_result' for c in calls)
-            # P2-9：R14——planner 摘要必须包含币种（人民币）、风险统计，且模型建议长度 <= 180 字。
+            # P2-9：R14——planner 摘要必须包含币种（人民币）、风险统计数值的独立核对，
+            # 且模型建议长度 <= 180 字。风险统计数值从 plan 数据独立计算，与摘要数值对比。
             planner_events = [e for e in events if e['kind'] == 'planner' and e['payload'].get('summary')]
             assert planner_events, 'planner 阶段必须有摘要'
+            # 独立计算风险统计数值（从 plan 的数据）
+            risks = {i['sku'] for i in p['items'] if i.get('stockout_before_arrival')}
+            skipped_risks = risks & set(p.get('skipped', []))
+            low = sum(1 for i in p['items'] if i.get('confidence') == 'low')
             for e in planner_events:
                 summary = e['payload']['summary']
                 assert '人民币' in summary, 'planner 摘要必须包含人民币币种'
-                assert '预计到货前缺货风险' in summary, 'planner 摘要必须包含风险统计'
+                # P2-9：风险统计数值的独立核对——摘要里的数值必须与独立计算的一致
+                import re
+                risk_match = re.search(r'预计到货前缺货风险 (\d+) 种，其中被预算跳过 (\d+) 种', summary)
+                assert risk_match, 'planner 摘要必须包含风险统计数值'
+                assert int(risk_match.group(1)) == len(risks), \
+                    f'缺货风险数值不匹配：摘要 {risk_match.group(1)} vs 独立计算 {len(risks)}'
+                assert int(risk_match.group(2)) == len(skipped_risks), \
+                    f'预算跳过风险数值不匹配：摘要 {risk_match.group(2)} vs 独立计算 {len(skipped_risks)}'
+                low_match = re.search(r'低置信商品 (\d+) 种', summary)
+                if low_match:
+                    assert int(low_match.group(1)) == low, \
+                        f'低置信商品数值不匹配：摘要 {low_match.group(1)} vs 独立计算 {low}'
                 advice = summary.split('模型建议：', 1)[-1]
                 assert len(advice.strip()) <= 180, f'模型建议长度 {len(advice.strip())} 超过 180 字'
             orders=httpx.get(urls['portal']+'/api/purchase-orders',trust_env=False).json()
