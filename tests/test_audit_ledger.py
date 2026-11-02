@@ -16,9 +16,15 @@ class _FakeAdapter:
         self.kwargs = kwargs
         self.__class__.instances.append(self)
 
-    def execute_plan(self, plan, on_order_result=None):
+    def execute_plan(self, plan, on_order_result=None, on_submit_intent=None, on_progress=None, only_refs=None):
         results = []
         for order in build_supplier_orders(plan):
+            if only_refs is not None and order['external_ref'] not in only_refs: continue
+            if on_progress:
+                on_progress(order,'lookup_started',{})
+                on_progress(order,'lookup_finished',{'found':False})
+            if on_submit_intent: on_submit_intent(order)
+            if on_progress: on_progress(order,'readback_completed',{})
             receipt = {
                 "order_id": f"PO-{order['supplier_id']}",
                 "external_ref": order["external_ref"],
@@ -104,23 +110,15 @@ def test_audit_trail_records_full_replay_chain(client):
                              "submit", "readback"]
 
 
-def test_audit_trail_replay_detects_missing_plan_hash(tmp_path):
-    """账本被部分破坏时 replay_complete 必须报 False（账本完整性可验证）。"""
-    main._conn = db.init_db(tmp_path / "t.db")
-    main._tasks = {}
-    try:
-        db.append_execution_event(main.get_conn(), "t-x", "order_result",
-                                  "ref-x", {"status": "created", "plan_hash": None})
-        events = db.list_execution_events(main.get_conn(), "t-x")
-        replay_ok = all(
-            e["event_type"] != "order_result" or e["payload"].get("plan_hash")
-            for e in events
-        )
-        assert replay_ok is False
-    finally:
-        main._conn.close()
-        main._conn = None
-        main._tasks = {}
+def test_audit_trail_replay_detects_missing_plan_hash(client):
+    created=client.post('/tasks',json={'policy':{'budget_cents':500000}}).json()
+    task=created['task_id']; client.post(f'/tasks/{task}/approve'); client.post(f'/tasks/{task}/execute')
+    with db.transaction(main.get_conn()):
+        row=main.get_conn().execute("SELECT seq,payload_json FROM execution_events WHERE task_id=? AND event_type='order_result' LIMIT 1",(task,)).fetchone()
+        import json
+        payload=json.loads(row['payload_json']);payload.pop('plan_hash')
+        main.get_conn().execute('UPDATE execution_events SET payload_json=? WHERE seq=?',(json.dumps(payload),row['seq']))
+    assert client.get(f'/tasks/{task}/audit-trail').json()['replay_complete'] is False
 
 
 def test_audit_trail_empty_ledger_is_not_complete(client):

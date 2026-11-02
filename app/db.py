@@ -4,6 +4,8 @@
 import sqlite3
 import json
 import threading
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 from app.models import TaskState
@@ -55,7 +57,7 @@ CREATE TABLE IF NOT EXISTS datasets (
 CREATE TABLE IF NOT EXISTS task_context (
     task_id TEXT PRIMARY KEY, busy INTEGER NOT NULL DEFAULT 0,
     phase TEXT NOT NULL DEFAULT '', error TEXT,
-    result_json TEXT, request_json TEXT, operation_id TEXT
+    result_json TEXT, request_json TEXT, operation_id TEXT, job_id TEXT
 );
 CREATE TABLE IF NOT EXISTS task_activity (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
@@ -68,6 +70,22 @@ CREATE INDEX IF NOT EXISTS idx_activity_task ON task_activity(task_id, seq);
 _LOCK = threading.RLock()
 
 
+@contextmanager
+def transaction(conn):
+    """Nested savepoints share one transaction; inner helpers never commit it early."""
+    with _LOCK:
+        name = 'tx_' + uuid.uuid4().hex
+        conn.execute('SAVEPOINT ' + name)
+        try:
+            yield
+        except BaseException:
+            conn.execute('ROLLBACK TO SAVEPOINT ' + name)
+            conn.execute('RELEASE SAVEPOINT ' + name)
+            raise
+        else:
+            conn.execute('RELEASE SAVEPOINT ' + name)
+
+
 def connect(db_path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -78,18 +96,19 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
 
 def init_db(db_path: str | Path) -> sqlite3.Connection:
     conn = connect(db_path)
-    with _LOCK, conn:
-        conn.executescript(_SCHEMA)
+    conn.executescript(_SCHEMA)
+    with transaction(conn):
         # P2-4：operation_id 列（操作生命周期绑定）——已有表的迁移。
         cols = {row[1] for row in conn.execute("PRAGMA table_info(task_context)")}
-        if "operation_id" not in cols:
-            conn.execute("ALTER TABLE task_context ADD COLUMN operation_id TEXT")
+        for column in ("operation_id", "job_id"):
+            if column not in cols:
+                conn.execute(f"ALTER TABLE task_context ADD COLUMN {column} TEXT")
     return conn
 
 
 def upsert_task(conn, task_id: str, state: TaskState,
                 approved_plan_hash=None, approved_version=None):
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute(
             """INSERT INTO tasks (task_id, state, approved_plan_hash, approved_version)
                VALUES (?, ?, ?, ?)
@@ -112,7 +131,7 @@ def get_task(conn, task_id: str):
 def save_plan(conn, plan) -> str:
     from app.models import plan_hash
     h = plan_hash(plan)
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute(
             """INSERT OR REPLACE INTO plans
                (plan_id, version, task_id, dataset_hash, policy_json, plan_json, plan_hash)
@@ -140,7 +159,7 @@ def get_plan(conn, plan_id: str, version: int):
 def commit_candidate(conn, plan, expected_version, expected_hash):
     """Compare-and-insert; never overwrite a published plan or reopen execution."""
     from app.models import plan_hash
-    with _LOCK, conn:
+    with transaction(conn):
         row = get_task(conn, plan.plan_id)
         versions = list_plan_versions(conn, plan.plan_id)
         latest = versions[-1] if versions else 0
@@ -167,23 +186,11 @@ def commit_candidate(conn, plan, expected_version, expected_hash):
         return h
 
 
-def rollback_candidate(conn, plan_id: str, version: int, restore_state: str = 'ANALYZING') -> None:
-    """P1-11：commit_candidate 后的后续持久化失败时回滚已提交的候选版本。
-
-    删除候选版本并恢复任务状态，避免"本次操作报告失败，但新版本仍可批准"
-    的不一致状态。仅在候选版本尚未被批准或执行时使用。
-    """
-    with _LOCK, conn:
-        conn.execute('DELETE FROM plans WHERE plan_id=? AND version=?', (plan_id, version))
-        conn.execute("UPDATE tasks SET state=?,updated_at=datetime('now') WHERE task_id=?",
-                     (restore_state, plan_id))
-
-
 def save_execution_record(conn, task_id: str, plan_id: str, version: int,
                           external_ref: str, status: str, receipt: dict) -> None:
     """每次执行尝试均追加审计记录；重复尝试不去重，便于回放。"""
     import json
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute(
             """INSERT INTO execution_records
                (task_id, plan_id, version, external_ref, status, receipt_json)
@@ -216,7 +223,7 @@ def append_execution_event(conn, task_id: str, event_type: str,
     供故障回放与审计演示使用；写入失败向上抛（账本不完整比静默丢事件更危险）。
     """
     import json
-    with _LOCK, conn:
+    with transaction(conn):
         cursor = conn.execute(
             """INSERT INTO execution_events
                (task_id, event_type, external_ref, payload_json)
@@ -246,7 +253,7 @@ def list_execution_events(conn, task_id: str):
 def save_dataset(conn, snapshot):
     from app.validation import snapshot_hash
     identifier = "ds-" + snapshot_hash(snapshot)
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute("INSERT OR IGNORE INTO datasets(dataset_id,snapshot_json) VALUES (?,?)",
                      (identifier, snapshot.model_dump_json()))
     return identifier
@@ -266,21 +273,26 @@ def get_dataset(conn, identifier):
 
 
 def update_context(conn, task_id, **fields):
-    allowed = {"busy", "phase", "error", "result_json", "request_json", "operation_id"}
+    allowed = {"busy", "phase", "error", "result_json", "request_json", "operation_id", "job_id"}
     if not fields or not set(fields) <= allowed:
         raise ValueError("invalid context update")
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute("INSERT OR IGNORE INTO task_context(task_id) VALUES (?)", (task_id,))
         conn.execute("UPDATE task_context SET " + ",".join(k+"=?" for k in fields) + " WHERE task_id=?",
                      (*fields.values(), task_id))
 
 
-def claim_task(conn, task_id, phase):
-    with _LOCK, conn:
+def claim_task(conn, task_id, phase, job_id=None):
+    with transaction(conn):
         conn.execute("INSERT OR IGNORE INTO task_context(task_id) VALUES (?)", (task_id,))
-        cursor = conn.execute("UPDATE task_context SET busy=1,phase=?,error=NULL WHERE task_id=? AND busy=0",
-                              (phase, task_id))
+        cursor = conn.execute("UPDATE task_context SET busy=1,phase=?,error=NULL,job_id=? WHERE task_id=? AND busy=0",
+                              (phase, job_id or uuid.uuid4().hex, task_id))
         return cursor.rowcount == 1
+
+
+def release_task(conn, task_id, job_id):
+    with transaction(conn):
+        conn.execute("UPDATE task_context SET busy=0 WHERE task_id=? AND job_id=?", (task_id, job_id))
 
 
 def get_context(conn, task_id):
@@ -293,7 +305,7 @@ def get_context(conn, task_id):
 
 
 def activity(conn, task_id, kind, payload):
-    with _LOCK, conn:
+    with transaction(conn):
         conn.execute("INSERT INTO task_activity(task_id,kind,payload_json) VALUES (?,?,?)",
                      (task_id, kind, json.dumps(payload, ensure_ascii=False)))
 
@@ -317,11 +329,11 @@ def list_plan_versions(conn, task_id):
 
 def recover_interrupted(conn):
     # Single API process only; never replay a possibly submitted purchase automatically.
-    with _LOCK, conn:
+    with transaction(conn):
         rows = conn.execute("SELECT t.task_id,t.state,c.phase FROM tasks t LEFT JOIN task_context c USING(task_id) WHERE c.busy=1 OR t.state='EXECUTING'").fetchall()
         for row in rows:
             state = row["state"]
-            if state == "EXECUTING":
+            if state == "EXECUTING" or (row["phase"] == "受控恢复" and state in ("PARTIAL", "NEEDS_RECONCILIATION", "FAILED")):
                 state = "NEEDS_RECONCILIATION"
             elif state in ("NEW", "ANALYZING"):
                 exists = conn.execute("SELECT 1 FROM plans WHERE task_id=?", (row["task_id"],)).fetchone()

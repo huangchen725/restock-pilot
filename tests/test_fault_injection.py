@@ -40,7 +40,7 @@ class FaultInjector:
         self.hang_seconds = 0.0         # F5：真实落库后延迟响应
         self.delay_commit_seconds = 0.0  # F7：先 hang（订单未落库），hang 结束后才落库
         self.fail_all_after_submit = 0  # F6：submit 真实落库后，后续所有请求一律 502
-        self.connection_fail_next = 0   # 部分成功：接下来 N 次 POST 直接返回 500（不执行真实落库，订单未提交）
+        self.connection_fail_next = 0   # 部分成功：第一单提交后，接下来 N 次新建表单返回 503（未发出第二单提交）
         self._all_down = False
         self.injected = []
         self.submit_requests = 0
@@ -55,6 +55,12 @@ class FaultInjector:
             await send({"type": "http.response.body", "body": b"backend down after submit"})
             return
         method, path = scope["method"], scope["path"]
+        if method == 'GET' and path == '/purchase-orders/new' and self.connection_fail_next > 0 and self.submit_requests >= 1:
+            self.connection_fail_next -= 1
+            self.injected.append('before_submit_form_failure')
+            await send({'type':'http.response.start','status':503,'headers':[(b'content-type',b'text/plain')]})
+            await send({'type':'http.response.body','body':b'form unavailable before any second submission'})
+            return
 
         if method == "POST" and path == "/purchase-orders":
             self.submit_requests += 1
@@ -71,14 +77,6 @@ class FaultInjector:
                 await send({"type": "http.response.start", "status": 502,
                             "headers": [(b"content-type", b"text/plain")]})
                 await send({"type": "http.response.body", "body": b"submit committed but backend down"})
-                return
-            if self.connection_fail_next > 0 and self.submit_requests > 1:
-                self.connection_fail_next -= 1
-                # 部分成功：直接返回 500（不执行真实落库，订单未提交）
-                self.injected.append("connection_fail")
-                await send({"type": "http.response.start", "status": 500,
-                            "headers": [(b"content-type", b"text/plain")]})
-                await send({"type": "http.response.body", "body": b"injected connection failure"})
                 return
             if self.delay_commit_seconds > 0:
                 # F7 延迟落库：先 hang（订单未落库），hang 结束后才真实落库。
@@ -338,49 +336,31 @@ def test_f6_submit_then_backend_down_marks_unknown_not_failed(tmp_path):
 
 
 def test_f7_delayed_commit_lookup_miss_is_unknown_not_failure(tmp_path):
-    """F7：延迟落库——提交超时后回查未找到（订单尚未落库），不能判定为确定未提交。
+    """Capture the request before delay, guarantee later commit, and prove no resubmit.
 
-    M3 核心：回查未找到 ≠ 确定未提交（可能延迟落库）。超时/响应丢失场景下，
-    回查未找到只能判为结果未知（NEEDS_RECONCILIATION），不得盲目重试或重复购买。
-    与 F4（连接拒绝，确定未提交）和 F6（回查失败）区分。
+    The matching revise/recover API scenario lives in test_m3_live.py.
     """
-    injector = FaultInjector(create_portal_app(tmp_path / "p.db"))
-    base_url, store_app, server, thread = _start_portal(tmp_path, injector)
+    from tests.test_m3_live import DeferredFirstPost
+    injector=DeferredFirstPost(create_portal_app(tmp_path/'p.db'))
+    base_url,store_app,server,thread=_start_portal(tmp_path,injector)
     try:
-        adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True,
-                                               timeout_ms=5000)
-        injector.delay_commit_seconds = 9.0  # 后台 hang 9s 后才落库；adapter 5s 超时回查时未出现
-        report = adapter.execute_plan(_plan("f7"))
-        result = report["results"][0]
-        # 回查未找到不能判定为确定未提交：结果未知，进入待人工核对
-        assert result["status"] == "unknown", result
-        assert result["submission_state"] == "unknown"
-        assert result["problems"], "结果未知必须携带需人工核对的 problems"
-        assert report["state"] == TaskState.NEEDS_RECONCILIATION.value
-        # 未盲目重试：即使回查未找到也不再次提交（不创建重复单）
-        # 注：Chromium 超时断连可能中断延迟落库（ClientDisconnect），
-        # 订单最终可能出现也可能不出现——两种情况都属"结果未知"，
-        # 关键是状态判定为 unknown 而非"确定未提交"后的盲目重试。
-        assert len(store_app.state.store.list()) <= 1
-        assert injector.injected == ["delay_commit"]
-        # P1-12 强化：等待延迟落库（如果发生），受控核对确定状态后验证防重。
-        time.sleep(5)  # 等延迟落库（9s hang 已过 adapter 5s 超时 + 回查耗时）
-        recon = adapter.reconcile_orders(_plan("f7"))
-        state = recon[0]["state"]
-        if state == "created":
-            # 延迟落库发生：订单已存在，重放/recover 不应重复提交（幂等命中）
-            replay = adapter.execute_plan(_plan("f7"))
-            assert replay["results"][0]["status"] == "already_exists"
-            assert len(store_app.state.store.list()) == 1
-        else:
-            # 断连导致未落库：recover 恢复只一单（不重复）
-            replay = adapter.execute_plan(_plan("f7"))
-            assert replay["results"][0]["status"] in ("unknown", "recovered_after_error", "created", "already_exists"), \
-                f"重放不应重复提交或保持结果未知：{replay['results'][0]['status']}"
-            assert len(store_app.state.store.list()) <= 1
+        adapter=PlaywrightProcurementAdapter(base_url=base_url,headless=True,timeout_ms=1200)
+        report=adapter.execute_plan(_plan('f7'))
+        assert report['state']=='NEEDS_RECONCILIATION'
+        assert report['results'][0]['submission_state']=='unknown'
+        assert injector.accepted.is_set() and injector.posts==1 and store_app.state.store.list()==[]
+        injector.release.set();assert injector.committed.wait(5) and injector.error is None
+        actual=store_app.state.store.list()
+        assert len(actual)==1 and actual[0]['total_cost_cents']==2500
+        assert actual[0]['lines'][0]['order_qty']==10 and actual[0]['status']=='SUBMITTED'
+        recon=adapter.reconcile_orders(_plan('f7'))
+        assert recon[0]['state']=='created' and recon[0]['problems']==[]
+        replay=adapter.execute_plan(_plan('f7'))
+        assert replay['results'][0]['status']=='already_exists'
+        assert len(store_app.state.store.list())==1 and injector.posts==1
     finally:
-        server.should_exit = True
-        thread.join(timeout=5)
+        injector.release.set();injector.committed.wait(5)
+        server.should_exit=True;thread.join(timeout=5)
 
 
 def test_reconcile_orders_returns_determined_states_without_new_orders(tmp_path):
@@ -433,9 +413,12 @@ def test_recover_only_not_submitted_keeps_created_no_duplicates(tmp_path):
         adapter = PlaywrightProcurementAdapter(base_url=base_url, headless=True)
         plan = _plan_two_suppliers("rec")
         # P1-12：从真实第二单故障进入 PARTIAL（不是人为 only_refs）。
-        # connection_fail_next=1：SUP-B 的订单连接失败（未提交），SUP-A 成功。
+        # connection_fail_next=1：SUP-B 的表单读取失败（尚未提交），SUP-A 成功。
         injector.connection_fail_next = 1
-        adapter.execute_plan(plan)  # SUP-A 成功，SUP-B 连接失败（未提交）→ PARTIAL
+        adapter.timeout_ms=1200
+        first=adapter.execute_plan(plan)  # 第二单表单失败，尚未提交
+        assert first['state']=='PARTIAL' and first['results'][1]['submission_state']=='not_attempted'
+        assert injector.injected==['before_submit_form_failure'] and injector.submit_requests==1
         assert len(store_app.state.store.list()) == 1  # SUP-A 已创建，SUP-B 未提交
 
         # 受控核对：SUP-A 已创建，SUP-B 未提交

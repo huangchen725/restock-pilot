@@ -14,8 +14,8 @@ from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import db, runner, jobs, datasets, reports
-from app.execution import PlaywrightProcurementAdapter, build_supplier_orders
+from app import db, runner, jobs, datasets, reports, ledger
+from app.execution import PlaywrightProcurementAdapter, build_supplier_orders, summarize_execution
 from app.models import Policy, TaskState, canonical_json, DataContract, RevisionDecision
 from app.prompts import build_stage_prompt
 from app.state_machine import TaskRecord, TransitionError
@@ -193,39 +193,66 @@ def _agent_event(task_id, stage, version, agent):
         "tool_calls":_sanitized(agent.get('tool_calls', []))})
 
 
-def _dispatch(task_id, phase, work, prefer):
-    conn=get_conn()
-    if not db.claim_task(conn,task_id,phase):
-        raise HTTPException(409,"任务正在处理，请等待当前步骤完成。")
+def _save_operation_result(task_id, result):
+    db.update_context(get_conn(), task_id, result_json=json.dumps(_sanitized(result), ensure_ascii=False),
+                      error=None, phase="本次操作完成")
+    return result
+
+
+def _publish_candidate(session, policy, stage, agent):
+    # No browser/model work inside this transaction. Nested helpers use savepoints.
+    with db.transaction(get_conn()):
+        plan, h = session.commit(policy)
+        _agent_event(session.task_id, stage, plan.version, agent)
+        result = {"task_id": session.task_id, "state": TaskState.NEEDS_REVIEW.value,
+                  "plan": plan.model_dump(), "plan_hash": h, "agent": agent}
+        _save_operation_result(session.task_id, result)
+        return result
+
+
+def _dispatch(task_id, phase, work, prefer, publishes_plan=False):
+    conn = get_conn()
+    job_id = uuid.uuid4().hex
+    if not db.claim_task(conn, task_id, phase, job_id):
+        raise HTTPException(409, "任务正在处理，请等待当前步骤完成。")
+    before = db.get_task(conn,task_id)
+    before_versions = db.list_plan_versions(conn,task_id)
     def run():
         try:
-            result=work()
-            db.update_context(conn,task_id,result_json=json.dumps(_sanitized(result),ensure_ascii=False),
-                              error=None,phase="本次操作完成")
+            result = work()
+            if not publishes_plan:
+                _save_operation_result(task_id, result)
             return result
         except Exception as exc:
-            message=_public(exc.detail if isinstance(exc,HTTPException) else str(exc))
-            db.update_context(conn,task_id,error=message,phase="需要处理")
-            row=db.get_task(conn,task_id)
-            if row and row['state'] in ('ANALYZING','EXECUTING'):
-                state=TaskState.NEEDS_RECONCILIATION if row['state']=='EXECUTING' else (
-                    TaskState.NEEDS_REVIEW if db.list_plan_versions(conn,task_id) else TaskState.FAILED)
-                db.upsert_task(conn,task_id,state,
-                    row['approved_plan_hash'] if state==TaskState.NEEDS_RECONCILIATION else None,
-                    row['approved_version'] if state==TaskState.NEEDS_RECONCILIATION else None)
-            db.activity(conn,task_id,"error",{"message":message})
+            message = _public(exc.detail if isinstance(exc, HTTPException) else str(exc))
+            with db.transaction(conn):
+                db.update_context(conn, task_id, error=message, phase="需要处理")
+                row = db.get_task(conn, task_id)
+                restore_execution = (publishes_plan and before['state'] in ('PARTIAL','NEEDS_RECONCILIATION')
+                    and db.list_plan_versions(conn,task_id) == before_versions)
+                if restore_execution:
+                    unresolved = any(r['state'] in ('unknown','mismatch') for r in ledger.effective_orders(conn,task_id).values())
+                    state = TaskState.NEEDS_RECONCILIATION if unresolved else TaskState(before['state'])
+                    db.upsert_task(conn,task_id,state,before['approved_plan_hash'],before['approved_version'])
+                elif row and row['state'] in ('ANALYZING', 'EXECUTING'):
+                    state = TaskState.NEEDS_RECONCILIATION if row['state'] == 'EXECUTING' else (
+                        TaskState.NEEDS_REVIEW if db.list_plan_versions(conn, task_id) else TaskState.FAILED)
+                    db.upsert_task(conn, task_id, state,
+                        row['approved_plan_hash'] if state == TaskState.NEEDS_RECONCILIATION else None,
+                        row['approved_version'] if state == TaskState.NEEDS_RECONCILIATION else None)
+                db.activity(conn, task_id, "error", {"message": message, "job_id": job_id})
             if prefer == "wait":
-                raise HTTPException(exc.status_code if isinstance(exc,HTTPException) else 500,message)
+                raise HTTPException(exc.status_code if isinstance(exc, HTTPException) else 500, message)
         finally:
-            db.update_context(conn,task_id,busy=0)
+            db.release_task(conn, task_id, job_id)
     if prefer == "wait":
         return run()
     try:
         jobs.submit(run)
     except Exception:
-        db.update_context(conn,task_id,busy=0,error="无法启动任务，请重试。")
-        raise HTTPException(503,"无法启动任务，请重试。")
-    return JSONResponse(status_code=202,content={"task_id":task_id,"accepted":True})
+        db.release_task(conn, task_id, job_id)
+        raise HTTPException(503, "无法启动任务，请重试。")
+    return JSONResponse(status_code=202, content={"task_id": task_id, "accepted": True})
 
 
 @app.post("/datasets")
@@ -274,7 +301,7 @@ def create_task(req:AnalyzeRequest,prefer:str=Header(default="")):
     db.upsert_task(get_conn(),task_id,TaskState.NEW)
     db.update_context(get_conn(),task_id,request_json=req.model_dump_json())
     db.activity(get_conn(),task_id,"created",{"request":req.model_dump()})
-    return _dispatch(task_id,"检查资料",lambda:_create_work(task_id,req,snap),prefer)
+    return _dispatch(task_id,"检查资料",lambda:_create_work(task_id,req,snap),prefer,publishes_plan=True)
 
 
 def _create_work(task_id,req,snapshot):
@@ -287,7 +314,7 @@ def _create_work(task_id,req,snapshot):
     if problems:
         rec.transition(TaskState.NEEDS_INPUT)
         db.upsert_task(get_conn(),task_id,rec.state)
-        return {"task_id":task_id,"state":rec.state.value,"data_problems":problems}
+        return _save_operation_result(task_id,{"task_id":task_id,"state":rec.state.value,"data_problems":problems})
     policy=req.policy
     if req.user_request.strip():
         _phase(task_id,"理解补货要求")
@@ -303,7 +330,7 @@ def _create_work(task_id,req,snapshot):
     if problems:
         rec.transition(TaskState.NEEDS_INPUT)
         db.upsert_task(get_conn(),task_id,rec.state)
-        return {"task_id":task_id,"state":rec.state.value,"data_problems":problems}
+        return _save_operation_result(task_id,{"task_id":task_id,"state":rec.state.value,"data_problems":problems})
     plan=None
     # 统一数据源：将当前 snapshot 保存为 dataset，Planner 通过 MCP 以同一 dataset_id 生成方案。
     dataset_id=db.save_dataset(get_conn(),snapshot)
@@ -324,21 +351,11 @@ def _create_work(task_id,req,snapshot):
             elif session.draft is not None:
                 agent['model_advice'] = agent.get('summary','')
                 agent['summary'] = planner_review(session.draft, agent['model_advice'])
-            plan,h = session.commit(policy)
+            return _publish_candidate(session,policy,"planner",agent)
     except (AgentStageError, ValueError) as exc:
         rec.transition(TaskState.FAILED)
         db.upsert_task(get_conn(),task_id,rec.state)
         raise HTTPException(503,str(exc))
-    # P1-11：commit 后的后续持久化失败时回滚已提交的候选版本，
-    # 避免"本次操作报告失败，但新版本仍可批准"的不一致状态。
-    try:
-        _agent_event(task_id,"planner",1,agent)
-        rec.transition(TaskState.NEEDS_REVIEW)
-        db.upsert_task(get_conn(),task_id,rec.state)
-    except Exception:
-        db.rollback_candidate(get_conn(),task_id,plan.version,restore_state='ANALYZING')
-        raise
-    return {"task_id":task_id,"state":rec.state.value,"plan":plan.model_dump(),"plan_hash":h,"agent":agent}
 
 
 @app.post("/tasks/{task_id}/approve")
@@ -359,8 +376,9 @@ def approve(task_id:str,req:ApprovalRequest,x_restock_approval:str=Header(defaul
             rec.approve(h,plan.version)
         except TransitionError as exc:
             raise HTTPException(409,str(exc))
-        db.upsert_task(get_conn(),task_id,rec.state,h,plan.version)
-        db.activity(get_conn(),task_id,"approved",{"version":plan.version,"plan_hash":h,"source":"human_workbench"})
+        with db.transaction(get_conn()):
+            db.upsert_task(get_conn(),task_id,rec.state,h,plan.version)
+            db.activity(get_conn(),task_id,"approved",{"version":plan.version,"plan_hash":h,"source":"human_workbench"})
         return {"task_id":task_id,"state":rec.state.value,"approved_plan_hash":h,"approved_version":plan.version}
     finally:
         db.update_context(get_conn(),task_id,busy=0,phase="等待执行" if rec.state==TaskState.APPROVED else "等待复核")
@@ -379,37 +397,41 @@ def revise(task_id:str,req:ReviseRequest,prefer:str=Header(default="")):
         raise HTTPException(422,"请填写修改意见、参数或选择新数据。")
     if req.dataset_id:
         _snapshot(req.dataset_id)
-    return _dispatch(task_id,"重新计算方案",lambda:_revise_work(task_id,req),prefer)
+    return _dispatch(task_id,"重新计算方案",lambda:_revise_work(task_id,req),prefer,publishes_plan=True)
 
 
-def _revise_work(task_id,req):
-    rec=get_record(task_id)
-    # M3：PARTIAL / NEEDS_RECONCILIATION 先转为 NEEDS_REVIEW（人工重新决策），
-    # 再进入 ANALYZING 修订；新版本扣除已创建申请覆盖的需求。
-    if rec.state in (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION):
-        # P0-1：NEEDS_RECONCILIATION 必须先完成 unknown 订单核对，
-        # 未知结果未确认前不能修订（换新版本重复购买的风险）。
-        if rec.state == TaskState.NEEDS_RECONCILIATION:
-            plan, _ = db.get_plan(get_conn(), task_id, rec.approved_version or _latest_version(task_id))
-            if plan is not None:
-                adapter = PlaywrightProcurementAdapter(
-                    base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
-                    headless=True)
-                recon = adapter.reconcile_orders(plan)
-                _persist_reconcile_results(task_id, plan, recon)  # P0-2：核对出的已创建订单进入 covered
-                unknown = [r for r in recon if r["state"] == "unknown"]
-                if unknown:
-                    raise HTTPException(409, "结果未知的订单需先人工核对，核对前不能修订或恢复。")
-        rec.transition(TaskState.NEEDS_REVIEW)
-    current,_=db.get_plan(get_conn(),task_id,_latest_version(task_id))
-    rec.transition(TaskState.ANALYZING)
-    db.upsert_task(get_conn(),task_id,rec.state)  # Revokes approval before changing data or policy.
-    db.activity(get_conn(),task_id,"revision_requested",{"version":current.version+1 if current else 1,**req.model_dump()})
-    snapshot=_snapshot(req.dataset_id) if req.dataset_id else (current.dataset_snapshot if current else None)
+def _revise_work(task_id, req):
+    rec = get_record(task_id)
+    allowed = (TaskState.NEEDS_REVIEW, TaskState.APPROVED, TaskState.NEEDS_INPUT,
+               TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION)
+    if rec.state not in allowed:
+        raise HTTPException(409, "当前状态不能修改方案。")
+    current, _ = db.get_plan(get_conn(), task_id, _latest_version(task_id))
+    snapshot = _snapshot(req.dataset_id) if req.dataset_id else (current.dataset_snapshot if current else None)
     if snapshot is None:
-        raise _revision_error(rec,"legacy plan has no data snapshot; create a new task with confirmed data",409)
-    if not req.dataset_id and snapshot_hash(snapshot)!=current.dataset_hash:
-        raise _revision_error(rec,"dataset snapshot hash mismatch",409)
+        if rec.state in (TaskState.NEEDS_REVIEW,TaskState.APPROVED):
+            rec.transition(TaskState.ANALYZING)
+            db.upsert_task(get_conn(),task_id,rec.state)
+            raise _revision_error(rec,"legacy plan has no data snapshot; create a new task with confirmed data",409)
+        raise HTTPException(409, "legacy plan has no data snapshot; create a new task with confirmed data")
+    if not req.dataset_id and snapshot_hash(snapshot) != current.dataset_hash:
+        raise HTTPException(409, "dataset snapshot hash mismatch")
+    executed = ledger.has_execution(get_conn(), task_id)
+    if executed and current and snapshot_hash(snapshot) != current.dataset_hash:
+        raise HTTPException(409, "已有执行尝试的任务不能更换数据快照，请先核对原任务。")
+    if rec.state in (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION):
+        approved, _ = _approved_plan(rec)
+        _observe_reconciliation(task_id, approved, _adapter().reconcile_orders(approved))
+    if executed or rec.state in (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION):
+        try:
+            ledger.coverage(get_conn(), task_id, snapshot_hash(snapshot))
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+    if rec.state in (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION):
+        rec.transition(TaskState.NEEDS_REVIEW)
+    rec.transition(TaskState.ANALYZING)
+    db.upsert_task(get_conn(),task_id,rec.state)
+    db.activity(get_conn(),task_id,"revision_requested",{"version":current.version+1 if current else 1,**req.model_dump()})
     original_req=db.get_context(get_conn(),task_id).get('request') or {}
     policy=req.policy or (current.policy if current else Policy.model_validate(original_req.get('policy',{})))
     problems=validate_policy(policy,snapshot)
@@ -434,290 +456,158 @@ def _revise_work(task_id,req):
                 _check_summary_currency(agent)
             else:
                 session.call('revise_plan', {'task_id':task_id,'dataset_id':dataset_id,'policy':policy.model_dump()})
-            plan,h=session.commit(policy)
+            return _publish_candidate(session,policy,"reviser",agent)
     except (AgentStageError, ValueError) as exc:
         raise _revision_error(rec,str(exc),422)
-    # P1-11：commit 后的后续持久化失败时回滚已提交的候选版本。
+
+
+def _adapter():
+    return PlaywrightProcurementAdapter(
+        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
+        headless=os.getenv("PROCUREMENT_HEADLESS", "true").lower() != "false",
+        timeout_ms=int(os.getenv("PROCUREMENT_TIMEOUT_MS", "15000")))
+
+
+def _approved_plan(rec):
+    if rec.approved_version is None or rec.approved_plan_hash is None:
+        raise HTTPException(409, "缺少有效的人工批准，不能核对或恢复采购。")
+    plan, h = db.get_plan(get_conn(), rec.task_id, rec.approved_version)
+    if plan is None or plan.version != rec.approved_version or h != rec.approved_plan_hash:
+        raise HTTPException(409, "plan hash mismatch: approved version/content changed")
+    return plan, h
+
+
+def _observe_reconciliation(task_id, plan, observations, metadata=None):
+    from app.models import plan_hash
+    results = ledger.reconciliation_results(get_conn(), task_id, plan, observations)
+    check_meta = {"version": plan.version, "plan_hash": plan_hash(plan), "check_id": uuid.uuid4().hex}
+    with db.transaction(get_conn()):
+        for result in results:
+            ledger.record_observation(get_conn(),task_id,plan,result,
+                "order_checked" if metadata else "reconciliation_observed", metadata or check_meta)
+        db.activity(get_conn(), task_id, "reconciled", {"version": plan.version, "results": results})
+    return results
+
+
+def _begin_attempt(task_id, recovering):
+    with db.transaction(get_conn()):
+        rec = get_record(task_id)
+        allowed = (TaskState.PARTIAL, TaskState.NEEDS_RECONCILIATION, TaskState.FAILED) if recovering else (TaskState.APPROVED,)
+        if rec.state not in allowed:
+            raise HTTPException(409, "当前状态不允许此执行操作。")
+        plan, h = _approved_plan(rec)
+        if not recovering and ledger.has_execution(get_conn(),task_id):
+            if ledger.has_execution(get_conn(),task_id,plan.version):
+                raise HTTPException(409,'此版本已有执行尝试，请使用受控核对与恢复。')
+            try:
+                covered, amount = ledger.coverage(get_conn(),task_id,plan.dataset_hash)
+                if plan.dataset_snapshot is None:
+                    raise ValueError('跨版本执行缺少固定数据快照')
+                from app.rules import build_plan
+                from app.validation import merged_rows
+                recomputed = build_plan(task_id,plan.version,plan.dataset_hash,plan.policy,
+                    merged_rows(plan.dataset_snapshot),plan.dataset_snapshot,covered=covered,covered_amount=amount)
+                from app.models import plan_hash
+                if plan_hash(recomputed) != h:
+                    raise ValueError('已批准方案未准确扣除当前有效申请，请重新复核修订')
+            except ValueError as exc:
+                raise HTTPException(409,str(exc)) from exc
+        rec.transition(TaskState.EXECUTING)
+        db.upsert_task(get_conn(),task_id,rec.state,h,plan.version)
+        meta = {"attempt_id": uuid.uuid4().hex, "version": plan.version, "plan_hash": h}
+        orders = build_supplier_orders(plan)
+        db.append_execution_event(get_conn(),task_id,"execution_started",None, {
+            **meta, "protocol_version": 2, "mode": "recover" if recovering else "execute",
+            "recovered": recovering,
+            "orders": [{"external_ref": o["external_ref"], "supplier_id": o["supplier_id"],
+                        "lines": len(o["lines"]), "total_cost_cents": o["total_cost_cents"]} for o in orders]})
+    return plan, meta
+
+
+def _finish_attempt(task_id, plan, meta, results):
+    summary = summarize_execution(results)
+    with db.transaction(get_conn()):
+        rec = get_record(task_id)
+        rec.transition(TaskState(summary['state']))
+        db.upsert_task(get_conn(),task_id,rec.state,meta['plan_hash'],plan.version)
+        db.append_execution_event(get_conn(),task_id,"execution_finished",None,
+            {**meta, **summary, "final_task_state": rec.state.value})
+    return {"results": results, **summary}
+
+
+def _run_execution(task_id, recovering=False):
+    plan, meta = _begin_attempt(task_id, recovering)
+    adapter = _adapter()
+    def record(result):
+        ledger.record_observation(get_conn(),task_id,plan,result,'order_result',meta)
+    def intent(order):
+        db.append_execution_event(get_conn(),task_id,'submit_intent',order['external_ref'],
+            {**meta,'supplier_id':order['supplier_id'],'lines':len(order['lines']),
+             'total_cost_cents':order['total_cost_cents']})
+    def progress(order, kind, payload):
+        db.append_execution_event(get_conn(),task_id,kind,order['external_ref'],{**payload,**meta})
+    if recovering:
+        observed = _observe_reconciliation(task_id,plan,adapter.reconcile_orders(plan),meta)
+        to_recover = {r['external_ref'] for r in observed if r.get('submission_state') == 'not_attempted'}
+        results = []
+        for result in observed:
+            if result['external_ref'] not in to_recover:
+                record(result)
+                results.append(result)
+        if to_recover:
+            report = adapter.execute_plan(plan,on_order_result=record,only_refs=to_recover,
+                                          on_submit_intent=intent,on_progress=progress)
+            results.extend(report['results'])
+    else:
+        results = adapter.execute_plan(plan,on_order_result=record,on_submit_intent=intent,
+                                       on_progress=progress)['results']
+    report = _finish_attempt(task_id,plan,meta,results)
+    if recovering:
+        db.activity(get_conn(),task_id,'recovered',{'version':plan.version, 'attempt_id':meta['attempt_id'], 'results':results})
+        return {"task_id":task_id,"state":report['state'],"version":plan.version,"execution":report,
+                "recovered":[r for r in results if not r.get('reconciled')],
+                "skipped_unknown":[r['external_ref'] for r in results if r.get('problems')],
+                "message":"恢复及核对结果已保存；待核对事项不会重新提交。"}
+    _phase(task_id,"汇总申请与核对结果")
     try:
-        _agent_event(task_id,"reviser",plan.version,agent)
-        rec.transition(TaskState.NEEDS_REVIEW)
-        db.upsert_task(get_conn(),task_id,rec.state)
-    except Exception:
-        db.rollback_candidate(get_conn(),task_id,plan.version,restore_state='ANALYZING')
-        raise
-    return {"task_id":task_id,"state":rec.state.value,"plan":plan.model_dump(),"plan_hash":h,"agent":agent}
+        with ToolSession(get_conn(),task_id,'executor',current=plan).activate():
+            agent=_run_agent_stage('executor',canonical_json({'task_id':task_id,'version':plan.version,'execution':report}),
+                '请根据真实回执汇总执行结果；可以调用 get_execution_result 核对，不允许写入或重试采购。')
+            _check_summary_currency(agent)
+    except AgentStageError as exc:
+        agent={'status':'error','summary':'','error':str(exc)}
+    _agent_event(task_id,'executor',plan.version,agent)
+    return {"task_id":task_id,"state":report['state'],"executed_plan_hash":meta['plan_hash'],"execution":report,"agent":agent}
 
 
 @app.post("/tasks/{task_id}/execute")
-def execute(task_id: str,prefer:str=Header(default="")):
-    rec=get_record(task_id)
-    if rec.state is not TaskState.APPROVED:
-        raise HTTPException(409,"只有已批准且尚未执行的方案可以执行。")
-    return _dispatch(task_id,"录入采购申请",lambda:_execute_work(task_id),prefer)
-
-
-def _execute_work(task_id):
-    rec = get_record(task_id)
-    # 永远按批准的 version 取方案，不能因数据库出现更新版本而换单。
-    version = rec.approved_version or _latest_version(task_id)
-    plan, h = db.get_plan(get_conn(), task_id, version)
-    try:
-        rec.check_execution_authority(h)
-        if rec.state is TaskState.APPROVED:
-            rec.transition(TaskState.EXECUTING)
-        # EXECUTING 可重入：进程崩溃后的恢复也走同一 external_ref 回查流程。
-    except TransitionError as exc:
-        raise HTTPException(409, str(exc))
-    db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
-
-    adapter = PlaywrightProcurementAdapter(
-        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
-        headless=os.getenv("PROCUREMENT_HEADLESS", "true").lower() != "false",
-        timeout_ms=int(os.getenv("PROCUREMENT_TIMEOUT_MS", "15000")),
-    )
-    orders = build_supplier_orders(plan)
-    db.append_execution_event(get_conn(), task_id, "execution_started", None, {
-        "plan_id": plan.plan_id, "version": plan.version, "plan_hash": h,
-        "orders": [{"external_ref": o["external_ref"],
-                    "supplier_id": o["supplier_id"],
-                    "lines": len(o["lines"]),
-                    "total_cost_cents": o["total_cost_cents"]}
-                   for o in orders],
-    })
-    # M3 逐步落账：每个订单完成时立即持久化执行记录与事件，
-    # 中断时已完成订单的过程记录不丢失（不再整批结束才落账）。
-    def _record_order_result(result):
-        # P1-8：记录与事件的持久化失败不能留下不一致状态——
-        # 记录错误并抛出（不宽捕获），进程崩溃前能说明哪个 external_ref 的记录失败。
-        try:
-            db.save_execution_record(
-                get_conn(), task_id, plan.plan_id, plan.version,
-                result["external_ref"], result["status"], result,
-            )
-            db.append_execution_event(get_conn(), task_id, "order_result",
-                                      result["external_ref"], {
-                "status": result["status"],
-                "order_id": result.get("order_id"),
-                "problems": result.get("problems"),
-                "error": result.get("error"),
-                "attempt_log": result.get("attempt_log", []),
-                "plan_hash": h,
-            })
-        except Exception as exc:
-            db.activity(get_conn(), task_id, "ledger_error", {
-                "external_ref": result["external_ref"],
-                "plan_hash": h, "error": str(exc),
-            })
-            raise
-    # P1-8：提交意图及时落账——在发出提交前先持久化提交意图，
-    # 进程在提交后、订单结果前崩溃时，数据库能说明已对哪个 external_ref 发出提交。
-    def _submit_intent(order):
-        db.append_execution_event(get_conn(), task_id, "submit_intent",
-                                  order["external_ref"], {
-            "plan_hash": h, "supplier_id": order["supplier_id"],
-            "lines": len(order["lines"]),
-            "total_cost_cents": order["total_cost_cents"],
-        })
-    report = adapter.execute_plan(plan, on_order_result=_record_order_result,
-                                  on_submit_intent=_submit_intent)
-    rec.transition(TaskState(report["state"]))
-    db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
-    db.append_execution_event(get_conn(), task_id, "execution_finished", None, {
-        "state": report["state"], "succeeded": report.get("succeeded"),
-        "total": report.get("total"), "plan_hash": h,
-        "final_task_state": rec.state.value,
-    })
-
-    _phase(task_id,"汇总申请与核对结果")
-    try:
-        with ToolSession(get_conn(), task_id, 'executor', current=plan).activate():
-            agent = _run_agent_stage("executor", canonical_json({'task_id':task_id,'version':plan.version,'execution':report}),
-                "请根据真实回执汇总执行结果；可以调用 get_execution_result 核对，不允许写入或重试采购。")
-            _check_summary_currency(agent)
-    except AgentStageError as exc:
-        # 采购结果已经持久化，解释 Agent 故障不能掩盖或改变实际执行状态。
-        agent = {"status": "error", "summary": "", "error": str(exc)}
-    _agent_event(task_id,"executor",plan.version,agent)
-    return {"task_id": task_id, "state": rec.state.value,
-            "executed_plan_hash": h, "execution": report, "agent": agent}
-
-
-def _persist_reconcile_results(task_id, plan, recon_results):
-    """P0-2：把核对出的已创建订单写入 execution_records，供跨版本覆盖量使用。
-
-    已确认存在的订单必须进入 covered 的唯一来源（execution_records），
-    否则"先核对、后修订"时已确认订单仍会被重新计入新版本需求（重复采购）。
-    按 external_ref + order_id 去重，避免同一订单被重复记录。
-    """
-    existing = db.list_execution_records(get_conn(), task_id)
-    seen = {(r["external_ref"], ((r.get("receipt") or {}).get("receipt") or {}).get("order_id"))
-            for r in existing if r.get("status") == "created"}
-    for r in recon_results:
-        if r["state"] != "created":
-            continue
-        key = (r["external_ref"], r["order_id"])
-        if key in seen:
-            continue
-        db.save_execution_record(get_conn(), task_id, plan.plan_id, plan.version,
-                                 r["external_ref"], "created", {
-            "supplier_id": r["supplier_id"],
-            "external_ref": r["external_ref"],
-            "status": "created",
-            "order_id": r["order_id"],
-            "receipt": r["receipt"],  # 完整回执（含订单行，供 covered 提取）
-            "problems": r["problems"],
-            "reconciled": True,
-        })
-        seen.add(key)
+def execute(task_id: str, prefer: str = Header(default="")):
+    if get_record(task_id).state is not TaskState.APPROVED:
+        raise HTTPException(409, "只有已批准且尚未执行的方案可以执行。")
+    return _dispatch(task_id,"录入采购申请",lambda:_run_execution(task_id),prefer)
 
 
 @app.post("/tasks/{task_id}/reconcile")
-def reconcile(task_id: str):
-    """M3 受控核对：按原 external_ref 查询实际后台，返回确定状态，不创建新单。
-
-    仅 NEEDS_RECONCILIATION / PARTIAL 状态可调用（执行结果待核对的任务）。
-    返回每个供应商的确定状态（created / not_submitted / unknown），
-    供人工复核与后续受控恢复决策；本端点只读，不提交、不修改任务状态。
-    核对出的已创建订单会写入 execution_records（P0-2），供修订时 covered 正确扣除。
-    """
-    rec = get_record(task_id)
-    if rec.state not in (TaskState.NEEDS_RECONCILIATION, TaskState.PARTIAL):
-        raise HTTPException(409, "只有执行结果待核对的任务可以受控核对。")
-    version = rec.approved_version or _latest_version(task_id)
-    plan, _ = db.get_plan(get_conn(), task_id, version)
-    if plan is None:
-        raise HTTPException(404, "找不到已批准的方案。")
-    adapter = PlaywrightProcurementAdapter(
-        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
-        headless=True,
-    )
-    results = adapter.reconcile_orders(plan)
-    _persist_reconcile_results(task_id, plan, results)  # P0-2：核对出的已创建订单进入 covered 来源
-    db.activity(get_conn(), task_id, "reconciled", {
-        "version": plan.version,
-        "states": [{"external_ref": r["external_ref"], "state": r["state"]}
-                   for r in results],
-    })
-    return {"task_id": task_id, "state": rec.state.value,
-            "version": plan.version, "reconciliation": results}
+def reconcile(task_id: str, prefer: str = Header(default="")):
+    if get_record(task_id).state not in (TaskState.NEEDS_RECONCILIATION,TaskState.PARTIAL,TaskState.FAILED):
+        raise HTTPException(409,"只有执行异常的任务可以受控核对。")
+    def work():
+        rec=get_record(task_id)
+        if rec.state not in (TaskState.NEEDS_RECONCILIATION,TaskState.PARTIAL,TaskState.FAILED):
+            raise HTTPException(409,"当前状态不能核对。")
+        plan,_=_approved_plan(rec)
+        _observe_reconciliation(task_id,plan,_adapter().reconcile_orders(plan))
+        facts=ledger.effective_orders(get_conn(),task_id)
+        results=[{**r,'result':r['result']} for r in facts.values() if r['version']==plan.version]
+        return {"task_id":task_id,"state":rec.state.value,"version":plan.version,"reconciliation":results}
+    return _dispatch(task_id,"核对采购申请",work,prefer)
 
 
 @app.post("/tasks/{task_id}/recover")
 def recover(task_id: str, prefer: str = Header(default="")):
-    """M3 受控恢复：只恢复确定未成功的订单，已创建的保留，不生成新版本。
-
-    流程：先受控核对确定状态，只恢复 not_submitted 的订单（用原 external_ref
-    重新提交，幂等防重）；created 的保留不重复提交，unknown 的不自动恢复
-    （需人工核对）。恢复后按实际结果更新任务状态。
-    P1-2：使用与正常执行相同的互斥/异步机制（防双击并发、状态持久化、重启中断恢复）。
-    """
-    rec = get_record(task_id)
-    # P1-4：FAILED（全部确定未提交，如连接拒绝）也允许受控恢复。
-    if rec.state not in (TaskState.NEEDS_RECONCILIATION, TaskState.PARTIAL, TaskState.FAILED):
-        raise HTTPException(409, "只有执行结果待核对的任务可以受控恢复。")
-    return _dispatch(task_id, "受控恢复", lambda: _recover_work(task_id), prefer)
-
-
-def _recover_work(task_id):
-    rec = get_record(task_id)
-    version = rec.approved_version or _latest_version(task_id)
-    plan, h = db.get_plan(get_conn(), task_id, version)
-    if plan is None:
-        raise HTTPException(404, "找不到已批准的方案。")
-    # P1-1：recover 必须重新校验批准指纹（与正常执行相同，防绕过人工批准）。
-    # 恢复路径（PARTIAL/NEEDS_RECONCILIATION/FAILED）允许，但批准指纹必须匹配。
-    if rec.approved_plan_hash is None or h != rec.approved_plan_hash:
-        raise HTTPException(409, "plan hash mismatch: refused to recover a plan that was never approved")
-    adapter = PlaywrightProcurementAdapter(
-        base_url=os.getenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200"),
-        headless=True,
-    )
-    # 先受控核对确定状态，只恢复确定未提交的订单；unknown 不自动恢复。
-    recon = adapter.reconcile_orders(plan)
-    _persist_reconcile_results(task_id, plan, recon)  # P0-2：核对出的已创建订单进入 covered 来源
-    # P0-3：读取历史 unknown 订单（此前 submission_state=unknown），
-    # 即使本次 recon 返回 not_submitted（空回查），也不能自动恢复（可能延迟落库）。
-    historical_unknown_refs = set()
-    for record in db.list_execution_records(get_conn(), task_id):
-        result = record.get('receipt') or {}
-        if result.get('submission_state') == 'unknown':
-            historical_unknown_refs.add(record['external_ref'])
-    refs_to_recover = {r["external_ref"] for r in recon
-                       if r["state"] == "not_submitted" and r["external_ref"] not in historical_unknown_refs}
-    unknown_refs = [r["external_ref"] for r in recon
-                    if r["state"] == "unknown" or r["external_ref"] in historical_unknown_refs]
-    if not refs_to_recover:
-        # P1-3：全部订单经核对均已 created（无 unknown）时，任务已完成，
-        # 应进行完整回读判断并转为 COMPLETED（而非直接返回保持待核对）。
-        all_created = bool(recon) and all(r["state"] == "created" for r in recon)
-        if all_created and not unknown_refs:
-            rec.transition(TaskState.COMPLETED)
-            db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
-            db.append_execution_event(get_conn(), task_id, "execution_finished", None, {
-                "state": rec.state.value, "recovered": True, "plan_hash": h,
-                "final_task_state": rec.state.value,
-            })
-            db.activity(get_conn(), task_id, "recovered", {
-                "version": plan.version, "recovered_refs": [],
-                "skipped_unknown": unknown_refs, "already_complete": True,
-            })
-            return {"task_id": task_id, "state": rec.state.value,
-                    "recovered": [], "skipped_unknown": unknown_refs,
-                    "message": "所有订单经核对均已存在，任务完成。"}
-        return {"task_id": task_id, "state": rec.state.value,
-                "recovered": [], "skipped_unknown": unknown_refs,
-                "message": "没有可恢复的确定未提交订单；结果未知的订单需先人工核对。"}
-
-    # P1-8：recover 也有独立的 execution_started（恢复操作的开始，
-    # 含恢复订单集合与 plan_hash，并保存完整 recon 结果供审计追溯）。
-    db.append_execution_event(get_conn(), task_id, "execution_started", None, {
-        "plan_id": plan.plan_id, "version": plan.version, "plan_hash": h,
-        "recovered": True,
-        "orders": [{"external_ref": r["external_ref"], "supplier_id": r["supplier_id"],
-                    "lines": 0, "total_cost_cents": 0}
-                   for r in recon if r["external_ref"] in refs_to_recover],
-        "reconciliation": recon,
-    })
-
-    def _record(result):
-        # P1-8：恢复过程的记录与事件持久化失败不能留下不一致状态。
-        try:
-            db.save_execution_record(
-                get_conn(), task_id, plan.plan_id, plan.version,
-                result["external_ref"], result["status"], result)
-            db.append_execution_event(get_conn(), task_id, "order_result",
-                                      result["external_ref"], {
-                "status": result["status"], "order_id": result.get("order_id"),
-                "problems": result.get("problems"), "error": result.get("error"),
-                "attempt_log": result.get("attempt_log", []), "plan_hash": h,
-                "recovered": True,
-            })
-        except Exception as exc:
-            db.activity(get_conn(), task_id, "ledger_error", {
-                "external_ref": result["external_ref"],
-                "plan_hash": h, "recovered": True, "error": str(exc),
-            })
-            raise
-    report = adapter.execute_plan(plan, on_order_result=_record,
-                                  only_refs=refs_to_recover)
-    # 状态更新：全部恢复成功且无 unknown → COMPLETED；仍有 unknown → 保持待核对。
-    # P0-5：执行结果字段为 status（不是 state）。
-    all_created = all(r["status"] == "created" for r in report["results"])
-    if all_created and not unknown_refs:
-        rec.transition(TaskState.COMPLETED)
-        db.upsert_task(get_conn(), task_id, rec.state, h, plan.version)
-    db.append_execution_event(get_conn(), task_id, "execution_finished", None, {
-        "state": rec.state.value, "recovered": True, "plan_hash": h,
-        "final_task_state": rec.state.value,
-    })
-    db.activity(get_conn(), task_id, "recovered", {
-        "version": plan.version,
-        "recovered_refs": sorted(refs_to_recover),
-        "skipped_unknown": unknown_refs,
-    })
-    return {"task_id": task_id, "state": rec.state.value,
-            "version": plan.version, "recovered": report["results"],
-            "skipped_unknown": unknown_refs}
+    if get_record(task_id).state not in (TaskState.NEEDS_RECONCILIATION,TaskState.PARTIAL,TaskState.FAILED):
+        raise HTTPException(409,"只有执行异常的任务可以受控恢复。")
+    return _dispatch(task_id,"受控恢复",lambda:_run_execution(task_id,True),prefer)
 
 
 @app.get("/tasks/{task_id}")
@@ -743,105 +633,16 @@ def get_executions(task_id: str):
 
 @app.get("/tasks/{task_id}/summary")
 def get_task_summary(task_id: str):
-    """P1-9：当前任务整体有效申请与未完成事项汇总（跨版本）。
-
-    保留 v1 有效申请并生成 v2 后，需要跨版本汇总：
-    - 有效申请：所有版本的 execution_records 里实际订单存在的记录
-      （created/recovered_after_error/already_exists），按 external_ref+order_id 去重
-    - 未完成事项：结果未知、回读不一致、未提交的订单
-    """
-    rec = get_record(task_id)
-    records = db.list_execution_records(get_conn(), task_id)
-    valid = {}
-    for r in records:
-        if r.get("status") not in ("created", "recovered_after_error", "already_exists"):
-            continue
-        result = r.get("receipt") or {}
-        if result.get("problems"):
-            continue  # 回读不一致不算有效覆盖
-        receipt = result.get("receipt")
-        if not receipt:
-            continue
-        key = (r["external_ref"], receipt.get("order_id"))
-        valid[key] = {
-            "external_ref": r["external_ref"],
-            "supplier_id": result.get("supplier_id"),
-            "order_id": receipt.get("order_id"),
-            "version": r.get("version"),
-            "status": r["status"],
-            "lines": receipt.get("lines", []),
-            "total_cost_cents": receipt.get("total_cost_cents"),
-        }
-    pending = []
-    for r in records:
-        result = r.get("receipt") or {}
-        if (result.get("submission_state") == "unknown" or result.get("problems")
-                or r.get("status") in ("unknown", "failed")):
-            pending.append({
-                "external_ref": r["external_ref"],
-                "supplier_id": result.get("supplier_id"),
-                "status": r["status"],
-                "problems": result.get("problems") or [],
-                "error": result.get("error"),
-            })
-    return {"task_id": task_id, "state": rec.state.value,
-            "valid_orders": list(valid.values()), "pending_items": pending}
+    get_record(task_id)
+    with db._LOCK:
+        return ledger.task_summary(get_conn(),task_id)
 
 
 @app.get("/tasks/{task_id}/audit-trail")
 def get_audit_trail(task_id: str):
-    """执行回放审计账本：append-only 事件链（seq 即回放顺序）。
-
-    完整性校验（M3）：空账本不代表完整执行；必须有执行结束事件；
-    order_result 必须携带 plan_hash 且与当前批准版本一致。
-    """
-    rec = get_record(task_id)
-    events = db.list_execution_events(get_conn(), task_id)
-    if not events:
-        replay_ok = False  # 空账本不代表完整执行
-    else:
-        # P1-6：必须有 execution_started（没有 started 的执行不完整）
-        has_started = any(e["event_type"] == "execution_started" for e in events)
-        has_finish = any(e["event_type"] == "execution_finished" for e in events)
-        # P1-6：finished 必须是最后一个事件（顺序校验）
-        last_is_finish = events[-1]["event_type"] == "execution_finished"
-        # 每次尝试独立闭合（P1-6：跨尝试不合并，前一次事件不掩盖后一次缺失）
-        attempts = []
-        current = None
-        for e in events:
-            if e["event_type"] == "execution_started":
-                if current is not None:
-                    attempts.append(current)
-                current = {"started": e, "results": [], "finished": None}
-            elif e["event_type"] == "order_result" and current is not None:
-                current["results"].append(e)
-            elif e["event_type"] == "execution_finished" and current is not None:
-                current["finished"] = e
-                attempts.append(current)
-                current = None
-        if current is not None:
-            attempts.append(current)  # 未闭合的尝试（没有 finished）
-
-        def _attempt_complete(a):
-            if a["finished"] is None:
-                return False
-            started_orders = {o["external_ref"] for o in a["started"]["payload"].get("orders", [])}
-            result_refs = {r["external_ref"] for r in a["results"]}
-            if started_orders != result_refs:
-                return False  # 订单集合必须与 started 声明一致（不少也不多）
-            started_hash = a["started"]["payload"].get("plan_hash")
-            for r in a["results"]:
-                rh = r["payload"].get("plan_hash")
-                # P1-7：order_result 的 hash 必须存在且与 started 一致
-                # （不依赖当前 approved_hash，避免 fail-open 和跨版本误判）
-                if not rh or rh != started_hash:
-                    return False
-            return True
-
-        replay_ok = (has_started and has_finish and last_is_finish
-                     and all(_attempt_complete(a) for a in attempts))
-    return {"task_id": task_id, "events": events,
-            "replay_complete": replay_ok, "event_count": len(events)}
+    get_record(task_id)
+    with db._LOCK:
+        return ledger.audit(get_conn(),task_id)
 
 
 def _latest_version(task_id: str) -> int:
@@ -891,7 +692,7 @@ def get_artifact(task_id:str,version:int,kind:str):
     if plan is None or kind not in ('csv','html'):
         raise HTTPException(404,"找不到交付物。")
     content=reports.export_csv(plan) if kind=='csv' else reports.export_html(plan,rec.state.value,
-        db.list_activity(get_conn(),task_id),db.list_execution_records(get_conn(),task_id),h).encode('utf-8')
+        db.list_activity(get_conn(),task_id),db.list_execution_records(get_conn(),task_id),h,task_summary=ledger.task_summary(get_conn(),task_id),audit_summary=ledger.audit(get_conn(),task_id)).encode('utf-8')
     return Response(content,media_type='text/csv' if kind=='csv' else 'text/html',headers={
         'Content-Disposition':f'attachment; filename="restock-{version}.{kind}"',
         'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'"})

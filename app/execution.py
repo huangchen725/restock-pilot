@@ -47,6 +47,10 @@ def build_supplier_orders(plan: Plan) -> List[dict]:
 def reconcile_receipt(order: dict, receipt: dict) -> List[str]:
     """双通道一致性校验：批准方案 vs 采购后台回读详情。"""
     problems = []
+    if receipt.get('status') != 'SUBMITTED':
+        problems.append('order status is not SUBMITTED')
+    if not isinstance(receipt.get('order_id'), str) or not receipt['order_id'].strip():
+        problems.append('missing order_id')
     for field in ("external_ref", "supplier_id"):
         if receipt.get(field) != order[field]:
             problems.append(
@@ -93,6 +97,18 @@ def summarize_execution(results: List[dict]) -> dict:
     return {"state": state.value, "succeeded": succeeded, "total": len(results)}
 
 
+class LedgerWriteError(RuntimeError):
+    """Persistence failure must abort browser execution, never become success."""
+
+
+def _notify(callback, *args):
+    if callback is not None:
+        try:
+            callback(*args)
+        except Exception as exc:
+            raise LedgerWriteError(str(exc)) from exc
+
+
 class PlaywrightProcurementAdapter:
     """通过采购后台真实 UI 创建申请单，并从详情页回读核对。"""
 
@@ -102,7 +118,7 @@ class PlaywrightProcurementAdapter:
         self.headless = headless
         self.timeout_ms = timeout_ms
 
-    def execute_plan(self, plan: Plan, on_order_result=None, only_refs=None, on_submit_intent=None) -> dict:
+    def execute_plan(self, plan: Plan, on_order_result=None, only_refs=None, on_submit_intent=None, on_progress=None) -> dict:
         orders = build_supplier_orders(plan)
         # M3 受控恢复：only_refs 限定只恢复指定订单（其余不触碰，不生成新版本）。
         if only_refs is not None:
@@ -122,22 +138,22 @@ class PlaywrightProcurementAdapter:
                     page = browser.new_page()
                     page.set_default_timeout(self.timeout_ms)
                     for order in orders:
-                        result = self._execute_order(page, order, on_submit_intent=on_submit_intent)
+                        result = self._execute_order(page, order, on_submit_intent=on_submit_intent, on_progress=on_progress)
                         results.append(result)
                         # M3 逐步落账：每个订单完成时立即回调持久化，
                         # 中断时已完成订单的过程记录不丢失（不再整批结束才落账）。
-                        if on_order_result is not None:
-                            on_order_result(result)
+                        _notify(on_order_result, result)
                 finally:
                     browser.close()
+        except LedgerWriteError:
+            raise
         except Exception as exc:
             completed_refs = {result["external_ref"] for result in results}
             for order in orders:
                 if order["external_ref"] not in completed_refs:
                     failure = self._failure(order, exc)
                     results.append(failure)
-                    if on_order_result is not None:
-                        on_order_result(failure)
+                    _notify(on_order_result, failure)
         return {"results": results, **summarize_execution(results)}
 
     def reconcile_orders(self, plan: Plan) -> List[dict]:
@@ -197,8 +213,9 @@ class PlaywrightProcurementAdapter:
                 browser.close()
         return results
 
-    def _execute_order(self, page, order: dict, on_submit_intent=None) -> dict:
+    def _execute_order(self, page, order: dict, on_submit_intent=None, on_progress=None) -> dict:
         attempt_log: List[dict] = []
+        _notify(on_progress, order, 'lookup_started', {})
         try:
             existing = self._find_by_ref(page, order["external_ref"], attempt_log)
         except Exception as exc:
@@ -208,8 +225,10 @@ class PlaywrightProcurementAdapter:
             result = self._failure(order, exc, attempt_log)
             result['submission_state'] = 'not_attempted'
             return result
+        _notify(on_progress, order, 'lookup_finished', {'found': existing is not None})
         if existing is not None:
             return self._receipt_result(order, existing, "already_exists", attempt_log)
+        submitted = False
         try:
             page.goto(f"{self.base_url}/purchase-orders/new")
             page.fill("#external-ref", order["external_ref"])
@@ -225,16 +244,22 @@ class PlaywrightProcurementAdapter:
                 row.locator('[data-field="unit_cost_cents"]').fill(str(line["unit_cost_cents"]))
             # P1-8：提交意图及时落账——在发出提交前先持久化提交意图，
             # 进程在提交后、订单结果前崩溃时，数据库能说明已对哪个 external_ref 发出提交。
-            if on_submit_intent is not None:
-                on_submit_intent(order)
+            _notify(on_submit_intent, order)
             attempt_log.append({"step": "submit", "lines": len(order["lines"])})
+            submitted = True
             page.click("#submit-order")
             page.wait_for_url(re.compile(r"/purchase-orders/(?!new$)[^/]+$"),
                               timeout=self.timeout_ms)
             receipt = self._read_detail(page)
             attempt_log.append({"step": "readback", "order_id": receipt.get("order_id")})
+            _notify(on_progress, order, 'readback_completed', {'order_id': receipt.get('order_id')})
             return self._receipt_result(order, receipt, "created", attempt_log)
+        except LedgerWriteError:
+            raise
         except Exception as exc:
+            if not submitted:
+                attempt_log.append({'step': 'before_submit_error', 'error': str(exc)[:300]})
+                return self._failure(order, exc, attempt_log)
             attempt_log.append({"step": "submit_error",
                                 "error": f"{type(exc).__name__}: {exc}"[:300]})
             # 请求可能已在服务端成功：先按幂等键回查，不得直接再次提交。
@@ -251,16 +276,7 @@ class PlaywrightProcurementAdapter:
                                     "order_id": recovered.get("order_id")})
                 return self._receipt_result(order, recovered,
                                             "recovered_after_error", attempt_log)
-            # 回查未找到：区分"确定未提交"与"结果未知"（M3）。
-            # 连接拒绝（后台明确未收到请求）→ 确定未提交，可安全重试；
-            # 超时/响应丢失（后台可能已落库但回查时延迟未出现）→ 结果未知，
-            # 进入待人工核对，不得盲目重试或重复购买。
-            msg = str(exc).lower()
-            if ("connection_refused" in msg or "connection refused" in msg
-                    or "econnrefused" in msg):
-                attempt_log.append({"step": "confirmed_not_submitted",
-                                    "reason": "connection_refused"})
-                return self._failure(order, exc, attempt_log)
+            # After a submission attempt, a missing row cannot prove non-submission.
             attempt_log.append({"step": "unknown_not_confirmed",
                                 "reason": "submit_error_but_no_order_found"})
             return self._unknown(order, exc, attempt_log)
@@ -270,15 +286,8 @@ class PlaywrightProcurementAdapter:
         if attempt_log is not None:
             attempt_log.append({"step": "duplicate_check", "external_ref": external_ref})
         response = page.goto(f"{self.base_url}/purchase-orders?external_ref={quote(external_ref)}")
-        # 区分"回查失败（结果未知）"与"正常无此单（确定未提交）"：
-        # 5xx 是后台异常，无法确认订单状态，必须抛异常进入 recover_lookup_error，
-        # 不能当作"无此单"误判为确定未提交。
-        if response is not None and response.status >= 500:
-            raise RuntimeError(f"回查后台返回 {response.status}，无法确认订单状态")
-        # P0-6：非 5xx 的错误响应（401/403/404/429 权限失败/限流/错误部署）同样不能
-        # 当作"确定无单"——只有明确成功的空查询才能作为"确定未提交"的依据。
-        if response is not None and response.status >= 400:
-            raise RuntimeError(f"回查返回 {response.status}，无法确认订单状态（非成功的空查询）")
+        if response is None or not 200 <= response.status < 300:
+            raise RuntimeError(f"回查后台未返回成功响应，无法确认订单状态: {getattr(response, 'status', None)}")
         if page.locator("a.order-link").count() == 0:
             # P0-6：空查询只有在"预期的订单列表页"（含 #no-orders 空态标识）才算确定无单；
             # 错误页面/登录页/部署错误页面结构异常，无法确认订单状态。

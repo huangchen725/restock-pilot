@@ -175,6 +175,8 @@ def task_panel():
     state=call('GET',f'/tasks/{task_id}')
     if not state: return
     operation=state['operation']; busy=bool(operation['busy'])
+    summary=call('GET',f'/tasks/{task_id}/summary') or {}
+    blocked=any(r['status'] in ('unknown','mismatch') for r in summary.get('pending_items',[]))
     st.subheader(f"任务 {task_id}")
     st.write("**"+STATES.get(state['state'],state['state'])+"**")
     if busy: st.info(operation['phase']+"，页面会自动更新，可稍后通过任务记录返回。")
@@ -183,8 +185,12 @@ def task_panel():
     plan=state.get('latest_plan')
     # P1-9：PARTIAL/NEEDS_RECONCILIATION 允许人工重新决策修订（revise 端点已支持，
     # NEEDS_RECONCILIATION 修订前会先受控核对，unknown 拒绝）。
-    editable=state['state'] in ('NEEDS_INPUT','NEEDS_REVIEW','APPROVED','PARTIAL','NEEDS_RECONCILIATION') and not busy
-    if dataset and editable and (not plan or dataset['dataset_id']!=plan.get('dataset_id')):
+    editable=state['state'] in ('NEEDS_INPUT','NEEDS_REVIEW','APPROVED','PARTIAL','NEEDS_RECONCILIATION') and not busy and not blocked
+    if summary.get('has_execution'):
+        st.caption('此任务已有执行记录，后续修订沿用原数据；已创建申请会从需求和累计预算中扣除。')
+    if blocked:
+        st.warning('存在结果未知或回读不一致的申请。请先核对，当前不能生成新的采购版本。')
+    if dataset and editable and not summary.get('has_execution') and (not plan or dataset['dataset_id']!=plan.get('dataset_id')):
         st.warning("选中了不同的数据版本，应用后旧批准立即失效。")
         if st.button("应用新数据并重新生成",key='replace-data'):
             result=call('POST',f'/tasks/{task_id}/revise',json={'dataset_id':dataset['dataset_id']})
@@ -258,17 +264,12 @@ def task_panel():
         st.success("已批准此版本，可以创建演示采购申请。")
         if st.button("创建采购申请",type='primary'):
             if call('POST',f'/tasks/{task_id}/execute'): st.rerun()
-    records=call('GET',f'/tasks/{task_id}/executions') or {'records':[]}
-    current=[r for r in records['records'] if r['version']==selected]
+    current=[r for r in summary.get('valid_orders',[]) if r['version']==selected]
     if current:
         st.subheader("采购申请与核对结果")
-        for record in current:
-            receipt=record['receipt']; problems=receipt.get('problems') or []
-            st.write(f"申请单 {receipt.get('order_id') or '未获得单号'} · {receipt.get('supplier_id','')}")
-            if receipt.get('receipt') and not problems: st.success("申请已创建，回读核对一致。")
-            else: st.warning("申请未完成或需要核对："+str(problems or receipt.get('error','未知结果')))
-    # P1-9：当前任务整体有效申请与未完成事项汇总（跨版本）
-    summary=call('GET',f'/tasks/{task_id}/summary') or {}
+        for order in current:
+            st.write(f"申请单 {order['order_id']} · {order['supplier_id']}")
+            st.success("申请已创建，回读核对一致。")
     if summary.get('valid_orders') or summary.get('pending_items'):
         with st.expander("当前任务整体申请总览（跨版本）",expanded=bool(summary.get('pending_items'))):
             if summary.get('valid_orders'):
@@ -277,27 +278,28 @@ def task_panel():
                     st.write(f"  · {o.get('order_id') or '未获得单号'} · {o.get('supplier_id','')} · v{o.get('version')} · {o.get('total_cost_cents',0)} 分")
             if summary.get('pending_items'):
                 st.warning("未完成事项：")
+                outcome_labels={'unknown':'结果未知','mismatch':'回读不一致','not_submitted':'确定未提交'}
                 for p in summary['pending_items']:
-                    st.write(f"  · {p.get('external_ref')} · {p.get('supplier_id','')} · {p.get('status')} · {p.get('problems') or p.get('error','结果未知')}")
-    if state['state'] in ('PARTIAL','NEEDS_RECONCILIATION','FAILED'):
+                    st.write(f"  · {p.get('external_ref')} · {p.get('supplier_id','')} · {outcome_labels.get(p.get('status'),p.get('status'))} · {p.get('problems') or p.get('error','结果未知')}")
+    if summary.get('has_execution') and not busy:
+        audit=call('GET',f'/tasks/{task_id}/audit-trail') or {}
+        if audit and not audit.get('replay_complete'):
+            st.warning('执行记录尚不完整：'+'；'.join(audit.get('issues',[])))
+    check_result=(operation.get('result') or {}).get('reconciliation')
+    if check_result and not busy:
+        st.subheader("最新核对结果")
+        labels={'created':'申请存在且一致','not_submitted':'确定未提交','unknown':'结果未知','mismatch':'回读不一致'}
+        for row in check_result:
+            st.write(f"{row['supplier_id']}：{labels.get(row['state'],row['state'])}")
+            if row.get('problems'): st.warning('；'.join(row['problems']))
+    if state['state'] in ('PARTIAL','NEEDS_RECONCILIATION','FAILED') and state.get('approved_version') is not None:
         st.warning("请核对已存在的申请；不要通过新建任务重复采购。")
-        # P1-9：M3 人工核对与恢复闭环——受控核对确定订单状态，受控恢复只恢复确定未提交的订单。
-        col_recon, col_recover = st.columns(2)
-        with col_recon:
-            if st.button("核对申请状态（受控核对）", key=f'reconcile-{task_id}-{selected}'):
-                result = call('POST', f'/tasks/{task_id}/reconcile')
-                if result:
-                    st.write("各供应商订单的确定状态：")
-                    st.json(result.get('reconciliation', []))
-        with col_recover:
-            if st.button("恢复未完成的申请（受控恢复）", key=f'recover-{task_id}-{selected}'):
-                result = call('POST', f'/tasks/{task_id}/recover')
-                if result:
-                    if result.get('recovered'):
-                        st.success(f"已恢复 {len(result['recovered'])} 个申请；结果未知的订单需先人工核对。")
-                    else:
-                        st.info(result.get('message', '没有可恢复的确定未提交订单。'))
-                    st.rerun()
+        if st.button("核对申请状态（受控核对）", key=f'reconcile-{task_id}-{selected}',disabled=busy):
+            if call('POST',f'/tasks/{task_id}/reconcile'): st.rerun()
+        confirmed_recovery=st.checkbox("确认仅恢复已确定未提交的申请",key=f'recover-confirm-{task_id}',disabled=busy)
+        st.caption('恢复会先按原参考号核对；结果未知的申请不会再次提交，已存在的申请保留。')
+        if st.button("恢复未完成的申请（受控恢复）",key=f'recover-{task_id}-{selected}',disabled=busy or not confirmed_recovery):
+            if call('POST',f'/tasks/{task_id}/recover'): st.rerun()
     activity=call('GET',f'/tasks/{task_id}/activity') or {'events':[]}
     with st.expander("阶段记录与分析摘要"):
         for event in activity['events']:

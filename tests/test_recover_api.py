@@ -17,11 +17,16 @@ class _FakeAdapter:
         self.kwargs = kwargs
         self.__class__.instances.append(self)
 
-    def execute_plan(self, plan, on_order_result=None, only_refs=None):
+    def execute_plan(self, plan, on_order_result=None, only_refs=None, on_submit_intent=None, on_progress=None):
         results = []
         for order in build_supplier_orders(plan):
             if only_refs and order["external_ref"] not in only_refs:
                 continue
+            if on_progress:
+                on_progress(order,'lookup_started',{})
+                on_progress(order,'lookup_finished',{'found':False})
+            if on_submit_intent: on_submit_intent(order)
+            if on_progress: on_progress(order,'readback_completed',{})
             receipt = {"order_id": f"PO-{order['supplier_id']}",
                        "external_ref": order["external_ref"],
                        "supplier_id": order["supplier_id"], "status": "SUBMITTED",
@@ -46,8 +51,7 @@ class _FakeAdapter:
                 "external_ref": order["external_ref"],
                 "state": "created" if created else "not_submitted",
                 "order_id": f"PO-{order['supplier_id']}" if created else None,
-                "receipt": {"order_id": f"PO-{order['supplier_id']}",
-                            "lines": order["lines"]} if created else None,
+                "receipt": {**order,"status":"SUBMITTED","order_id": f"PO-{order['supplier_id']}"} if created else None,
                 "problems": [], "attempt_log": [],
             })
         return results
@@ -76,6 +80,11 @@ def _to_partial(client, task_id):
     rec = main.get_record(task_id)
     rec.transition(TaskState.EXECUTING)
     rec.transition(TaskState.PARTIAL)
+    plan,_=db.get_plan(main.get_conn(),task_id,rec.approved_version)
+    for order in build_supplier_orders(plan):
+        db.save_execution_record(main.get_conn(),task_id,task_id,plan.version,order['external_ref'],'failed',
+            {'status':'failed','submission_state':'not_attempted','receipt':None,'problems':[],
+             'supplier_id':order['supplier_id'],'external_ref':order['external_ref']})
     db.upsert_task(main.get_conn(), task_id, rec.state,
                    rec.approved_plan_hash, rec.approved_version)
 
@@ -122,5 +131,5 @@ def test_recover_full_flow_with_audit_and_state(client):
     assert started, "recover 应有独立的 execution_started（recovered=True）"
     # 状态机：全部恢复成功后应为 COMPLETED
     final = client.get(f"/tasks/{task_id}").json()
-    assert final["state"] in (TaskState.COMPLETED.value, TaskState.NEEDS_RECONCILIATION.value,
-                              TaskState.PARTIAL.value)
+    assert final["state"] == TaskState.COMPLETED.value
+    assert client.get(f"/tasks/{task_id}/audit-trail").json()["replay_complete"] is True

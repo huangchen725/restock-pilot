@@ -135,9 +135,9 @@ def test_background_execution_rejects_overlapping_writes(client,dataset,monkeypa
     entered,release=threading.Event(),threading.Event()
     original=main.PlaywrightProcurementAdapter.execute_plan
     calls=[]
-    def slow(adapter,plan,on_order_result=None,on_submit_intent=None):
+    def slow(adapter,plan,on_order_result=None,on_submit_intent=None,on_progress=None):
         calls.append(plan.version); entered.set(); release.wait(5)
-        return original(adapter,plan,on_order_result=on_order_result,on_submit_intent=on_submit_intent)
+        return original(adapter,plan,on_order_result=on_order_result,on_submit_intent=on_submit_intent,on_progress=on_progress)
     monkeypatch.setattr(main.PlaywrightProcurementAdapter,'execute_plan',slow)
     try:
         assert client.post(f'/tasks/{task}/execute',headers={'Prefer':''}).status_code==202

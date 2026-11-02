@@ -26,11 +26,11 @@ TRANSITIONS: dict[TaskState, Set[TaskState]] = {
         TaskState.COMPLETED, TaskState.PARTIAL,
         TaskState.NEEDS_RECONCILIATION, TaskState.FAILED,
     },
-    TaskState.PARTIAL: {TaskState.NEEDS_REVIEW},
-    TaskState.NEEDS_RECONCILIATION: {TaskState.NEEDS_REVIEW},
+    TaskState.PARTIAL: {TaskState.NEEDS_REVIEW, TaskState.EXECUTING},
+    TaskState.NEEDS_RECONCILIATION: {TaskState.NEEDS_REVIEW, TaskState.EXECUTING},
     # 终态
     TaskState.COMPLETED: set(),
-    TaskState.FAILED: set(),
+    TaskState.FAILED: {TaskState.EXECUTING},
 }
 
 

@@ -20,10 +20,16 @@ class _FakeAdapter:
         self.executed_versions = []
         self.__class__.instances.append(self)
 
-    def execute_plan(self, plan, on_order_result=None):
+    def execute_plan(self, plan, on_order_result=None, on_submit_intent=None, on_progress=None, only_refs=None):
         self.executed_versions.append(plan.version)
         results = []
         for order in build_supplier_orders(plan):
+            if only_refs is not None and order['external_ref'] not in only_refs: continue
+            if on_progress:
+                on_progress(order,'lookup_started',{})
+                on_progress(order,'lookup_finished',{'found':False})
+            if on_submit_intent: on_submit_intent(order)
+            if on_progress: on_progress(order,'readback_completed',{})
             receipt = {
                 "order_id": f"PO-{order['supplier_id']}",
                 "external_ref": order["external_ref"],
@@ -43,6 +49,14 @@ class _FakeAdapter:
             if on_order_result is not None:
                 on_order_result(result)
         return {"results": results, **summarize_execution(results)}
+
+    def reconcile_orders(self, plan):
+        stored={r['external_ref']:r['receipt'] for r in db.list_execution_records(main.get_conn(),plan.plan_id)}
+        return [{'external_ref':o['external_ref'],'supplier_id':o['supplier_id'],
+                 'state':'created' if stored.get(o['external_ref'],{}).get('receipt') else 'not_submitted',
+                 'receipt':stored.get(o['external_ref'],{}).get('receipt'),
+                 'order_id':(stored.get(o['external_ref'],{}).get('receipt') or {}).get('order_id'),
+                 'problems':[],'attempt_log':[]} for o in build_supplier_orders(plan)]
 
 
 @pytest.fixture
@@ -218,16 +232,10 @@ def test_revise_deducts_created_order_quantities(client):
     plan, _ = db.get_plan(main.get_conn(), task_id, 1)
     created_item = next(it for it in plan.items if it.order_qty > 0)
     # 手动模拟部分成功：该供应商的订单已创建（execution_records 有 created 记录）
-    db.save_execution_record(main.get_conn(), task_id, plan.plan_id, 1,
-                             f"{task_id}-v1-{created_item.supplier_id}", "created", {
-        "supplier_id": created_item.supplier_id,
-        "external_ref": f"{task_id}-v1-{created_item.supplier_id}",
-        "status": "created",
-        "receipt": {"order_id": "PO-1",
-                    "lines": [{"sku": created_item.sku, "name": created_item.name,
-                               "order_qty": created_item.order_qty,
-                               "unit_cost_cents": created_item.unit_cost_cents}]},
-    })
+    order=next(o for o in build_supplier_orders(plan) if o['supplier_id']==created_item.supplier_id)
+    db.save_execution_record(main.get_conn(),task_id,task_id,1,order['external_ref'],'created',
+        {'supplier_id':order['supplier_id'],'external_ref':order['external_ref'],'status':'created',
+         'receipt':{**order,'order_id':'PO-1','status':'SUBMITTED'},'problems':[]})
     # 转为 PARTIAL 状态（部分成功，允许人工重新决策并修订）
     client.post(f"/tasks/{task_id}/approve")
     rec = main.get_record(task_id)
@@ -237,7 +245,7 @@ def test_revise_deducts_created_order_quantities(client):
                    rec.approved_plan_hash, rec.approved_version)
     # 修订（PARTIAL 允许 revise；改 budget 触发重新计算，cover_days 相同使 gap 可比）
     revised = client.post(f"/tasks/{task_id}/revise", json={
-        "policy": {"budget_cents": 400000, "cover_days": 30, "safety_days": 7,
+        "policy": {"budget_cents": 600000, "cover_days": 30, "safety_days": 7,
                    "priority_categories": [], "excluded_skus": []}})
     assert revised.status_code == 200, revised.text
     v2 = revised.json()["plan"]
