@@ -1,79 +1,91 @@
-# -*- coding: utf-8 -*-
-"""M4 冻结版本连续稳定性测试——连续 10 次正常完整流程至少成功 9 次（内部目标）。
-
-重复运行正常完整流程（上传 → 生成方案 → 批准 → 执行 → 完成），记录成功与失败，
-不只保留最佳结果。测试中未经批准写入、重复申请和金额不一致均为阻断问题。
-
-用法：
-    python scripts/run_stability.py [--runs 10] [--target-success 9]
+"""Frozen-version stability using the actual 30-SKU workbench and browser portal.
+Off and required modes have separate denominators. Any unsafe or unverified result
+blocks the run regardless of the success threshold; only proven pre-purchase
+ordinary timeouts can consume its failure allowance.
 """
-
 import argparse
-import os
-import subprocess
-import sys
+from datetime import datetime
+import json
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-PYTHON = str(ROOT / ".venv" / "Scripts" / "python.exe") if os.name == "nt" else str(ROOT / ".venv" / "bin" / "python")
-
-
-def run_single_flow(run_num):
-    """运行一次正常完整流程，返回 (success, error_msg)。"""
-    env = os.environ.copy()
-    env["RESTOCK_AGENT_MODE"] = "off"
-    # 使用测试里的正常流程测试（场景 1：正常任务）
-    cmd = [PYTHON, "-m", "pytest", "tests/test_fixed_scenarios.py::test_scenario_01_normal_task",
-           "-q", "--tb=short", "-x"]
-    result = subprocess.run(cmd, env=env, cwd=ROOT, capture_output=True, text=True)
-    success = result.returncode == 0
-    error_msg = None
-    if not success:
-        # 提取错误信息（阻断问题：未经批准写入、重复申请、金额不一致）
-        error_msg = result.stdout[-500:] if result.stdout else result.stderr[-500:]
-        # 检查阻断问题
-        if "未经批准" in error_msg or "重复申请" in error_msg or "金额不一致" in error_msg:
-            error_msg = f"阻断问题：{error_msg}"
-    return success, error_msg
+try:
+    from scripts.acceptance_common import ROOT, isolated_env, run_pytest, save_json, fingerprint
+except ModuleNotFoundError:
+    from acceptance_common import ROOT, isolated_env, run_pytest, save_json, fingerprint
 
 
-def main():
-    parser = argparse.ArgumentParser(description="M4 冻结版本连续稳定性测试")
-    parser.add_argument("--runs", type=int, default=10, help="连续运行次数（默认 10）")
-    parser.add_argument("--target-success", type=int, default=9, help="目标成功次数（默认 9）")
-    args = parser.parse_args()
-
-    print(f"M4 冻结版本连续稳定性测试：连续 {args.runs} 次正常完整流程，目标至少成功 {args.target_success} 次")
-    print("="*60)
-
-    successes = 0
-    failures = []
-    for i in range(1, args.runs + 1):
-        print(f"\n运行 {i}/{args.runs}...", end=" ", flush=True)
-        success, error_msg = run_single_flow(i)
-        if success:
-            successes += 1
-            print("✅ 成功")
-        else:
-            failures.append((i, error_msg))
-            print(f"❌ 失败：{error_msg[:200] if error_msg else '未知错误'}")
-
-    print("\n" + "="*60)
-    print(f"结果：{successes}/{args.runs} 成功，{len(failures)} 失败")
-    print("="*60)
-
-    if failures:
-        print("\n失败详情：")
-        for run_num, error_msg in failures:
-            print(f"  运行 {run_num}: {error_msg[:300] if error_msg else '未知错误'}")
-
-    if successes >= args.target_success:
-        print(f"\n✅ 达标：{successes}/{args.runs} >= {args.target_success}（内部目标）")
-        sys.exit(0)
+def evaluate_run(result, business, output, mode):
+    if not isinstance(business,dict):
+        business={}
+    blocking = bool(result['invalid'] or result['skipped'] or result['errors'])
+    blocking |= business.get('mode')!=mode or bool(business.get('safety_failures'))
+    success = (result['exit_code']==0 and result['passed']==1 and result['failed']==0
+               and business.get('passed') is True and business.get('phase')=='complete')
+    if success:
+        try:
+            from scripts.business_evidence import check_complete
+            check_complete(business,output,mode)
+        except (AssertionError, KeyError, OSError, TypeError, ValueError):
+            blocking=True;success=False
     else:
-        print(f"\n❌ 未达标：{successes}/{args.runs} < {args.target_success}（内部目标）")
-        sys.exit(1)
+        ordinary=(business.get('failure_kind')=='ordinary_timeout' and business.get('no_orders_at_timeout') is True
+                  and result['failed']==1 and result['exit_code']==1 and business.get('phase') in ('planner','reviser'))
+        if not ordinary:
+            blocking=True
+    return {'success':success and not blocking,'blocking':blocking,'test_result':result,
+            'failure_kind':business.get('failure_kind','missing_evidence')}
 
 
-if __name__ == "__main__":
+def run_single_flow(run_num, mode, output):
+    node='test_required_model_workbench_full_flow' if mode=='required' else 'test_offline_workbench_full_flow'
+    flag='RUN_REAL_MODEL_E2E' if mode=='required' else 'RUN_WORKBENCH_E2E'
+    env=isolated_env(output,(flag,),mode)
+    env['RESTOCK_M4_OUTPUT']=str(Path(output).resolve()/'business')
+    result=run_pytest(['tests/test_m4_workbench.py::'+node],output,env,timeout=2400)
+    try:
+        business=json.loads((Path(env['RESTOCK_M4_OUTPUT'])/'business.json').read_text(encoding='utf-8'))
+    except (OSError,ValueError):
+        business={}
+    record=evaluate_run(result,business,env['RESTOCK_M4_OUTPUT'],mode)
+    record.update(round=run_num,mode=mode,evidence='business/business.json')
+    save_json(Path(output)/'verdict.json',record)
+    return record
+
+
+def verdict(results, target):
+    return bool(results) and sum(r['success'] for r in results)>=target and not any(r['blocking'] for r in results)
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--runs',type=int,default=10)
+    parser.add_argument('--target-success',type=int,default=9)
+    parser.add_argument('--mode',choices=('off','required'),required=True)
+    parser.add_argument('--output',type=Path,default=ROOT/'outputs'/('stability-'+datetime.now().strftime('%Y%m%d-%H%M%S-%f')))
+    args=parser.parse_args(argv)
+    if not (args.runs>0 and 1<=args.target_success<=args.runs):
+        parser.error('Require runs > 0 and 1 <= target-success <= runs')
+    if args.output.exists():
+        parser.error('Output must be new; previous evidence is never overwritten')
+    args.output.mkdir(parents=True)
+    before=fingerprint();save_json(args.output/'before.json',before)
+    results=[]; frozen=True
+    for number in range(1,args.runs+1):
+        if fingerprint()!=before:
+            frozen=False;break
+        record=run_single_flow(number,args.mode,args.output/f'run-{number:02}')
+        results.append(record)
+        save_json(args.output/'progress.json',results)
+        print(f"Run {number}/{args.runs}: success={record['success']} blocking={record['blocking']}",flush=True)
+        if record['blocking']:
+            break
+    after=fingerprint();save_json(args.output/'after.json',after)
+    frozen=frozen and before==after
+    report={'mode':args.mode,'requested_runs':args.runs,'executed_runs':len(results),
+            'target_success':args.target_success,'successes':sum(r['success'] for r in results),
+            'frozen':frozen,'results':results,
+            'ok':frozen and len(results)==args.runs and verdict(results,args.target_success)}
+    save_json(args.output/'summary.json',report)
+    raise SystemExit(0 if report['ok'] else 1)
+
+if __name__=='__main__':
     main()

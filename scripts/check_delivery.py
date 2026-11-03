@@ -1,157 +1,167 @@
-# -*- coding: utf-8 -*-
-"""M4 交付包检查脚本——扫描交付包候选文件，确保没有明文密钥或个人运行数据。
-
-检查项：
-1. 明文密钥（INTERN_API_KEY、GitHub PAT、端砚 key 等）
-2. 个人运行数据（数据库文件、日志、浏览器缓存）
-3. 敏感路径（.env、个人配置）
-
-用法：
-    python scripts/check_delivery.py [--path .] [--strict]
-    --strict：发现任何敏感内容都视为失败（交付前必须为零）
+"""Scan an actual extracted delivery or ZIP. --tracked checks only source candidates.
+Exit codes: 0 clean, 1 findings, 2 incomplete/invalid scan. No matched value is logged.
 """
-
 import argparse
+import hashlib
+import json
 import os
+from pathlib import Path, PurePosixPath
 import re
+import stat
+import subprocess
 import sys
-from pathlib import Path
+import zipfile
 
-# 敏感模式（明文密钥、个人数据）
-SENSITIVE_PATTERNS = [
-    (r'INTERN_API_KEY\s*=\s*[\'"][^\'"]{8,}[\'"]', "INTERN_API_KEY 明文"),
-    (r'github_pat_[A-Za-z0-9_]{20,}', "GitHub PAT 明文"),
-    (r'sk-[A-Za-z0-9]{20,}', "OpenAI/其他 API key 明文"),
-    (r'Bearer\s+[A-Za-z0-9_\-\.]{20,}', "Bearer token 明文"),
-    (r'password\s*=\s*[\'"][^\'"]{6,}[\'"]', "密码明文"),
+MAX_FILE = 50 * 1024 * 1024
+MAX_TOTAL = 256 * 1024 * 1024
+MAX_FILES = 10000
+BANNED_DIRS = {'.git', '.git-broken', '.venv', 'node_modules', '__pycache__',
+               '.pytest_cache', 'outputs', '.codex', '.workbuddy'}
+PLACEHOLDERS = {'', 'your_api_key', 'your_key_here', 'your-api-key', 'replace_me',
+                'changeme', '<your-api-key>', '${INTERN_API_KEY}'}
+PATTERNS = [
+    ('credential assignment', re.compile(r'''(?ix)["']?\b(?:[a-z0-9_]*(?:api_key|access_token|auth_token|password|secret))["']?\s*[:=]\s*["']([^"'\r\n]*)["']''')),
+    ('unquoted credential', re.compile(r'(?im)^\s*(?:INTERN_API_KEY|[A-Z0-9_]*(?:API_KEY|TOKEN|PASSWORD|SECRET))\s*=\s*([^\s\x22\x27#]+)')),
+    ('GitHub token', re.compile(r'\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,})\b')),
+    ('API token', re.compile(r'\bsk-[A-Za-z0-9_-]{20,}\b')),
+    ('Bearer token', re.compile(r'(?i)\bBearer\s+([A-Za-z0-9_.-]{20,})')),
+    ('private key', re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----')),
 ]
 
-# 敏感文件/目录（不应在交付包里）
-SENSITIVE_PATHS = [
-    '.env',  # 真实密钥文件（.env.example 是示例，不算敏感）
-    '.env.local',
-    'restock.db',
-    'procurement.db',
-    '.git-broken',
-    'outputs/*.log',
-    'agent-integration/*.sqlite*',
-    'agent-integration/*.jsonl',
-]
-
-# 排除路径（正常代码/文档，不算敏感）
-EXCLUDE_PATHS = [
-    '.venv',
-    '.git',
-    '__pycache__',
-    'node_modules',
-    '.pytest_cache',
-]
+class ScanError(ValueError):
+    pass
 
 
-def is_excluded(path, root):
-    """检查路径是否在排除列表里。"""
-    rel = path.relative_to(root)
-    for exclude in EXCLUDE_PATHS:
-        if exclude in str(rel) or str(rel).startswith(exclude + os.sep):
-            return True
-    return False
+def forbidden(name):
+    parts = PurePosixPath(name.replace('\\', '/')).parts
+    if not parts or name.startswith(('/', '\\')) or any(p in ('..', '.') or ':' in p for p in parts):
+        return True
+    base = parts[-1].lower()
+    return (any(p.lower() in BANNED_DIRS or p.lower().startswith('.git-broken') for p in parts)
+            or (base.startswith('.env') and base != '.env.example')
+            or bool(re.search(r'\.(?:db|sqlite\d*|log|jsonl)(?:-(?:wal|shm|journal))?$', base)))
 
 
-def scan_file(path, root):
-    """扫描单个文件，返回 [(pattern_name, line_num, line), ...]。"""
+def scan_content(name, data):
+    # Decode text without silently dropping bytes. Binary ASCII tokens remain detectable.
+    if data.startswith((b'\xff\xfe', b'\xfe\xff')):
+        content = data.decode('utf-16')
+    else:
+        try:
+            content = data.decode('utf-8-sig')
+        except UnicodeError:
+            try:
+                content = data.decode('gb18030')
+            except UnicodeError:
+                content = data.decode('latin-1')
     findings = []
-    try:
-        content = path.read_text(encoding='utf-8', errors='ignore')
-    except Exception:
-        return findings
-    for pattern, name in SENSITIVE_PATTERNS:
-        for match in re.finditer(pattern, content, re.IGNORECASE):
-            line_num = content[:match.start()].count('\n') + 1
-            line = content.split('\n')[line_num - 1].strip()
-            # 排除注释和文档说明（# 密钥、// 密钥、"密钥"等）
-            if re.search(r'#.*密钥|//.*密钥|示例|示例值|your.*key|填.*key', line, re.IGNORECASE):
+    for kind, pattern in PATTERNS:
+        for match in pattern.finditer(content):
+            value = match.group(1) if match.lastindex else match.group()
+            if value.lower() in {p.lower() for p in PLACEHOLDERS}:
                 continue
-            findings.append((name, line_num, line[:100]))
+            findings.append({'path': name, 'line': content.count('\n', 0, match.start()) + 1,
+                             'kind': kind, 'value': '[REDACTED]'})
     return findings
 
 
-def scan_directory(root):
-    """扫描目录，返回所有发现。只检查 git 跟踪的文件（交付包候选文件）。"""
-    import subprocess
-    # 只检查 git 跟踪的文件（交付包候选文件，.gitignore 里的文件不会提交）
+def entries(path, tracked=False):
+    if not path.exists():
+        raise ScanError('Input does not exist')
+    if path.is_symlink() or (hasattr(path,'is_junction') and path.is_junction()):
+        raise ScanError('Symbolic input is not supported')
+    if path.is_dir():
+        if tracked:
+            proc = subprocess.run(['git', 'ls-files', '-z'], cwd=path, capture_output=True)
+            if proc.returncode:
+                raise ScanError('Cannot enumerate tracked source files')
+            names = [os.fsdecode(n) for n in proc.stdout.split(b'\0') if n]
+            paths = [path / n for n in names]
+        else:
+            def walk(folder):
+                # pathlib.rglob may suppress directory-read errors: never use it for
+                # a fail-closed package scan. Do not descend through links/junctions.
+                with os.scandir(folder) as iterator:
+                    children = sorted(iterator, key=lambda e:e.name)
+                for entry in children:
+                    child=Path(entry.path)
+                    yield child
+                    if entry.is_dir(follow_symlinks=False) and not (hasattr(child,'is_junction') and child.is_junction()):
+                        yield from walk(child)
+            paths = walk(path)
+        for file in paths:
+            if tracked and not file.resolve().is_relative_to(path.resolve()):
+                raise ScanError('Tracked member escapes the source root')
+            if file.is_symlink() or (hasattr(file, 'is_junction') and file.is_junction()):
+                raise ScanError('Symbolic links/junctions are not accepted')
+            if file.is_dir():
+                if forbidden(file.relative_to(path).as_posix()):
+                    yield file.relative_to(path).as_posix()+'/', b''
+                continue
+            if not file.is_file() or file.stat().st_size > MAX_FILE:
+                raise ScanError('Unreadable, unsupported or oversized entry')
+            yield file.relative_to(path).as_posix(), file.read_bytes()
+    elif not tracked and zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            seen = set()
+            for entry in archive.infolist():
+                name = entry.filename
+                normalized = name.replace('\\', '/').casefold().rstrip('/')
+                if normalized in seen:
+                    raise ScanError('Duplicate archive member')
+                seen.add(normalized)
+                if stat.S_ISLNK(entry.external_attr >> 16) or entry.flag_bits & 1:
+                    raise ScanError('Symbolic/encrypted archive member')
+                if entry.file_size > MAX_FILE:
+                    raise ScanError('Oversized archive member')
+                if entry.is_dir():
+                    if forbidden(name):
+                        yield name, b''
+                    continue
+                yield name, archive.read(entry)
+    else:
+        raise ScanError('Expected a directory or readable ZIP archive')
+
+
+def scan(path, tracked=False):
+    report = {'scope': 'tracked-source-candidate' if tracked else 'actual-package',
+              'files_scanned': 0, 'bytes_scanned': 0, 'manifest': [], 'findings': [], 'errors': []}
     try:
-        result = subprocess.run(['git', 'ls-files'], cwd=root, capture_output=True, text=True)
-        tracked_files = {root / line.strip() for line in result.stdout.splitlines() if line.strip()}
-    except Exception:
-        # 非 git 仓库时扫描所有文件
-        tracked_files = {p for p in root.rglob('*') if p.is_file()}
-    all_findings = []
-    sensitive_files = []
-    for path in tracked_files:
-        if not path.exists():
-            continue
-        if is_excluded(path, root):
-            continue
-        # 检查敏感路径（精确匹配，.env 不匹配 .env.example）
-        rel = path.relative_to(root)
-        rel_str = str(rel).replace('\\', '/')
-        for sensitive in SENSITIVE_PATHS:
-            sensitive_clean = sensitive.rstrip('*')
-            if sensitive.endswith('*'):
-                # 通配符匹配（如 outputs/*.log）
-                if rel_str.startswith(sensitive_clean) and path.suffix == sensitive.split('.')[-1]:
-                    sensitive_files.append(str(rel))
-                    break
-            else:
-                # 精确匹配（.env 精确匹配，不匹配 .env.example）
-                if rel_str == sensitive or rel_str == sensitive_clean:
-                    sensitive_files.append(str(rel))
-                    break
-        # 扫描文件内容
-        if path.suffix in ('.py', '.md', '.txt', '.json', '.toml', '.yaml', '.yml', '.csv'):
-            findings = scan_file(path, root)
-            if findings:
-                all_findings.append((str(rel), findings))
-    return all_findings, sensitive_files
+        for name, data in entries(Path(path), tracked):
+            report['files_scanned'] += 1
+            report['bytes_scanned'] += len(data)
+            if report['files_scanned'] > MAX_FILES or report['bytes_scanned'] > MAX_TOTAL:
+                raise ScanError('Package exceeds scan limits')
+            report['manifest'].append({'path': name, 'sha256': hashlib.sha256(data).hexdigest()})
+            if forbidden(name):
+                report['findings'].append({'path': name, 'kind': 'private/runtime path'})
+            report['findings'].extend(scan_content(name, data))
+        if not report['files_scanned']:
+            raise ScanError('Empty scan cannot establish delivery safety')
+    except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+        # Exception text may contain a secret from a malicious filename or decoder.
+        report['errors'].append({'kind': type(exc).__name__, 'message': 'Scan incomplete; inspect input permissions, format and limits'})
+    report['exit_code'] = 2 if report['errors'] else (1 if report['findings'] else 0)
+    return report
 
 
-def main():
-    parser = argparse.ArgumentParser(description="M4 交付包检查")
-    parser.add_argument("--path", default=".", help="扫描路径（默认当前目录）")
-    parser.add_argument("--strict", action="store_true", help="严格模式：发现任何敏感内容都视为失败")
-    args = parser.parse_args()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--path', required=True)
+    parser.add_argument('--tracked', action='store_true', help='Only tracked source candidates; does not certify a package')
+    parser.add_argument('--strict', action='store_true', help='Compatibility option; findings always fail')
+    parser.add_argument('--report', type=Path)
+    args = parser.parse_args(argv)
+    report = scan(Path(args.path).absolute(), args.tracked)
+    payload = json.dumps(report, ensure_ascii=True, indent=2)
+    if args.report:
+        try:
+            args.report.write_text(payload+'\n', encoding='utf-8')
+        except OSError:
+            print('Cannot write scan report', file=sys.stderr)
+            raise SystemExit(2)
+    print(payload)
+    raise SystemExit(report['exit_code'])
 
-    root = Path(args.path).resolve()
-    print(f"M4 交付包检查：扫描 {root}")
-    print("="*60)
-
-    findings, sensitive_files = scan_directory(root)
-
-    if findings:
-        print(f"\n⚠️  发现 {len(findings)} 个文件包含敏感内容：")
-        for file_path, file_findings in findings:
-            print(f"\n  文件：{file_path}")
-            for name, line_num, line in file_findings:
-                print(f"    行 {line_num} [{name}]: {line}")
-    else:
-        print("\n✅ 未发现明文密钥")
-
-    if sensitive_files:
-        print(f"\n⚠️  发现 {len(sensitive_files)} 个敏感文件/路径：")
-        for path in sensitive_files:
-            print(f"  - {path}")
-    else:
-        print("\n✅ 未发现敏感文件/路径")
-
-    print("\n" + "="*60)
-    if findings or sensitive_files:
-        print(f"❌ 发现敏感内容（{len(findings)} 个文件 + {len(sensitive_files)} 个路径）")
-        if args.strict:
-            sys.exit(1)
-    else:
-        print("✅ 交付包检查通过（未发现敏感内容）")
-    sys.exit(0)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

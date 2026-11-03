@@ -5,9 +5,11 @@
 
 ## 工程计划与当前进度
 
-后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-03 剩余 P2 修复与验收对齐）。
+后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-03 M4-01 至 M4-12 关闭复核已对齐）。
 开发 Agent 接手时先阅读 [AGENTS.md 的问题关闭协议](AGENTS.md#问题关闭协议)，修复依据 [P2 关闭矩阵](ENGINEERING_PLAN.md#p2-closeout) 保留原反例、相邻边界、正常控制及实际入口证据。
-当前 [38 项审计修复台账](ENGINEERING_PLAN.md#audit-status)：37 项验证关闭；P2-12 按用户要求忽略、未验证。剩余六项 P2 的修复与规范在本次 temporary 提交中交付，M4 稳定性、异机和比赛材料继续单列。
+当前 [38 项审计修复台账](ENGINEERING_PLAN.md#audit-status)：37 项验证关闭；P2-12 按用户要求忽略、未验证。此前六项 P2 的修复与规范已由 `fcf1240` 交付；本轮 M4 状态另见下方，异机和比赛材料仍单列。
+**M4 整体仍未完成；M4-01 至 M4-12 已关闭。** 本轮 `temporary@660706d` 加未提交修改，严格分层 478 passed / 0 failed / 0 skipped；20 类场景覆盖 59 个去重后实际执行节点。正式稳定性入口的 30 SKU 离线工作台 10/10，真实书生入口另验 1/1，均核对批准、实际单据及导出。M4-13 至 M4-17 按用户要求本轮不处理，原状态保留；没有提交或推送。详见 [当前 M4 修复计划](ENGINEERING_PLAN.md#m4-audit)、[关闭索引](docs/verification/m4-closeout-20261103.json)；[首次审计](docs/verification/m4-20261103.json) 保留历史失败，不代表当前状态。
+
 保留 Codex CLI 作为后台运行时，用户全程使用 RestockPilot 工作台；不要求打开
 Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重写 Agent 循环。
 
@@ -55,7 +57,7 @@ Planner 摘要有预算分配与在途抵扣口径的解释偏差，需修正；
 
 ## 截止时间
 
-**2026-11-05 23:59:59 报名 + 作品提交（ZIP + ≤5 分钟视频链接 + 应用体验链接）**，只报名不交件无效。
+**2026-11-10 23:59:59（北京时间）报名及作品提交截止。** 2026-11-03 已核对[官方赛道页面](http://www.aiinnovation.com.cn/web/#/trackDetail?id=160&ckey=5)的 id=160/ckey=5 数据；旧 11 月 5 日记录已过时。需准备技术 PDF（含 ≤5 分钟、≥720P 视频及体验链接）、代码和模型材料，并按官方要求打包命名；API-only 模型材料是否可豁免未明确，不能自行省略。
 
 M3 专项验收入口（前提是按下文配置好 Chromium 路径）：
 
@@ -67,6 +69,34 @@ Remove-Item Env:RUN_PLAYWRIGHT_E2E, Env:RUN_WORKBENCH_E2E
 ```
 
 这些用例使用隔离数据库、回环端口和自建采购后台，包含真实 Chromium、真实工作台和本次启动 API 的进程中断；模型明确关闭。真实书生、冻结稳定性和异机复现单列，不由这些结果代替。
+
+## M4 验收入口
+
+以下均在项目根目录使用同一 `.venv`。先按启动说明安装锁定 CLI、Chromium 并配置环境；相对 `RESTOCK_CODEX_BIN` 在项目根解析。验收不会重置用户数据库，输出保存在 `outputs/` 的独立目录。
+
+```powershell
+# 正式非真实模型分层验收；严格模式不接受任何 skipped
+.\.venv\Scripts\python.exe scripts/run_acceptance.py --layers 1,2,3,4 --strict
+
+# 30 SKU 真实工作台/浏览器；明确关闭模型的 10 轮稳定性
+.\.venv\Scripts\python.exe scripts/run_stability.py --mode off --runs 10 --target-success 9
+
+# 单独验证真实书生入口，需要项目 .env 的 INTERN_API_KEY，会消耗模型额度
+.\.venv\Scripts\python.exe scripts/run_stability.py --mode required --runs 1 --target-success 1
+
+# 实际交付 ZIP 或解压目录；发现问题始终失败，不需依赖 --strict
+.\.venv\Scripts\python.exe scripts/check_delivery.py --path .\delivery.zip
+# 只检查 Git 跟踪的源码候选；此结果不能代替实际交付包检查
+.\.venv\Scripts\python.exe scripts/check_delivery.py --path . --tracked
+```
+
+分层为：1 规则/API 与验收控制器；2 真实浏览器/故障/重启；3 离线真实工作台；4 CLI 允许/恶意调用与启动；5 真实书生 API/工作台。每个测试节点只属于一层；脚本清除非本层开关，只有显式选择第 5 层才在分层验收中调用模型。第 5 层与 required 稳定性是不同入口，不能把运行其中一个写成全部真实模型测试已通过。
+
+20 个产品场景由 [场景目录](tests/scenario_catalog.py) 映射到实际测试；复用节点只统计一次。正常任务与故障恢复经真实工作台/浏览器，规则和数据契约场景按其层级验收，不把规则测试说成 UI 验收。可显式设置 `RUN_PLAYWRIGHT_E2E=1`、`RUN_WORKBENCH_E2E=1` 后，通过 `python -m pytest tests/ -p tests.acceptance_plugin --restock-scenarios -q` 单独选择这 20 类场景。
+
+稳定性脚本要求 `--mode`，保存源码/依赖指纹、逐轮 JUnit、脱敏日志、数据/方案 hash、人工批准、实际订单、CSV/HTML 及其 hash。未经批准写入、重复申请、金额不一致、跳过或证据不完整均直接阻断，不能用成功率抵消；只有证明确未产生采购申请的规划/修订普通超时可占失败额度。目录必须新建，不能覆盖原失败记录。off 与 required 分开统计，一轮 required 通过不等于十轮真实模型稳定性。
+
+交付扫描器默认检查实际输入中的全部文件，包括 ZIP 成员、中文路径和运行目录；`--tracked` 明确只覆盖 Git 候选。退出码为 0=本次扫描未发现问题、1=发现敏感内容/路径、2=输入无效或扫描不完整；UTF-8/GBK 控制台均可读。当前保守限制为单文件 50 MiB、总量 256 MiB、10,000 个条目，超限报错，不能当通过；不支持加密 ZIP 或符号链接。可用 `--report <文件>` 保留清单、hash 和脱敏结果，父目录须已存在。扫描器通过并不代表异机、体验环境或比赛材料已交付。
 
 ## 历史验收记录（2026-10-29 原开发环境）
 
