@@ -1,0 +1,308 @@
+{
+  "schema": 1,
+  "date": "2026-11-03",
+  "parent_commit": "04788c4b041a6ae387873105c1373d714509e59f",
+  "scope": "P2 fixes and docs in the commit containing this record; source hashes disambiguate the uncommitted test tree",
+  "ordinary_with_all_nonmodel_gates": {
+    "tests": 359,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 2,
+    "passed": 357,
+    "seconds": 133.91
+  },
+  "real_internlm": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 2,
+    "seconds": 576.53
+  },
+  "fresh_install_startup_and_cli_boundary": {
+    "tests": 30,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 30,
+    "seconds": 25.77
+  },
+  "flags": {
+    "RUN_AGENT_BOUNDARY_E2E": "1",
+    "RUN_WORKBENCH_E2E": "1",
+    "RUN_PLAYWRIGHT_E2E": "1",
+    "RUN_STARTUP_E2E": "1"
+  },
+  "commands": [
+    "python -m pytest tests/ -q (RUN_REAL_MODEL_E2E=0)",
+    "python -m pytest tests/test_real_m2.py -q (RUN_REAL_MODEL_E2E=1)",
+    "fresh-venv/python -m pip install -r requirements.lock",
+    "fresh-venv/python -m pip check",
+    "fresh-venv/python -m pytest tests/test_startup.py tests/test_agent_runtime.py -q"
+  ],
+  "runtime": {
+    "schema": 1,
+    "platform": "win32",
+    "machine": "AMD64",
+    "python": "3.12.14",
+    "codex": "0.166.0-alpha.5.1",
+    "playwright": "1.64.1",
+    "chromium_revision": "1248",
+    "chromium_version": "156.0.8078.4"
+  },
+  "model": "intern-s2",
+  "isolation": "Project venvs, ephemeral ports and SQLite databases under ignored .venv; synthetic credentials except opt-in real InternLM. Only owned processes stopped. No user business DB reset.",
+  "issues": {
+    "P2-1": {
+      "status": "closed",
+      "tests": [
+        "tests/test_p2_regression.py -k P2_1",
+        "tests/test_p2_interfaces.py -k planner_advice",
+        "tests/test_real_m2.py"
+      ]
+    },
+    "P2-2": {
+      "status": "closed",
+      "tests": [
+        "tests/test_p2_regression.py -k P2_2",
+        "tests/test_agent_runtime.py"
+      ]
+    },
+    "P2-5": {
+      "status": "closed",
+      "tests": [
+        "tests/test_p2_regression.py -k P2_5",
+        "tests/test_runner.py",
+        "tests/test_agent_runtime.py"
+      ]
+    },
+    "P2-7": {
+      "status": "closed",
+      "tests": [
+        "tests/test_p2_regression.py -k P2_7",
+        "tests/test_startup.py"
+      ]
+    },
+    "P2-8": {
+      "status": "closed",
+      "tests": [
+        "tests/test_runtime_versions.py",
+        "tests/test_startup.py",
+        "tests/test_agent_runtime.py (fresh environment)"
+      ]
+    },
+    "P2-9": {
+      "status": "closed",
+      "tests": [
+        "tests/test_summary_assertions.py",
+        "tests/test_p2_interfaces.py",
+        "tests/test_real_m2.py"
+      ]
+    },
+    "P2-12": {
+      "status": "excluded_by_user",
+      "verification": "not performed",
+      "instruction": "2026-11-03 用户明确要求忽略这一项；不视为吊销/轮换已完成。"
+    }
+  },
+  "real_runs": [
+    {
+      "sample_skus": 1,
+      "task_id": "f0518670008f",
+      "passed": true,
+      "stage_seconds": {
+        "planner": 145.27,
+        "reviser": 96.3,
+        "executor": 78.25
+      },
+      "plan_versions": {
+        "planner": 1,
+        "reviser": 2
+      },
+      "plan_hashes": {
+        "planner": "c29f9a5fe4c6ac6388326117de4810386f3997cc26cdc6eada03ad8e763a66c0",
+        "reviser": "4880dba7d5d3d18ccc8fbbe1b25d00e99c1582f0a7de3617e7aefcdf7089dfa0"
+      },
+      "dataset_hashes": {
+        "planner": "0778fe56e2dd3c0ad8b07c53e95862132cc9efcba1c74fd698fdc6b2851f5293",
+        "reviser": "0778fe56e2dd3c0ad8b07c53e95862132cc9efcba1c74fd698fdc6b2851f5293"
+      },
+      "actual_orders": 1,
+      "actual_total_cents": 3000,
+      "successful_tools": [
+        "build_plan",
+        "get_execution_result",
+        "inspect_dataset",
+        "revise_plan"
+      ],
+      "raw_response_stages": [
+        "executor",
+        "planner",
+        "reviser"
+      ],
+      "unsupported_mixed_request_rejected": false,
+      "evidence": "outputs/p2-remediation/real/real-chain.json"
+    },
+    {
+      "sample_skus": 30,
+      "task_id": "5e8e1e0fc5b2",
+      "passed": true,
+      "stage_seconds": {
+        "planner": 95.23,
+        "reviser": 62.75,
+        "executor": 56.66
+      },
+      "plan_versions": {
+        "planner": 1,
+        "reviser": 2
+      },
+      "plan_hashes": {
+        "planner": "53f23ebaab6f428aff9c910caaf015b03befc646456868237e43401a811d6c55",
+        "reviser": "7033d14397a0f3eaa6134923986cf1e9fc90e454eb590b5f4c304afb6fcb266b"
+      },
+      "dataset_hashes": {
+        "planner": "7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+        "reviser": "7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22"
+      },
+      "actual_orders": 2,
+      "actual_total_cents": 299911,
+      "successful_tools": [
+        "build_plan",
+        "get_execution_result",
+        "inspect_dataset",
+        "revise_plan"
+      ],
+      "raw_response_stages": [
+        "executor",
+        "planner",
+        "reviser"
+      ],
+      "unsupported_mixed_request_rejected": true,
+      "evidence": "outputs/p2-remediation/real/real-chain-30.json"
+    }
+  ],
+  "review": {
+    "self_test": "original and adjacent counterexamples plus affected/full explicit gates",
+    "closeout": "same developer, separate review pass: source hashes, XML, actual gateway audits, owned processes, independent purchase orders and version-bound summaries; no separate reviewer claimed",
+    "manual_model_summary": "Final 1/30 SKU planner and executor summaries checked against recorded orders: 3000 cents / one order and 299911 cents / two orders; order IDs, supplier, quantities, unit prices and currency agree."
+  },
+  "earlier_failures": {
+    "before.xml": {
+      "tests": 28,
+      "failures": 19,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 9,
+      "seconds": 5.46
+    },
+    "full.xml": {
+      "tests": 346,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 340,
+      "seconds": 129.69
+    },
+    "real.xml": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0,
+      "seconds": 19.59
+    },
+    "real-2.xml": {
+      "tests": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 1,
+      "seconds": 325.5
+    },
+    "real-3.xml": {
+      "tests": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 1,
+      "seconds": 315.5
+    }
+  },
+  "failure_notes": [
+    "npm Windows launcher lost file-backed stdin; replaced with pipe; real CLI allowed/hostile calls retested.",
+    "First 1-SKU advice rejection before raw capture retained error/stage only; original text was not captured and cannot be reconstructed.",
+    "Later 30-SKU rejection retained the actual 182-character advice in tests/fixtures/planner-rejected-182.txt. Hard 180-character limit unchanged; prompt target narrowed to about 80 characters.",
+    "A supported-policy test initially used invalid cover_days=5. Corrected normal case to 14 and retained 5 as a rejection test; field minimum remains 7.",
+    "Stream total-limit test uses multiple short lines so it still reaches 8 MB; oversized single lines are tested separately. Prompt transport fixture now observes a pipe, with Unicode/isolation checks preserved."
+  ],
+  "limitations": [
+    "M4 repeated stability, another machine, packaging and hosted demo are not accepted by this record.",
+    "Complete CI enforcement is not configured.",
+    "Fresh environment test uses the same machine; it is not another-machine acceptance."
+  ],
+  "source_sha256": {
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/business_tools.py": "f1f0e1adb1ad47b7f69b8470d2debbded5e065968d5cc3d203a03d556e2ddb25",
+    "app/config.py": "13afbee6ddb285d28018fe41b5a157b05263891497b77fad42401875dbaca96c",
+    "app/datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app/db.py": "a623255e539d0157ef2c9a84566e5584f8befee00868393a62ed9ca82c3a3529",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app/jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app/ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app/main.py": "a44c5d7b886a51f879dd5eb980c41233898fe56d46872aeb66d8fe515c6f1507",
+    "app/mcp_server.py": "27dd48d2a1e4b124d1c1edd7f2affea17818ee4b970555304d661f6926059e56",
+    "app/models.py": "a0718b5d191ef505efd8c7ec306cbabb318b50925003f57249ef2d26ad0bed58",
+    "app/processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app/procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app/prompts.py": "942382b363845591bd5b86953599bb61d3e5cea36c6a855edd9e497c5944d289",
+    "app/redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app/reports.py": "2a69e2a84440293e5661d6590042f2952a7069b65f5980e4e81f51a7d58df6a9",
+    "app/rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app/runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app/runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app/state_machine.py": "7eb2eb1023f04df2e42ce13c344febfa1e5e8e3def6120947cf7418fde58d98b",
+    "app/validation.py": "2a1fd201813c6ce3f2c2dfe55b892dd5fa751bac91fad60f05ea2b2e0066631d",
+    "app/__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "tests/summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests/support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests/test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests/test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests/test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests/test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests/test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests/test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests/test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests/test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests/test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests/test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests/test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests/test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests/test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests/test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests/test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests/test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests/test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests/test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests/test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests/test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests/test_runtime_versions.py": "e4aa48b785cd93617f21caaf0756ec3aa786a90e132a19487883bb373370b7b9",
+    "tests/test_startup.py": "2ffd0a489a6be25a38f39579d2bae80e1c2ca46bb23b7224f3c952cb2a164c91",
+    "tests/test_step3_api.py": "c22aa9e5024fbc93584a44b9ed2342c56efc35051b21d310a10c60a1456cfb84",
+    "tests/test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests/test_workbench_e2e.py": "034c45ca1add7905c5880675e7f2462b7755b077b32d3b516594a3fd7c58024b",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/fixtures/planner-rejected-182.txt": "a838b551c5f3c3507c8f7a94d88b994b8b39466634c33bb2f7a7e707ff789369",
+    "start.py": "401ec9f2504c99eb67cee75e8794bb9eed0b54ec74936ee3ee50e6b4dcf4a395",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "requirements.txt": "eea2dcd02dd1c2b3b358f0152b4a3fbb970be320e8a0143edb3ff1b75dca11c4",
+    ".python-version": "9bccfb61c57081accd6a0a9bbc2909a77ee387cfe0168a97c8f1592f3d9d6b92"
+  },
+  "evidence_sha256": {
+    "outputs/p2-remediation/final-4.xml": "54453cc8bddaf74d803b7a97e2c0f79eb9e8bb762ac90e0c04866b2bc4a17aef",
+    "outputs/p2-remediation/real-4.xml": "5d38dfea811106f6ce5ad6fcaa54218228be920b6277a33efa6a18893aff1bed",
+    "outputs/p2-remediation/repro-final.xml": "f172ccbd446aa2ec98a9d72a72d5d03a474b56543caca3a82743a347a4c7a853",
+    "outputs/p2-remediation/before.xml": "ccad95248a0c4e647333cdf0c636ed2c32b1ad345c73cc707fd8f157401bf99e",
+    "outputs/p2-remediation/real-3.xml": "dc588d5b85dfff79869134a53e7b07d64c61b49a9f08357c43683c92c330520e"
+  }
+}

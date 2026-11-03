@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 import threading
+import os
+from app.redaction import audit_call, redact_value
 import uuid
 
 from app import db, ledger
@@ -40,11 +42,20 @@ def compact_plan(plan):
 
 def planner_review(plan, advice):
     """Authoritative quantities are rendered by code; model supplies advice only."""
-    import re
+    import unicodedata
     advice = advice.strip()
-    # P2-1：长度契约与提示词一致（不超过 180 字）；支持全角数字与"两"（"需要两件商品"）。
-    if not advice or len(advice) > 180 or re.search(r'[0-9０-９]|[零一二两三四五六七八九十百千万]+\s*(?:件|种|个|分|元|成|%)', advice):
-        raise ValueError('Planner 只能提供简短非数值建议（不超过 180 字）；金额、数量和商品编号由程序展示')
+    # Closed lexical exceptions are qualitative words, not quantities. Unknown
+    # numeric-looking text still fails; these phrases do not authorize a number
+    # elsewhere in the sentence. Keep the original advice unchanged in output.
+    qualitative_words = ('统一', '一致', '进一步', '逐一', '一并', '一般', '一定', '一旦', '同一')
+    checked = advice
+    for word in qualitative_words:
+        checked = checked.replace(word, '')
+    normalized = unicodedata.normalize('NFKC', checked)
+    numeric = next((c for c in checked + normalized if c.isnumeric() or c in '两兩半'), None)
+    if not advice or len(advice) > 180 or numeric:
+        reason = f'长度 {len(advice)} 字' if not advice or len(advice)>180 else f'包含数词 {numeric}'
+        raise ValueError('Planner 只能提供简短非数值建议（不超过 180 字）；金额、数量和商品编号由程序展示；'+reason)
     def money(cents):
         whole, fraction = divmod(cents, 100)
         return f'{whole}.{fraction:02d} 元'
@@ -175,7 +186,8 @@ class ToolSession:
         db.activity(self.conn, self.task_id, 'business_tool', {
             'operation_id': self.operation_id, 'stage': self.stage, 'tool': tool,
             'version': self.base_version, 'dataset_id': self.dataset_id,
-            'arguments': arguments, **outcome})
+            **audit_call({'arguments':arguments}, dict(os.environ), limit=65536),
+            **redact_value(outcome, dict(os.environ))})
 
     def commit(self, accepted_policy):
         """Called by the backend after model output validation, never exposed as a tool."""

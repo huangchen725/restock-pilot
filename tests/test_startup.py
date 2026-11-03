@@ -85,9 +85,10 @@ HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
     return Service("portal", port, [sys.executable, str(path), str(port)], "/health")
 
 
-def test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process(tmp_path):
+@pytest.mark.parametrize('value', ['local-test-secret','0','1'])
+def test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process(tmp_path,value):
     spec = stub_service(tmp_path)
-    env = {**os.environ, "INTERN_API_KEY": "local-test-secret", "PYTHONIOENCODING": "utf-8"}
+    env = {**os.environ, "INTERN_API_KEY": value, "PYTHONIOENCODING": "utf-8"}
     supervisor = Supervisor([spec], env, tmp_path / "logs", timeout=10)
     outsider = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
@@ -98,7 +99,7 @@ def test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process(tmp_pa
         assert supervisor.children[0][1].poll() is not None
         assert outsider.poll() is None
         content = (tmp_path / "logs/portal.log").read_text(encoding="utf-8")
-        assert "local-test-secret" not in content
+        assert value not in content
         assert "[REDACTED]" in content
         check_port(spec.port)
     finally:
