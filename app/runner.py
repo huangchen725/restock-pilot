@@ -2,15 +2,15 @@
 """runner.py：codex exec 子进程封装。
 
 职责：启动 codex exec（--json JSONL 事件流）、读取事件、超时终止（Windows
-杀整棵进程树 taskkill /T）、结构化返回结果。阶段上下文（上一阶段产物摘要）
+使用 Job 管理本次进程及后代）、结构化返回结果。阶段上下文（上一阶段产物摘要）
 由调用方注入 prompt，不依赖进程内存。
 """
 
 import json
+from app.processes import ProcessScope
 import os
 import shutil
 import subprocess
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -123,9 +123,9 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
                    executable: Optional[str] = None) -> CodexRunResult:
     """同步执行一次 codex exec，返回结构化结果。
 
-    prompt 经临时文件 + stdin 传入（`codex exec -`）：Windows cmd.exe 对
-    .cmd 批处理的命令行有 8191 字符上限，长 prompt 走 argv 会报
-    "命令行太长" 直接 exit=1。
+    prompt 经匿名管道传给 `codex exec -`，避免 Windows argv 长度限制；
+    Node/npm 包装入口不能可靠继承磁盘文件形式的 stdin。写入、stdout、
+    stderr 分线程处理，全部受同一超时与进程归属控制。
     """
     env = child_environment(child_env)
     env["CODEX_HOME"] = codex_home or str(
@@ -138,113 +138,126 @@ def run_codex_task(prompt: str, workdir: str, timeout_s: int = 600,
         return CodexRunResult(127, [], str(exc), round(time.time() - start, 1))
     cmd = [executable, "exec", "--json", "--skip-git-repo-check", "-"]
 
-    prompt_handle = tempfile.NamedTemporaryFile(
-        "w", suffix=".md", prefix="codex-prompt-", delete=False, encoding="utf-8",
-        newline="",
-    )
-    prompt_handle.write(prompt)
-    prompt_handle.close()
     events: List[CodexEvent] = []
     stderr = ""
     timed_out = False
     stderr_tail = bytearray()
     stream_error = []
+    scope = None
+
+    def stop_owned():
+        try:
+            scope.stop()
+        except OSError as exc:
+            stream_error.append(f"CLI process cleanup failed: {exc}")
+            # Closing a Windows Job remains a fallback kill-on-close action.
+            try:
+                scope.close()
+            except OSError as close_exc:
+                stream_error.append(f"CLI job close failed: {close_exc}")
 
     def _kill_tree():
         nonlocal timed_out
         timed_out = True
-        _stop_owned_process(proc)
+        stop_owned()
 
     timer = threading.Timer(timeout_s, _kill_tree)
     try:
-        with open(prompt_handle.name, "rb") as stdin_fh:
-            try:
-                proc = subprocess.Popen(
-                    cmd, cwd=workdir, env=env,
-                    stdin=stdin_fh,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    **({'creationflags': subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
-                       if os.name == 'nt' else {'start_new_session': True}),
-                )
-            except OSError as exc:
-                return CodexRunResult(
-                    127, [], f"Unable to start Codex CLI: {exc}",
-                    round(time.time() - start, 1),
-                )
-            # 启动成功后才启用超时，避免启动失败时访问尚不存在的 proc。
-            timer.start()
-            def read_errors():
-                while True:
-                    chunk = proc.stderr.read(4096)
-                    if not chunk:
-                        break
-                    stderr_tail.extend(chunk)
-                    del stderr_tail[:-65536]
+        try:
+            scope = ProcessScope()
+            proc = scope.spawn(cmd, cwd=workdir, env=env, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as exc:
+            return CodexRunResult(
+                127, [], f"Unable to start Codex CLI: {exc}",
+                round(time.time() - start, 1),
+            )
+        # 启动成功后才启用超时，避免启动失败时访问尚不存在的 proc。
+        timer.start()
+        def read_errors():
+            while True:
+                chunk = proc.stderr.read(4096)
+                if not chunk:
+                    break
+                stderr_tail.extend(chunk)
+                del stderr_tail[:-65536]
 
-            def read_events():
-                total = 0
-                max_line = 1024 * 1024  # 单行上限 1 MB（防止超长行突破内存控制）
-                while True:
-                    # P2-5：用 readline(size) 限制每行大小——超长行只读取 size 字节，
-                    # 不会读取完整长行（防止超长行突破内存控制）。
-                    raw_line = proc.stdout.readline(max_line)
-                    if not raw_line:
+        def read_events():
+            total = 0
+            pending = bytearray()
+            max_line = 1024 * 1024  # Includes the newline when present.
+            def accept(line):
+                try:
+                    value = json.loads(line)
+                    if isinstance(value, dict):
+                        events.append(CodexEvent(value))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+            while True:
+                chunk = proc.stdout.read1(65536)
+                if not chunk:
+                    if pending:
+                        accept(pending)
+                    break
+                total += len(chunk)
+                if total > 8 * 1024 * 1024:
+                    stream_error.append('CLI event stream exceeded 8 MB')
+                    stop_owned(); break
+                pending.extend(chunk)
+                while pending:
+                    end = pending.find(b'\n')
+                    if end == -1:
+                        if len(pending) > max_line:
+                            stream_error.append('CLI event line exceeded 1 MB')
+                            stop_owned()
+                            return
                         break
-                    if total + len(raw_line) > 8 * 1024 * 1024:
-                        stream_error.append('CLI event stream exceeded 8 MB')
-                        _stop_owned_process(proc)
-                        break
-                    total += len(raw_line)
-                    try:
-                        events.append(CodexEvent(json.loads(raw_line)))
-                    except (json.JSONDecodeError, UnicodeDecodeError):
-                        continue
+                    if end + 1 > max_line:
+                        stream_error.append('CLI event line exceeded 1 MB')
+                        stop_owned()
+                        return
+                    accept(pending[:end+1])
+                    del pending[:end+1]
 
-            readers = [threading.Thread(target=read_errors, daemon=True),
-                       threading.Thread(target=read_events, daemon=True)]
-            for reader in readers:
-                reader.start()
+        def write_prompt():
             try:
-                proc.wait()
-            except BaseException:
-                _stop_owned_process(proc)
-                raise
+                proc.stdin.write(prompt.encode('utf-8'))
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError):
+                pass  # The exit code/timeout below records an early CLI failure.
             finally:
-                # P2-5：父进程退出时（无论正常还是异常）都清理残留子进程。
-                _stop_owned_process(proc)
-                for reader in readers:
-                    reader.join(timeout=5)
-                proc.stdout.close(); proc.stderr.close()
-            stderr = _decode_output(bytes(stderr_tail))
-            if stream_error:
-                stderr += '\n' + stream_error[0]
+                proc.stdin.close()
+
+        readers = [threading.Thread(target=write_prompt, daemon=True),
+                   threading.Thread(target=read_errors, daemon=True),
+                   threading.Thread(target=read_events, daemon=True)]
+        for reader in readers:
+            reader.start()
+        try:
+            proc.wait()
+        except BaseException:
+            stop_owned()
+            raise
+        finally:
+            # The Job/session still owns descendants after the root exits.
+            stop_owned()
+            for reader in readers:
+                reader.join(timeout=5)
+            proc.stdout.close(); proc.stderr.close()
+        stderr = _decode_output(bytes(stderr_tail))
     finally:
         timer.cancel()
-        try:
-            os.unlink(prompt_handle.name)
-        except OSError:
-            pass
+        if timer.ident is not None:
+            timer.join(timeout=6)
+        if scope is not None:
+            try:
+                scope.close()
+            except OSError as exc:
+                stream_error.append(f"CLI job close failed: {exc}")
 
+    if stream_error:
+        stderr += '\n' + '\n'.join(stream_error)
     return CodexRunResult(
-        exit_code=proc.returncode or (1 if stream_error else 0), events=events, stderr=stderr,
+        exit_code=1 if stream_error or timed_out else proc.returncode, events=events, stderr=stderr,
         duration_s=round(time.time() - start, 1), timed_out=timed_out,
     )
-
-
-def _stop_owned_process(proc):
-    """Terminate only the child started by this call and its descendants."""
-    # P2-5：父进程已退出但后代仍存活时也要清理（不因 proc.poll() 提前返回）。
-    if os.name == 'nt':
-        result = subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
-                                capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        # P2-5：taskkill 返回码检查——失败时记录（但不抛出，清理失败不影响主流程）。
-        if result.returncode != 0 and b'not found' not in result.stderr.lower():
-            import sys
-            print(f'taskkill 清理后代失败（返回码 {result.returncode}）: '
-                  f'{result.stderr.decode(errors="replace")[:200]}', file=sys.stderr)
-    else:
-        import signal
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass

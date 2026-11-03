@@ -5,8 +5,9 @@
 
 ## 工程计划与当前进度
 
-后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-02 更新）。
-开发 Agent 接手本项目时先阅读根目录 [AGENTS.md](AGENTS.md)。
+后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-03 剩余 P2 修复与验收对齐）。
+开发 Agent 接手时先阅读 [AGENTS.md 的问题关闭协议](AGENTS.md#问题关闭协议)，修复依据 [P2 关闭矩阵](ENGINEERING_PLAN.md#p2-closeout) 保留原反例、相邻边界、正常控制及实际入口证据。
+当前 [38 项审计修复台账](ENGINEERING_PLAN.md#audit-status)：37 项验证关闭；P2-12 按用户要求忽略、未验证。剩余六项 P2 的修复与规范在本次 temporary 提交中交付，M4 稳定性、异机和比赛材料继续单列。
 保留 Codex CLI 作为后台运行时，用户全程使用 RestockPilot 工作台；不要求打开
 Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重写 Agent 循环。
 
@@ -29,7 +30,7 @@ M0 业务规则与数据契约已完成本轮开发，详见 [DATA_CONTRACT.md](
 预算修订后实际创建两张申请，共 2999.11 元，独立回读全部明细一致，重复执行未新增单据。
 Planner 金额和风险统计改为程序生成，模型只给简短建议；此前摘要错误及最终复验均保留记录。
 详细计数、阶段耗时与范围见工程计划，证据位于 `outputs/m2-remediation/`。
-M3 已按 2026-11-02 复核完成第二轮全部 P0/P1 修复及验收：当前工作区综合回归 270 passed / 0 failed / 2 skipped（两项真实模型用例），包含真实工作台恢复和真实进程重启。详细范围与原失败记录见工程计划。
+M3 的全部 P0/P1 已在 2026-11-02 第二轮通过验收；本轮修复剩余六项 P2。最终综合回归 357 passed / 0 failed / 2 skipped，真实书生 1/30 SKU 另验 2 passed / 0 failed / 0 skipped；新安装环境启动与 CLI 边界 30 passed。真实用例包含联合修改五类参数、不支持混合请求整体拒绝、版本对应的摘要核对和独立采购回读。此前失败原样保留；版本指纹、入口和局限见 [验收索引](docs/verification/p2-20261103.json)，一次通过不代表 M4 连续稳定性达标。
 未知结果和回读不一致会阻止新采购版本；执行后固定数据快照，修订按任务累计额度扣除已创建申请。
 工作台提供受控核对与恢复，操作异步运行并可刷新查看；恢复始终使用原批准与参考号。
 方案、阶段事件与结果原子发布；订单回执和事件原子落账，写账失败停止后续录单。
@@ -101,19 +102,22 @@ Remove-Item Env:RUN_PLAYWRIGHT_E2E, Env:RUN_WORKBENCH_E2E
 
 ## 快速启动
 
-在项目根目录执行以下 PowerShell 命令。Linux/macOS 使用 `.venv/bin/python`。
+当前可重建基线是 Windows x64、CPython 3.12.14；请先安装该 Python 及可运行 npm 的 Node.js。Linux/macOS 尚未完成单独锁定和验收。以下命令在项目根目录执行，不依赖固定盘符。
 
 ```powershell
-# 首次准备依赖；已有 .venv 时跳过创建
+# 首次准备依赖；先确认 python --version 为 3.12.14
+# 已有匹配版本的 .venv 时跳过创建
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m playwright install chromium
+# 安装固定 CLI 到项目忽略目录，避免改动个人全局版本
+npm install --prefix .venv/codex @openai/codex@0.166.0-alpha.5.1 --no-audit --no-fund
 
 # 首次创建配置；不覆盖已经填写的 .env
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-编辑根目录 `.env`，填写 `INTERN_API_KEY`。真实模式还需要安装并能找到 Codex CLI。
+编辑根目录 `.env`，填写 `INTERN_API_KEY`，将 `RESTOCK_CODEX_BIN` 设为 `.venv/codex/node_modules/.bin/codex.cmd`。也可使用 PATH 上符合锁定版本的 CLI；显式配置错误或版本不符会拒绝启动。
 之后每次只需运行：
 
 ```powershell
@@ -135,7 +139,7 @@ http://127.0.0.1:8100/docs；日常使用无需手写请求。
 # 查询本地服务健康状态
 .\.venv\Scripts\python.exe start.py status
 
-# 不需要密钥、CLI 或 LiteLLM，启动工作台、主服务与演示后台
+# 不调用模型，也不需要密钥或 CLI；仍需安装完整锁定依赖和浏览器
 .\.venv\Scripts\python.exe start.py --offline
 ```
 
@@ -144,8 +148,7 @@ http://127.0.0.1:8100/docs；日常使用无需手写请求。
 本地健康/模型列表接口，不能证明书生密钥有效或完整任务通过。离线模式可用参数表单
 完成规则计算与演示录单，页面明确标记未启用模型。浏览器安装是录单前提。
 
-统一入口已验证 LiteLLM 1.106.5、Streamlit 1.66.1、MCP Python 2.3.0（已固定依赖）。
-本轮 CLI 为 0.166.0-alpha.5.1；尚未锁定所有环境版本，完整锁定仍按 M0 推进。
+`requirements.txt` 统一引入 [requirements.lock](requirements.lock)，锁定直接及传递依赖；[runtime-lock.json](runtime-lock.json) 固定 Python、平台、CLI 和 Chromium 组合。启动预检核对实际安装版本并启动受控浏览器检查版本，任何不符都清晰失败；不会静默换 CLI。浏览器默认无界面模式可使用 `playwright install chromium --only-shell`，需要可见浏览器时安装完整 Chromium。
 
 配置规则：
 

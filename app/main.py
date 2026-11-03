@@ -111,6 +111,16 @@ def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
                 timeout_s=int(os.getenv("RESTOCK_AGENT_TIMEOUT_S", "600")))
     except (OSError, ValueError) as exc:
         raise AgentStageError(f'Agent runtime failed: {exc}') from exc
+    session = active_session()
+    if session is not None:
+        # Retain the model response before business validation can reject it.
+        # This is diagnostic evidence, never a published plan or a success event.
+        from app.redaction import audit_call
+        db.activity(session.conn, session.task_id, 'agent_response', {
+            'stage':stage,'operation_id':session.operation_id,'base_version':session.base_version,
+            'dataset_id':session.dataset_id,'duration_s':result.duration_s,
+            'exit_code':result.exit_code,'timed_out':result.timed_out,
+            **audit_call({'input':result.final_text},dict(os.environ),limit=65536)})
     if result.timed_out or result.exit_code != 0 or not result.final_text.strip():
         detail = result.stderr.strip()[-800:] or "empty agent response"
         raise AgentStageError(
@@ -140,12 +150,19 @@ def _policy_from_agent(text: str) -> Policy:
 
 
 def _check_summary_currency(agent):
-    # P2-1：支持中文数字和全角数字（防止"一百美元"或"１００美元"绕过校验）。
-    # 全角数字先转半角，便于统一匹配；包含"两"（"需要两件商品""采购金额两美元"）。
-    summary = agent.get('summary', '')
-    normalized = summary.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
-    if re.search(r'[\d零一二两三四五六七八九十百千万][\d,.零一二两三四五六七八九十百千万]*\s*(?:美分|美元|USD\b)',
-                 normalized, re.IGNORECASE):
+    import unicodedata
+    summary = unicodedata.normalize('NFKC', agent.get('summary', ''))
+    try:
+        decision = json.loads(summary)
+    except (ValueError, TypeError):
+        decision = None
+    if isinstance(decision, dict) and 'explanation' in decision:
+        # Policy values (e.g. an SKU named USD-001) are not prose currency claims.
+        summary = str(decision['explanation'])
+    # This stage has CNY only. Permit an explicit negation of the two common
+    # mistranslations, but no foreign currency amount in either prefix/suffix form.
+    summary = re.sub(r'(?:不是|非|而非)(?:美元|美分)(?:或(?:美元|美分))?', '', summary)
+    if re.search(r'美元|美分|美金|(?<![A-Za-z_])(?:USD|dollars?|cents?)(?![A-Za-z_])|\$', summary, re.IGNORECASE):
         raise AgentStageError('模型摘要金额口径错误：本任务使用人民币分，不能解释为美分或美元。')
 
 

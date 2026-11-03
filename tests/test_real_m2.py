@@ -37,7 +37,7 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
         command=list(spec.command); command[command.index('--port')+1]=str(ports[spec.name])
         specs.append(Service(spec.name,ports[spec.name],command,spec.health_path))
     evidence={'model':'intern-s2','mode':'required','sample_skus':sample,'stages':{},'passed':False}
-    output=ROOT/'outputs/m2-remediation'; output.mkdir(parents=True,exist_ok=True)
+    output=Path(os.getenv('RESTOCK_ACCEPTANCE_OUTPUT', str(ROOT/'outputs/m2-remediation'))); output.mkdir(parents=True,exist_ok=True)
     supervisor=Supervisor(specs,env,tmp_path/'logs',timeout=60)
     def wait_task(client,task,phase):
         start=time.monotonic()
@@ -69,9 +69,27 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
             auth={'X-Restock-Approval':env['RESTOCK_APPROVAL_TOKEN']}
             old={'version':1,'plan_hash':first['latest_plan_hash']}
             assert client.post(f'/tasks/{task}/approve',json=old,headers=auth).status_code==200
-            assert client.post(f'/tasks/{task}/revise',json={'comment':f'把预算改为{changed_budget//100}元，其他参数保持不变。'}).status_code==202
+            expected_policy={**first['latest_plan']['policy'],'budget_cents':changed_budget}
+            comment=f'把预算改为{changed_budget//100}元，其他参数保持不变。'
+            if sample==30:
+                # An unsupported mixed request must fail as a whole, preserving v1.
+                before_response=client.get(f'/tasks/{task}/plans'); assert before_response.status_code==200
+                before_versions=before_response.json()
+                assert client.post(f'/tasks/{task}/revise',json={'comment':'把预算改为3000元，并把商品SKU-001单价改为1元。'}).status_code==202
+                started=time.monotonic()
+                while time.monotonic()-started<660:
+                    rejected=client.get('/tasks/'+task).json()
+                    if not rejected['operation']['busy']:break
+                    time.sleep(1)
+                assert not rejected['operation']['busy'] and rejected['operation']['error']
+                evidence['unsupported_request']={'elapsed_s':round(time.monotonic()-started,2),'operation':rejected['operation']}
+                assert client.get(f'/tasks/{task}/plans').json()==before_versions
+                assert rejected['latest_plan']['version']==1
+                expected_policy.update(cover_days=21,safety_days=5,priority_categories=['零食'],excluded_skus=['SKU-001'])
+                comment='预算改为3000元，覆盖21天，安全5天，优先零食类别，排除SKU-001。'
+            assert client.post(f'/tasks/{task}/revise',json={'comment':comment}).status_code==202
             revised=wait_task(client,task,'reviser'); p=revised['latest_plan']
-            assert p['version']==2 and p['policy']=={**first['latest_plan']['policy'],'budget_cents':changed_budget}
+            assert p['version']==2 and p['policy']==expected_policy
             assert p['dataset_hash']==first['latest_plan']['dataset_hash']
             assert 0<p['total_cost_cents']<=changed_budget
             if sample==1: assert p['total_cost_cents']==3000 and p['items'][0]['order_qty']==30 and p['items'][0]['unmet_qty']==18
@@ -90,31 +108,9 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
             assert any(c['stage']=='reviser' and c['tool']=='revise_plan' for c in calls)
             # P2-9：第四个工具 get_execution_result（executor 阶段）必须覆盖。
             assert any(c['stage']=='executor' and c['tool']=='get_execution_result' for c in calls)
-            # P2-9：R14——planner 摘要必须包含币种（人民币）、风险统计数值的独立核对，
-            # 且模型建议长度 <= 180 字。风险统计数值从 plan 数据独立计算，与摘要数值对比。
-            planner_events = [e for e in events if e['kind'] == 'planner' and e['payload'].get('summary')]
-            assert planner_events, 'planner 阶段必须有摘要'
-            # 独立计算风险统计数值（从 plan 的数据）
-            risks = {i['sku'] for i in p['items'] if i.get('stockout_before_arrival')}
-            skipped_risks = risks & set(p.get('skipped', []))
-            low = sum(1 for i in p['items'] if i.get('confidence') == 'low')
-            for e in planner_events:
-                summary = e['payload']['summary']
-                assert '人民币' in summary, 'planner 摘要必须包含人民币币种'
-                # P2-9：风险统计数值的独立核对——摘要里的数值必须与独立计算的一致
-                import re
-                risk_match = re.search(r'预计到货前缺货风险 (\d+) 种，其中被预算跳过 (\d+) 种', summary)
-                assert risk_match, 'planner 摘要必须包含风险统计数值'
-                assert int(risk_match.group(1)) == len(risks), \
-                    f'缺货风险数值不匹配：摘要 {risk_match.group(1)} vs 独立计算 {len(risks)}'
-                assert int(risk_match.group(2)) == len(skipped_risks), \
-                    f'预算跳过风险数值不匹配：摘要 {risk_match.group(2)} vs 独立计算 {len(skipped_risks)}'
-                low_match = re.search(r'低置信商品 (\d+) 种', summary)
-                if low_match:
-                    assert int(low_match.group(1)) == low, \
-                        f'低置信商品数值不匹配：摘要 {low_match.group(1)} vs 独立计算 {low}'
-                advice = summary.split('模型建议：', 1)[-1]
-                assert len(advice.strip()) <= 180, f'模型建议长度 {len(advice.strip())} 超过 180 字'
+            # The planner event belongs to the immutable v1, never latest v2.
+            from tests.summary_assertions import assert_planner_summaries
+            assert_planner_summaries(events, {1:first['latest_plan'],2:revised['latest_plan']})
             orders=httpx.get(urls['portal']+'/api/purchase-orders',trust_env=False).json()
             evidence['independent_orders']=orders
             expected={}
@@ -132,6 +128,13 @@ def test_real_internlm_tool_generation_revision_and_procurement(tmp_path,sample)
             assert 'PO-' in client.get(f'/tasks/{task}/artifacts/2/html').text
             evidence['passed']=True
     finally:
+        # Read the isolated task activity even if an assertion rejected a stage.
+        if evidence.get('task_id'):
+            try:
+                response=httpx.get(urls['api']+'/tasks/'+evidence['task_id']+'/activity',trust_env=False,timeout=5)
+                if response.status_code==200:evidence['activity']=response.json()['events']
+            except httpx.HTTPError:
+                pass
         supervisor.stop()
         path=output/('real-chain.json' if sample==1 else 'real-chain-30.json')
         if path.exists():

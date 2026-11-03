@@ -73,12 +73,13 @@ def test_real_windows_cmd_launcher_in_path_with_spaces(monkeypatch, tmp_path):
     assert result.final_text == "local stub completed"
 
 
-def test_launch_failure_cleans_prompt_without_starting_timer(monkeypatch, tmp_path):
+def test_launch_failure_does_not_start_timer(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "resolve_codex_bin", lambda _: sys.executable)
-    prompt_paths = []
+    launches = []
 
     def fail_launch(*args, **kwargs):
-        prompt_paths.append(Path(kwargs["stdin"].name))
+        launches.append(kwargs["stdin"])
+        assert kwargs["stdin"] == runner.subprocess.PIPE
         raise PermissionError("launch denied")
 
     monkeypatch.setattr(runner.subprocess, "Popen", fail_launch)
@@ -86,7 +87,7 @@ def test_launch_failure_cleans_prompt_without_starting_timer(monkeypatch, tmp_pa
     result = runner.run_codex_task("hello", str(tmp_path))
     assert result.exit_code == 127
     assert "launch denied" in result.stderr
-    assert prompt_paths and not prompt_paths[0].exists()
+    assert len(launches) == 1
 
 
 def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path):
@@ -96,7 +97,13 @@ def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path)
     prompt = "补货预算调整\n" * 2000
     observed = {}
 
+    class Input(io.BytesIO):
+        def close(self):
+            observed['prompt'] = self.getvalue().decode('utf-8')
+            super().close()
+
     class Process:
+        stdin = Input()
         pid = 123
         returncode = 0
         stdout = io.BytesIO((json.dumps({"type": "item.completed", "item": {
@@ -108,24 +115,23 @@ def test_long_unicode_prompt_uses_stdin_and_isolated_home(monkeypatch, tmp_path)
 
     def launch(cmd, **kwargs):
         assert "RESTOCK_APPROVAL_TOKEN" not in kwargs["env"]
-        observed.update(cmd=cmd, prompt=kwargs["stdin"].read().decode("utf-8"),
-                        home=kwargs["env"]["CODEX_HOME"], path=Path(kwargs["stdin"].name))
+        assert kwargs['stdin'] == runner.subprocess.PIPE
+        observed.update(cmd=cmd, home=kwargs['env']['CODEX_HOME'])
         return Process()
 
     monkeypatch.setattr(runner.subprocess, "Popen", launch)
-    # P2-5：_stop_owned_process 在 finally 调用 subprocess.run（taskkill 清理残留子进程），
-    # 测试环境也需要 mock subprocess.run（不实际执行 taskkill）。
-    class _RunResult:
-        returncode = 0
-        stderr = b''
-    monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: _RunResult())
+    class FakeScope:
+        def spawn(self, cmd, **kwargs): return launch(cmd, **kwargs)
+        def stop(self): pass
+        def close(self): pass
+    monkeypatch.setattr(runner, 'ProcessScope', FakeScope)
     result = runner.run_codex_task(prompt, str(tmp_path), codex_home=str(tmp_path / "agent config"))
     assert result.final_text == "done"
     assert observed["prompt"] == prompt
     assert observed["cmd"] == [sys.executable, "exec", "--json", "--skip-git-repo-check", "-"]
     assert observed["home"] == str(tmp_path / "agent config")
     assert os.environ["CODEX_HOME"] == "personal-home"
-    assert not observed["path"].exists()
+    assert Process.stdin.closed
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows CLI lifecycle')
