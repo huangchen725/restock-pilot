@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import db, runner, jobs, datasets, reports, ledger
+from app import db, runner, jobs, datasets, reports, ledger, collection
 from app.execution import PlaywrightProcurementAdapter, build_supplier_orders, summarize_execution
 from app.models import Policy, TaskState, canonical_json, DataContract, RevisionDecision
 from app.prompts import build_stage_prompt
@@ -26,12 +26,22 @@ from app.agent_runtime import AgentRuntime
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 DB_PATH = ROOT / os.getenv("RESTOCK_DB_PATH", "restock.db")
+COLLECTION_DIR = ROOT / os.getenv("RESTOCK_COLLECTION_DIR", "outputs/collections")
 
 @asynccontextmanager
 async def lifespan(app):
     get_conn()
-    yield
-    jobs.shutdown()
+    publisher = collection.PublicationWorker(get_conn, lambda: COLLECTION_DIR)
+    from app.collector import CollectorWorker
+    collector_worker = CollectorWorker(get_conn, lambda: COLLECTION_DIR)
+    collector_worker.start()
+    publisher.start()
+    try:
+        yield
+    finally:
+        collector_worker.stop()
+        publisher.stop()
+        jobs.shutdown()
 
 
 app = FastAPI(title="RestockPilot", version="0.7.0-m3", lifespan=lifespan)
@@ -39,6 +49,23 @@ _conn = None
 _tasks: dict = {}
 _conn_lock = threading.Lock()
 APPROVAL_TOKEN = os.getenv("RESTOCK_APPROVAL_TOKEN") or secrets.token_urlsafe(32)
+from app.collection_api import router as collection_router
+app.include_router(collection_router(lambda: get_conn(), lambda: COLLECTION_DIR, lambda: APPROVAL_TOKEN))
+
+
+def _source_ready(source_id, dataset_id):
+    try:
+        collection.assert_ready(get_conn(), COLLECTION_DIR, source_id, dataset_id)
+    except collection.CollectionError as exc:
+        raise HTTPException(exc.status, str(exc)) from None
+
+
+def _task_source_ready(task_id, dataset_id):
+    source_id = db.task_source(get_conn(), task_id)
+    if source_id:
+        _source_ready(source_id, dataset_id)
+
+
 
 
 @app.get("/health")
@@ -77,6 +104,7 @@ class AnalyzeRequest(BaseModel):
     data_contract: DataContract | None = None
     dataset_id: str | None = None
     user_request: str = Field(default="", max_length=4000)
+    source_id: str | None = None
 
 
 class ReviseRequest(BaseModel):
@@ -219,6 +247,7 @@ def _save_operation_result(task_id, result):
 def _publish_candidate(session, policy, stage, agent):
     # No browser/model work inside this transaction. Nested helpers use savepoints.
     with db.transaction(get_conn()):
+        _task_source_ready(session.task_id, session.dataset_id)
         plan, h = session.commit(policy)
         _agent_event(session.task_id, stage, plan.version, agent)
         result = {"task_id": session.task_id, "state": TaskState.NEEDS_REVIEW.value,
@@ -315,9 +344,16 @@ def create_task(req:AnalyzeRequest,prefer:str=Header(default="")):
         raise HTTPException(422,"数据版本已绑定口径，不能在任务中覆盖。")
     snap=_snapshot(req.dataset_id) if req.dataset_id else None
     task_id=uuid.uuid4().hex[:12]
-    db.upsert_task(get_conn(),task_id,TaskState.NEW)
-    db.update_context(get_conn(),task_id,request_json=req.model_dump_json())
-    db.activity(get_conn(),task_id,"created",{"request":req.model_dump()})
+    with db.transaction(get_conn()):
+        if req.source_id:
+            _source_ready(req.source_id, req.dataset_id)
+        elif req.dataset_id and db.sources_for_dataset(get_conn(), req.dataset_id):
+            raise HTTPException(422, "来源发布的数据必须明确绑定 source_id。")
+        db.upsert_task(get_conn(),task_id,TaskState.NEW)
+        if req.source_id:
+            db.bind_task_source(get_conn(), task_id, req.source_id)
+        db.update_context(get_conn(),task_id,request_json=req.model_dump_json())
+        db.activity(get_conn(),task_id,"created",{"request":req.model_dump()})
     return _dispatch(task_id,"检查资料",lambda:_create_work(task_id,req,snap),prefer,publishes_plan=True)
 
 
@@ -389,11 +425,13 @@ def approve(task_id:str,req:ApprovalRequest,x_restock_approval:str=Header(defaul
             raise HTTPException(404,"no plan to approve")
         if req.version!=plan.version or req.plan_hash!=h:
             raise HTTPException(409,"页面方案已过期，请刷新后重新确认。")
+        _task_source_ready(task_id, plan.dataset_id)
         try:
             rec.approve(h,plan.version)
         except TransitionError as exc:
             raise HTTPException(409,str(exc))
         with db.transaction(get_conn()):
+            _task_source_ready(task_id, plan.dataset_id)
             db.upsert_task(get_conn(),task_id,rec.state,h,plan.version)
             db.activity(get_conn(),task_id,"approved",{"version":plan.version,"plan_hash":h,"source":"human_workbench"})
         return {"task_id":task_id,"state":rec.state.value,"approved_plan_hash":h,"approved_version":plan.version}
@@ -414,6 +452,8 @@ def revise(task_id:str,req:ReviseRequest,prefer:str=Header(default="")):
         raise HTTPException(422,"请填写修改意见、参数或选择新数据。")
     if req.dataset_id:
         _snapshot(req.dataset_id)
+        if not db.task_source(get_conn(), task_id) and db.sources_for_dataset(get_conn(), req.dataset_id):
+            raise HTTPException(409, "请新建明确绑定来源的任务，不能隐式更改已有手动任务的来源。")
     return _dispatch(task_id,"重新计算方案",lambda:_revise_work(task_id,req),prefer,publishes_plan=True)
 
 
@@ -433,6 +473,7 @@ def _revise_work(task_id, req):
         raise HTTPException(409, "legacy plan has no data snapshot; create a new task with confirmed data")
     if not req.dataset_id and snapshot_hash(snapshot) != current.dataset_hash:
         raise HTTPException(409, "dataset snapshot hash mismatch")
+    _task_source_ready(task_id, "ds-" + snapshot_hash(snapshot))
     executed = ledger.has_execution(get_conn(), task_id)
     if executed and current and snapshot_hash(snapshot) != current.dataset_hash:
         raise HTTPException(409, "已有执行尝试的任务不能更换数据快照，请先核对原任务。")
@@ -513,6 +554,7 @@ def _begin_attempt(task_id, recovering):
         if rec.state not in allowed:
             raise HTTPException(409, "当前状态不允许此执行操作。")
         plan, h = _approved_plan(rec)
+        _task_source_ready(task_id, plan.dataset_id)
         if not recovering and ledger.has_execution(get_conn(),task_id):
             if ledger.has_execution(get_conn(),task_id,plan.version):
                 raise HTTPException(409,'此版本已有执行尝试，请使用受控核对与恢复。')
@@ -601,6 +643,8 @@ def _run_execution(task_id, recovering=False):
 def execute(task_id: str, prefer: str = Header(default="")):
     if get_record(task_id).state is not TaskState.APPROVED:
         raise HTTPException(409, "只有已批准且尚未执行的方案可以执行。")
+    plan, _ = _approved_plan(get_record(task_id))
+    _task_source_ready(task_id, plan.dataset_id)
     return _dispatch(task_id,"录入采购申请",lambda:_run_execution(task_id),prefer)
 
 
@@ -639,7 +683,8 @@ def get_status(task_id: str):
                 "approved_plan_hash": rec.approved_plan_hash,
                 "approved_version": rec.approved_version,
                 "latest_plan": plan.model_dump() if plan else None,
-                "latest_plan_hash": h, "operation":db.get_context(conn,task_id)}
+                "latest_plan_hash": h, "operation":db.get_context(conn,task_id),
+                "data_status":collection.task_data_status(conn, COLLECTION_DIR, task_id, plan.dataset_id if plan else None)}
 
 
 @app.get("/tasks/{task_id}/executions")

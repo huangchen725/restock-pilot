@@ -1,0 +1,189 @@
+{
+  "date": "2026-11-04T18:46:40.543619+08:00",
+  "branch": "temporary",
+  "baseline_head": "9c233b2ce449a546bdeeabdf1ef4d13c1f62cd20",
+  "scope": "M5-1 local organization/staging/formal CSV publication/source-bound task protections/workbench. Browser collector not implemented.",
+  "environment": {
+    "python": "3.12.14",
+    "executable": "D:\\书生智能体比赛temp\\.venv\\Scripts\\python.exe",
+    "product_models": "off or fixture fake model; no real Intern API request",
+    "cli_boundary": "real pinned CLI driven by local fake model",
+    "isolation": "temporary SQLite databases, independent loopback ports, ignored output directories; existing user services/data not reset"
+  },
+  "source_fingerprints": {
+    "app/db.py": "7e0aefeb26da8d3cb03a9c5bd52e0c6f57c82f2f324796186a2aa4df878e64d3",
+    "app/main.py": "2432ba22e8ce732988e54f5075b08072e8443f5e0436838160d77aa6be9b3313",
+    "app/collection.py": "eb6a035f88013ae60ab1a8187f7138f85ad641a507c15878bd59cc049b34306b",
+    "app/collection_api.py": "311eb573d139f28c21efe27e47e6f94dc687d02d41b880cde8d1c6794c540391",
+    "ui/app.py": "8892a383dc41711117b5857f22c4e8d36684e7db105f8e850267bbd1b86b06d1",
+    "ui/collection_panel.py": "5bcc2f8c18c01fc18efc30660ef37c3cea3b43529b00ae814da13a59fc6e8bdf",
+    "tests/test_collection.py": "2e7d3767078dfe7cf65d9886fbf169ce695a0f1575d2441b4dd12764cebf5990",
+    "tests/test_collection_workbench.py": "980e8fcbd5b412d7db5b0606c5fa28022305a32eca2c35f332137b369f3578f6",
+    "tests/acceptance_plugin.py": "ef8a41ac0aa7608d23ec620786baf5902aa820faece15a86a8bb74be56b402ef"
+  },
+  "user_supplied_page_files": {
+    "app/merchant_test_portal.py": "4e5210bdda2b1cf843e9d3233b8de5229ab2e6abe938c2caaaa40422c1e9dd1c",
+    "tests/test_merchant_test_portal.py": "6c76ba21ab9152a768b63b300efbda4da3f4f14c6d65faf80d3ccc9c51cee805"
+  },
+  "validation": {
+    "strict_layers": [
+      {
+        "layer": 1,
+        "name": "rules/API and acceptance controls",
+        "passed": 500,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true
+      },
+      {
+        "layer": 4,
+        "name": "CLI boundary and startup",
+        "passed": 30,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true
+      }
+    ],
+    "strict_unique_tests": 530,
+    "frozen": true,
+    "final_product_entry": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_source_settings_scheduled_csv_download_and_old_approval_block[1]",
+        "test_upload_revise_approve_execute_refresh_and_download"
+      ],
+      "evidence": "outputs/m5-1-final-entry.xml"
+    },
+    "full_interval_prior_check": {
+      "passed": 3,
+      "failed": 0,
+      "scope": "1-second and full 60-second publication periods plus legacy workbench; subsequent timezone/error-clear changes covered by final 30 data tests and rerun of complete short-period/legacy entries",
+      "evidence": "outputs/m5-1-ui-final.xml"
+    },
+    "data_targeted": {
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "outputs/m5-1-data-final.xml"
+    }
+  },
+  "independent_business_check": {
+    "source": "synthetic one-SKU observations via protected backend entry",
+    "sales_rows": 28,
+    "sales_quantity": 112,
+    "new_inventory": 12,
+    "approved_version": 2,
+    "expected_order_quantity": 36,
+    "unit_cost_cents": 100,
+    "actual_order_count": 1,
+    "actual_total_cents": 3600,
+    "old_approval_rejected": true,
+    "repeat_execution_rejected": true,
+    "no_auto_task_on_publication": true
+  },
+  "developer_page_check": {
+    "status": "passed_basic_interaction_only",
+    "source": "user-provided simulated merchant page",
+    "actions": [
+      "login",
+      "date and store filter through visible controls",
+      "next-page navigation preserving filters",
+      "read operation log"
+    ],
+    "observed_filter": "S01 / 2026-10-28 / 10 rows per page",
+    "observed_total_rows": 58,
+    "observed_page_count": 6,
+    "observed_page_after_next": 2,
+    "business_writes": 0,
+    "evidence": "Current conversation CUA state receipts; own isolated server and tab stopped/closed",
+    "not_proven": [
+      "CLI-to-external-browser integration",
+      "Intern page interpretation",
+      "complete business-table extraction",
+      "real merchant access"
+    ]
+  },
+  "items": {
+    "M5-1-01": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_sources_accept_confirmed_config",
+        "test_bad_schedules_and_unauthorized_writes_are_rejected",
+        "test_pending_state_survives_db_reopen_and_settings_are_independent"
+      ]
+    },
+    "M5-1-02": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_changes_coalesce_and_equivalent_data_does_not_republish",
+        "test_bad_observations_cannot_replace_formal_data",
+        "test_normalizing_decimal_preserves_all_digits_without_context_rounding",
+        "test_source_calendar_day_uses_declared_offset_not_utc_date"
+      ]
+    },
+    "M5-1-03": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_stage_then_publish_complete_csv_and_independent_values",
+        "test_published_files_recover_after_database_failure",
+        "test_failed_disk_write_keeps_old_version_and_pending_data",
+        "test_concurrent_publishing_has_one_formal_version",
+        "test_data_reversion_reuses_immutable_formal_files"
+      ]
+    },
+    "M5-1-04": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_source_change_blocks_old_approval_before_csv_save",
+        "test_stale_or_corrupted_source_blocks_new_task_and_approval",
+        "test_omitting_source_cannot_bypass_freshness_guard",
+        "test_preexisting_manual_task_is_not_retroactively_bound_by_identical_source_data"
+      ]
+    },
+    "M5-1-05": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_source_settings_scheduled_csv_download_and_old_approval_block",
+        "test_source_identity_and_settings_cannot_be_overwritten"
+      ]
+    },
+    "M5-1-06": {
+      "status": "verified_local_scope",
+      "tests": [
+        "test_background_worker_saves_without_creating_task",
+        "test_background_corruption_is_visible_and_retries_are_scheduled",
+        "test_successful_unchanged_save_clears_previous_publish_error"
+      ]
+    }
+  },
+  "remaining": {
+    "M5-1-07": "User page available; product browser collector and full page-to-CSV chain pending",
+    "M5-0A": "not closed: desktop browser checks are not product CLI/Intern acceptance",
+    "M5-0B": "no real pilot",
+    "M5-2": "collection/check cadences configured only; automatic restock scheduling and cross-task budget/coverage pending",
+    "M5-3": "approve-and-execute combined action pending"
+  },
+  "prior_failures_preserved": [
+    "outputs/m5-1-red.txt",
+    "outputs/m5-1-workbench-tests.txt",
+    "outputs/m5-1-workbench-final.txt",
+    "outputs/m5-1-workbench-closeout.txt",
+    "outputs/m5-1-workbench-verified.txt",
+    "outputs/m5-1-manual-red.txt"
+  ],
+  "review_notes": [
+    "Checkbox tests click rendered labels and still assert checked state; no forced clicks or relaxed business assertions.",
+    "Version-selection closure checks wait for a unique current button, assert combobox value and dataset URL; UI applies selection at script entry.",
+    "Old manual tasks are never retroactively assigned a source merely because their data hashes match.",
+    "Exact decimal canonicalization, timezone day boundaries and clearing recovered errors have explicit controls."
+  ],
+  "reproduce": [
+    ".venv/Scripts/python.exe scripts/run_acceptance.py --layers 1,4 --strict --output outputs/<new-evidence-directory>",
+    "RUN_WORKBENCH_E2E=1 .venv/Scripts/python.exe -m pytest tests/test_collection_workbench.py tests/test_workbench_e2e.py -q --basetemp=outputs/<new-pytest-temp>"
+  ],
+  "commit_push": "not performed"
+}

@@ -65,6 +65,23 @@ CREATE TABLE IF NOT EXISTS task_activity (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_activity_task ON task_activity(task_id, seq);
+CREATE TABLE IF NOT EXISTS collection_runs (
+    run_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, record_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_sources (
+    source_id TEXT PRIMARY KEY, config_json TEXT NOT NULL, state_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_observations (
+    source_id TEXT NOT NULL, batch_id TEXT NOT NULL, payload_hash TEXT NOT NULL,
+    result_json TEXT NOT NULL, PRIMARY KEY(source_id, batch_id)
+);
+CREATE TABLE IF NOT EXISTS collection_publications (
+    source_id TEXT NOT NULL, dataset_id TEXT NOT NULL, batch_id TEXT NOT NULL,
+    manifest_json TEXT NOT NULL, PRIMARY KEY(source_id, dataset_id)
+);
+CREATE TABLE IF NOT EXISTS task_sources (
+    task_id TEXT PRIMARY KEY, source_id TEXT NOT NULL
+);
 """
 
 _LOCK = threading.RLock()
@@ -342,3 +359,110 @@ def recover_interrupted(conn):
                          (state,state,state,row["task_id"]))
             update_context(conn,row["task_id"],busy=0,phase="服务重启后待复核",error="上次操作因服务重启中断，请核对结果后再继续。")
             activity(conn,row["task_id"],"interrupted",{"state":state})
+
+
+# M5-1: source state, lightweight observations and formal CSV publication indexes.
+def create_source(conn, source_id, config, state):
+    with transaction(conn):
+        conn.execute('INSERT INTO collection_sources VALUES (?,?,?)',
+                     (source_id, json.dumps(config), json.dumps(state)))
+
+
+def get_source(conn, source_id):
+    with _LOCK:
+        row = conn.execute('SELECT * FROM collection_sources WHERE source_id=?', (source_id,)).fetchone()
+    if row is None:
+        return None
+    return {'source_id': source_id, 'config': json.loads(row['config_json']), 'state': json.loads(row['state_json'])}
+
+
+def list_sources(conn):
+    with _LOCK:
+        ids = [r[0] for r in conn.execute('SELECT source_id FROM collection_sources ORDER BY rowid')]
+        return [get_source(conn, sid) for sid in ids]
+
+
+def update_source(conn, source_id, state, config=None):
+    with transaction(conn):
+        if config is None:
+            conn.execute('UPDATE collection_sources SET state_json=? WHERE source_id=?',
+                         (json.dumps(state), source_id))
+        else:
+            conn.execute('UPDATE collection_sources SET state_json=?,config_json=? WHERE source_id=?',
+                         (json.dumps(state), json.dumps(config), source_id))
+
+
+def get_observation(conn, source_id, batch_id):
+    with _LOCK:
+        row = conn.execute('SELECT payload_hash,result_json FROM collection_observations WHERE source_id=? AND batch_id=?',
+                           (source_id, batch_id)).fetchone()
+    return (row[0], json.loads(row[1])) if row else None
+
+
+def save_observation(conn, source_id, batch_id, payload_hash, result):
+    with transaction(conn):
+        conn.execute('INSERT INTO collection_observations VALUES (?,?,?,?)',
+                     (source_id, batch_id, payload_hash, json.dumps(result)))
+
+
+def save_publication(conn, source_id, dataset_id, batch_id, manifest):
+    with transaction(conn):
+        conn.execute('INSERT OR IGNORE INTO collection_publications VALUES (?,?,?,?)',
+                     (source_id, dataset_id, batch_id, json.dumps(manifest)))
+
+
+def get_publication(conn, source_id, dataset_id):
+    with _LOCK:
+        row = conn.execute('SELECT manifest_json FROM collection_publications WHERE source_id=? AND dataset_id=?',
+                           (source_id, dataset_id)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def list_publications(conn, source_id):
+    with _LOCK:
+        return [json.loads(row[0]) for row in conn.execute(
+            'SELECT manifest_json FROM collection_publications WHERE source_id=? ORDER BY rowid', (source_id,))]
+
+
+def bind_task_source(conn, task_id, source_id):
+    with transaction(conn):
+        conn.execute('INSERT INTO task_sources VALUES (?,?)', (task_id, source_id))
+
+
+def task_source(conn, task_id):
+    with _LOCK:
+        row = conn.execute('SELECT source_id FROM task_sources WHERE task_id=?', (task_id,)).fetchone()
+    return row[0] if row else None
+
+
+def invalidate_source_approvals(conn, source_id):
+    with transaction(conn):
+        rows = conn.execute("""SELECT t.task_id FROM tasks t JOIN task_sources s ON t.task_id=s.task_id
+            WHERE s.source_id=? AND t.state='APPROVED'
+              AND NOT EXISTS (SELECT 1 FROM execution_events e WHERE e.task_id=t.task_id)
+              AND NOT EXISTS (SELECT 1 FROM execution_records r WHERE r.task_id=t.task_id)""", (source_id,)).fetchall()
+        for row in rows:
+            conn.execute("UPDATE tasks SET state='NEEDS_REVIEW',approved_plan_hash=NULL,approved_version=NULL WHERE task_id=?", (row[0],))
+            activity(conn, row[0], 'source_changed', {'source_id': source_id, 'approval_invalidated': True})
+
+
+def sources_for_dataset(conn, dataset_id):
+    with _LOCK:
+        return [row[0] for row in conn.execute(
+            'SELECT source_id FROM collection_publications WHERE dataset_id=?', (dataset_id,))]
+
+
+def save_collection_run(conn, run_id, source_id, record):
+    with transaction(conn):
+        conn.execute('INSERT INTO collection_runs VALUES (?,?,?) ON CONFLICT(run_id) DO UPDATE SET record_json=excluded.record_json',
+                     (run_id, source_id, json.dumps(record)))
+
+def collection_runs(conn, source_id):
+    with _LOCK:
+        return [json.loads(r[0]) for r in conn.execute('SELECT record_json FROM collection_runs WHERE source_id=? ORDER BY rowid DESC LIMIT 20',(source_id,))]
+
+
+def get_collection_run(conn,run_id):
+    with _LOCK:
+        row=conn.execute('SELECT record_json FROM collection_runs WHERE run_id=?',(run_id,)).fetchone()
+    return json.loads(row[0]) if row else None

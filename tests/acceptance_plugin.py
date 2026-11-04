@@ -8,15 +8,15 @@ def layer_for(node):
     file, _, name = node.partition('::')
     if file=='tests/test_setup_e2e.py':
         return 6
-    if file in ('tests/test_real_m2.py',) or name.startswith('test_required_model_workbench'):
+    if file in ('tests/test_real_m2.py','tests/test_real_collection.py') or name.startswith('test_required_model_workbench'):
         return 5
-    if file in ('tests/test_agent_runtime.py','tests/test_startup.py'):
+    if file in ('tests/test_agent_runtime.py','tests/test_startup.py','tests/test_collector_cli.py'):
         return 4
     if file == 'tests/test_m3_workbench.py':
         return 3 if name.startswith('test_workbench_') else 2
-    if file in ('tests/test_workbench_e2e.py','tests/test_m4_workbench.py'):
+    if file in ('tests/test_workbench_e2e.py','tests/test_m4_workbench.py','tests/test_collection_workbench.py'):
         return 3
-    if file in ('tests/test_playwright_e2e.py','tests/test_fault_injection.py','tests/test_m3_live.py'):
+    if file in ('tests/test_playwright_e2e.py','tests/test_fault_injection.py','tests/test_m3_live.py','tests/test_browser_collection.py'):
         return 2
     return 1
 

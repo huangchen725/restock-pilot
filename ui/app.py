@@ -20,7 +20,7 @@ STATES = {"NEW":"等待处理","ANALYZING":"正在生成方案","NEEDS_INPUT":"�
 
 def call(method, path, **kwargs):
     headers = kwargs.pop("headers", {})
-    if path.endswith("/approve"):
+    if path.endswith("/approve") or (path.startswith("/data-sources") and method in ("POST", "PUT")):
         headers["X-Restock-Approval"] = os.getenv("RESTOCK_APPROVAL_TOKEN", "")
     try:
         with httpx.Client(base_url=BASE, timeout=15, trust_env=False) as client:
@@ -32,7 +32,7 @@ def call(method, path, **kwargs):
                 detail = "服务返回了无法识别的结果"
             st.error(str(detail))
             return None
-        if "/artifacts/" in path:
+        if "/artifacts/" in path or "/publications/" in path:
             return response.content
         return response.json()
     except httpx.HTTPError:
@@ -77,6 +77,13 @@ def open_task(task_id):
 
 
 st.set_page_config(page_title="RestockPilot · 补货工作台",page_icon="📦",layout="wide")
+# Apply source selection at script entry, before task fragments capture dataset state.
+if st.session_state.get('_select_source_dataset'):
+    source_id, dataset_id = st.session_state.pop('_select_source_dataset')
+    st.query_params['source'] = source_id
+    st.query_params['dataset'] = dataset_id
+    st.rerun()
+
 # P1-13：在脚本顶部（form 外）处理任务跳转，确保 query_params 设置生效。
 if st.session_state.get('_open_task'):
     st.query_params['task'] = st.session_state.pop('_open_task')
@@ -114,11 +121,14 @@ with st.sidebar:
     st.divider()
     st.caption("仅创建采购申请，不表示付款或到货。演示后台不会联系真实供应商。")
 
+from ui.collection_panel import render as render_collection_panel
+render_collection_panel(call)
+
 with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("task")):
     if st.button("使用示例数据"):
         result=call("POST","/datasets/example")
         if result:
-            st.query_params['dataset']=result['dataset_id']; st.rerun()
+            st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
     with st.form("upload"):
         columns=st.columns(3)
         sales=columns[0].file_uploader("销售记录 sales.csv",type=['csv'],key="sales")
@@ -142,7 +152,7 @@ with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("
                        (("sales",sales),("inventory",inventory),("suppliers",suppliers))}
                 result=call("POST","/datasets",files=files,data={"contract":json.dumps(contract)})
                 if result and result.get("dataset_id"):
-                    st.query_params['dataset']=result['dataset_id']; st.rerun()
+                    st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
                 elif result:
                     for issue in result.get("data_problems",[]): show_problem(issue)
     st.caption("修正 CSV 或确认项后可以重新上传。上传不会自动覆盖当前任务；需要在任务中明确应用新数据。")
@@ -164,7 +174,7 @@ if not st.query_params.get('task'):
         user_request=st.text_area("补充要求（可选）",disabled=offline,placeholder="例如：预算改为3000元，优先保障饮料。")
         st.caption("支持预算、覆盖天数、安全天数、优先类别和排除商品。")
         if st.form_submit_button("生成补货方案",type="primary"):
-            result=call('POST','/tasks',json={'dataset_id':dataset['dataset_id'],'policy':policy,'user_request':user_request})
+            result=call('POST','/tasks',json={'dataset_id':dataset['dataset_id'],'source_id':st.query_params.get('source'), 'policy':policy,'user_request':user_request})
             if result: open_task(result['task_id'])
     st.stop()
 
@@ -181,6 +191,9 @@ def task_panel():
     st.write("**"+STATES.get(state['state'],state['state'])+"**")
     if busy: st.info(operation['phase']+"，页面会自动更新，可稍后通过任务记录返回。")
     if operation.get('error'): st.error(operation['error'])
+    data_status = state.get('data_status')
+    data_ready = not data_status or data_status['ready']
+    if data_status and not data_status['ready']: st.warning('来源数据需复核：' + data_status['reason'])
     for problem in (operation.get('result') or {}).get('data_problems',[]): show_problem(problem)
     plan=state.get('latest_plan')
     # P1-9：PARTIAL/NEEDS_RECONCILIATION 允许人工重新决策修订（revise 端点已支持，
@@ -257,12 +270,12 @@ def task_panel():
     if state['state']=='NEEDS_REVIEW' and not busy and is_latest:
         st.subheader("人工确认")
         confirmed=st.checkbox(f"我已核对 v{selected} 的数量、金额和风险提示",key='approve-'+view['plan_hash'])
-        if st.button("批准当前方案",type='primary',disabled=not confirmed):
+        if st.button("批准当前方案",type='primary',disabled=not confirmed or not data_ready):
             result=call('POST',f'/tasks/{task_id}/approve',json={'version':selected,'plan_hash':view['plan_hash']})
             if result: st.rerun()
     if state['state']=='APPROVED' and not busy and is_latest:
         st.success("已批准此版本，可以创建演示采购申请。")
-        if st.button("创建采购申请",type='primary'):
+        if st.button("创建采购申请",type='primary',disabled=not data_ready):
             if call('POST',f'/tasks/{task_id}/execute'): st.rerun()
     current=[r for r in summary.get('valid_orders',[]) if r['version']==selected]
     if current:
