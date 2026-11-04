@@ -5,9 +5,13 @@
 
 ## 工程计划与当前进度
 
-后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-03 剩余 P2 修复与验收对齐）。
+**2026-11-04 新机安装入口已完成：双击 `setup.cmd`，填写本地 `.env` 后双击 `start.cmd`。** 支持固定运行时下载校验、已有配置保留、重复执行和失败恢复。定向回归 179 项通过；独立安装场景及新环境内 51 项产品验证通过。详见 [安装与启动](#新机安装与启动)、[工程进度](ENGINEERING_PLAN.md#setup-closeout) 和 [安装验收索引](docs/verification/setup-20261104.json)。这是同机自动化验证，M4-13 异机与 M4-14 部署尚未完成；本轮未提交推送。
+
+后续开发与验收以 [工程执行计划](ENGINEERING_PLAN.md) 为准（2026-11-03 M4-01 至 M4-12 关闭复核已对齐）。
 开发 Agent 接手时先阅读 [AGENTS.md 的问题关闭协议](AGENTS.md#问题关闭协议)，修复依据 [P2 关闭矩阵](ENGINEERING_PLAN.md#p2-closeout) 保留原反例、相邻边界、正常控制及实际入口证据。
-当前 [38 项审计修复台账](ENGINEERING_PLAN.md#audit-status)：37 项验证关闭；P2-12 按用户要求忽略、未验证。剩余六项 P2 的修复与规范在本次 temporary 提交中交付，M4 稳定性、异机和比赛材料继续单列。
+当前 [38 项审计修复台账](ENGINEERING_PLAN.md#audit-status)：37 项验证关闭；P2-12 按用户要求忽略、未验证。此前六项 P2 的修复与规范已由 `fcf1240` 交付；本轮 M4 状态另见下方，异机和比赛材料仍单列。
+**M4 整体仍未完成；M4-01 至 M4-12 已关闭。** 本轮 `temporary@660706d` 加未提交修改，严格分层 478 passed / 0 failed / 0 skipped；20 类场景覆盖 59 个去重后实际执行节点。正式稳定性入口的 30 SKU 离线工作台 10/10，真实书生入口另验 1/1，均核对批准、实际单据及导出。M4-13 至 M4-17 按用户要求本轮不处理，原状态保留；没有提交或推送。详见 [当前 M4 修复计划](ENGINEERING_PLAN.md#m4-audit)、[关闭索引](docs/verification/m4-closeout-20261103.json)；[首次审计](docs/verification/m4-20261103.json) 保留历史失败，不代表当前状态。
+
 保留 Codex CLI 作为后台运行时，用户全程使用 RestockPilot 工作台；不要求打开
 Codex 桌面界面或操作终端。当前阶段不抽取底座源码、不重写 Agent 循环。
 
@@ -55,7 +59,7 @@ Planner 摘要有预算分配与在途抵扣口径的解释偏差，需修正；
 
 ## 截止时间
 
-**2026-11-05 23:59:59 报名 + 作品提交（ZIP + ≤5 分钟视频链接 + 应用体验链接）**，只报名不交件无效。
+**2026-11-10 23:59:59（北京时间）报名及作品提交截止。** 2026-11-03 已核对[官方赛道页面](http://www.aiinnovation.com.cn/web/#/trackDetail?id=160&ckey=5)的 id=160/ckey=5 数据；旧 11 月 5 日记录已过时。需准备技术 PDF（含 ≤5 分钟、≥720P 视频及体验链接）、代码和模型材料，并按官方要求打包命名；API-only 模型材料是否可豁免未明确，不能自行省略。
 
 M3 专项验收入口（前提是按下文配置好 Chromium 路径）：
 
@@ -67,6 +71,34 @@ Remove-Item Env:RUN_PLAYWRIGHT_E2E, Env:RUN_WORKBENCH_E2E
 ```
 
 这些用例使用隔离数据库、回环端口和自建采购后台，包含真实 Chromium、真实工作台和本次启动 API 的进程中断；模型明确关闭。真实书生、冻结稳定性和异机复现单列，不由这些结果代替。
+
+## M4 验收入口
+
+以下均在项目根目录使用同一 `.venv`。先按启动说明安装锁定 CLI、Chromium 并配置环境；相对 `RESTOCK_CODEX_BIN` 在项目根解析。验收不会重置用户数据库，输出保存在 `outputs/` 的独立目录。
+
+```powershell
+# 正式非真实模型分层验收；严格模式不接受任何 skipped
+.\.venv\Scripts\python.exe scripts/run_acceptance.py --layers 1,2,3,4 --strict
+
+# 30 SKU 真实工作台/浏览器；明确关闭模型的 10 轮稳定性
+.\.venv\Scripts\python.exe scripts/run_stability.py --mode off --runs 10 --target-success 9
+
+# 单独验证真实书生入口，需要项目 .env 的 INTERN_API_KEY，会消耗模型额度
+.\.venv\Scripts\python.exe scripts/run_stability.py --mode required --runs 1 --target-success 1
+
+# 实际交付 ZIP 或解压目录；发现问题始终失败，不需依赖 --strict
+.\.venv\Scripts\python.exe scripts/check_delivery.py --path .\delivery.zip
+# 只检查 Git 跟踪的源码候选；此结果不能代替实际交付包检查
+.\.venv\Scripts\python.exe scripts/check_delivery.py --path . --tracked
+```
+
+分层为：1 规则/API 与验收控制器；2 真实浏览器/故障/重启；3 离线真实工作台；4 CLI 允许/恶意调用与启动；5 真实书生 API/工作台；6 新机安装（联网、独立目录）。默认 1–4 不运行第 6 层，需显式选择。每个测试节点只属于一层；脚本清除非本层开关，只有显式选择第 5 层才在分层验收中调用模型。第 5 层与 required 稳定性是不同入口，不能把运行其中一个写成全部真实模型测试已通过。
+
+20 个产品场景由 [场景目录](tests/scenario_catalog.py) 映射到实际测试；复用节点只统计一次。正常任务与故障恢复经真实工作台/浏览器，规则和数据契约场景按其层级验收，不把规则测试说成 UI 验收。可显式设置 `RUN_PLAYWRIGHT_E2E=1`、`RUN_WORKBENCH_E2E=1` 后，通过 `python -m pytest tests/ -p tests.acceptance_plugin --restock-scenarios -q` 单独选择这 20 类场景。
+
+稳定性脚本要求 `--mode`，保存源码/依赖指纹、逐轮 JUnit、脱敏日志、数据/方案 hash、人工批准、实际订单、CSV/HTML 及其 hash。未经批准写入、重复申请、金额不一致、跳过或证据不完整均直接阻断，不能用成功率抵消；只有证明确未产生采购申请的规划/修订普通超时可占失败额度。目录必须新建，不能覆盖原失败记录。off 与 required 分开统计，一轮 required 通过不等于十轮真实模型稳定性。
+
+交付扫描器默认检查实际输入中的全部文件，包括 ZIP 成员、中文路径和运行目录；`--tracked` 明确只覆盖 Git 候选。退出码为 0=本次扫描未发现问题、1=发现敏感内容/路径、2=输入无效或扫描不完整；UTF-8/GBK 控制台均可读。当前保守限制为单文件 50 MiB、总量 256 MiB、10,000 个条目，超限报错，不能当通过；不支持加密 ZIP 或符号链接。可用 `--report <文件>` 保留清单、hash 和脱敏结果，父目录须已存在。扫描器通过并不代表异机、体验环境或比赛材料已交付。
 
 ## 历史验收记录（2026-10-29 原开发环境）
 
@@ -100,29 +132,41 @@ Remove-Item Env:RUN_PLAYWRIGHT_E2E, Env:RUN_WORKBENCH_E2E
 - 样例数据：`.\.venv\Scripts\python.exe scripts/generate_data.py`（30 SKU，stable/volatile/zerodays/
   newitem 四种销量模式，覆盖置信分层测试）
 
-## 快速启动
+新机安装专项验收入口：`.\.venv\Scripts\python.exe scripts/run_acceptance.py --layers 6 --strict`。它在不含 Python/Node 的 PATH 和新目录中调用真实安装入口，检查首次安装、模拟网络不可用时重复安装、错误配置拒绝/纠正后恢复及新环境产品流程；耗时和下载量较大。同机自动化记录仍不能代替 M4-13 的真实异机验收。
 
-当前可重建基线是 Windows x64、CPython 3.12.14；请先安装该 Python 及可运行 npm 的 Node.js。Linux/macOS 尚未完成单独锁定和验收。以下命令在项目根目录执行，不依赖固定盘符。
+## 新机安装与启动
 
-```powershell
-# 首次准备依赖；先确认 python --version 为 3.12.14
-# 已有匹配版本的 .venv 时跳过创建
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m playwright install chromium
-# 安装固定 CLI 到项目忽略目录，避免改动个人全局版本
-npm install --prefix .venv/codex @openai/codex@0.166.0-alpha.5.1 --no-audit --no-fund
+本入口适用于 Windows x64，需 Windows PowerShell 5.1 和系统 `tar.exe`（当前 Windows 10/11 环境已验证）。首次安装需要访问 GitHub 的 Astral Python 发行、Node.js、PyPI 和 Playwright 下载源。使用包含 `setup.cmd` 的 temporary 分支版本；无需预装 Python、Node、Codex 桌面客户端，也不需要管理员权限或全局 PATH 修改。
 
-# 首次创建配置；不覆盖已经填写的 .env
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-```
+1. 将工程放在可写目录，双击 **`setup.cmd`**。它下载并校验固定版本 Python、Node，创建 `.venv`，安装锁定依赖、Codex CLI 和 Chromium，最后核对实际运行版本。
+2. 安装提示完成后，在本地 `.env` 中填写 `INTERN_API_KEY`。安装不会验证真实密钥，也不会调用模型。
+3. 双击 **`start.cmd`**，服务就绪后打开 **http://127.0.0.1:8501**。后续启动不需再次安装。
 
-编辑根目录 `.env`，填写 `INTERN_API_KEY`，将 `RESTOCK_CODEX_BIN` 设为 `.venv/codex/node_modules/.bin/codex.cmd`。也可使用 PATH 上符合锁定版本的 CLI；显式配置错误或版本不符会拒绝启动。
-之后每次只需运行：
+已有 `.env`（包括空文件、BOM、换行、注释及自定义字段）按原字节保留。缺失时才从 `.env.example` 创建。安装器将非敏感默认值写到 `.restock/environment.json`，优先级为 **已有进程环境变量 > `.env` > 安装默认值**。明确配置了错误 CLI 路径时会失败，修正该配置后重新安装；不会偷偷替换用户选择。
+
+Python、Node、浏览器及下载缓存位于 `.restock/`，依赖与 CLI 位于 `.venv/`，均不进 Git 或源码交付包。不要复制另一台机器的 `.venv`；在新目录重新运行安装。已有虚拟环境的 Python 版本不符、未知残缺环境、运行目录链接等情况会明确拒绝并保留现场。
+
+安装可重复运行：实际版本、依赖与浏览器检查通过才复用；失败后修正网络或配置再执行。两次安装不能同时进行。日志与逐阶段结果保存在 `outputs/setup/<本次编号>/`，失败记录不覆盖。安装只使用本次进程的执行策略，不修改系统策略；Windows 的 npm 入口明确使用 `npm.cmd`。
+
+自动化验收或命令行使用：
 
 ```powershell
-.\.venv\Scripts\python.exe start.py
+# 不在末尾等待按键；返回 0 表示环境准备与版本核验完成
+.\setup.cmd -NoPause
+
+# 可选的共享下载缓存；所有命中均重新核对 SHA-256
+.\setup.cmd -NoPause -CacheDirectory .\outputs\setup-cache
+
+# 可显式选择离线演示；仍需先安装
+.\start.cmd --offline
+
+# 环境预检；required 模式还要求已填写密钥，但不验证上游推理
+.\start.cmd --check
 ```
+
+固定来源及 SHA-256 见 [bootstrap-lock.json](bootstrap-lock.json)：Python 3.12.14 使用 Astral 的独立 Windows x64 发行，Node 为 24.19.0 官方 ZIP。产品 Python/CLI/Chromium 基线仍由 [runtime-lock.json](runtime-lock.json) 定义。已经自行准备好兼容环境的开发者也可以继续使用 `.\.venv\Scripts\python.exe start.py`；没有安装默认值文件时，原 `.env`/PATH 解析规则保持。
+
+如果已有 `PLAYWRIGHT_BROWSERS_PATH`，安装与运行使用该位置；项目内缺少浏览器时自动安装，项目外的已有缓存只验证、不擅自写入，缺失时提示处理。安装成功只代表本地环境准备完成，不代表异机、真实模型或公开体验环境验收已完成。
 
 入口自动读取 `.env`，检查依赖、密钥是否填写和端口占用，再依次启动 LiteLLM
 代理（4000）、演示采购后台（8200）、主服务（8100）和工作台（8501）。
@@ -156,7 +200,7 @@ http://127.0.0.1:8100/docs；日常使用无需手写请求。
 - 已有进程环境变量优先于 `.env`；编辑配置后需重启。密钥不会出现在启动参数或控制台中。
 - 数据库路径使用 `RESTOCK_DB_PATH`、`PROCUREMENT_DB_PATH`，相对路径以项目根目录为基准。
 - 诊断日志写到被 Git 忽略的 `outputs/launcher/`，写入前遮蔽配置中的密钥与认证信息。
-- `RESTOCK_CODEX_BIN` 可指定程序名或路径；未设置时查 PATH。相对路径在项目根解析后才进入 Agent 临时目录，
+- `RESTOCK_CODEX_BIN` 可指定程序名或路径；未设置且没有安装默认值时查 PATH。相对路径在项目根解析后才进入 Agent 临时目录，
   显式配置错误时不会静默换版本。项目 `CODEX_HOME` 仅在 CLI 子进程中设置。
 - 统一入口固定管理本地 4000/8100/8200/8501 端口；`PROCUREMENT_PORTAL_URL` 保持
   `http://127.0.0.1:8200`。自定义外部后台属于手动部署场景。

@@ -1,0 +1,1662 @@
+{
+  "schema": 1,
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "branch": "temporary",
+  "base_commit": "660706d7d9780b318390925356ae29a1ced97044",
+  "scope": "M4-01..12 only. No product business-code change, no commit/push. M4-13..17 retained unchanged.",
+  "overall": "M4 remains incomplete; all 12 authorized issues closed",
+  "baseline_audit": "docs/verification/m4-20261103.json",
+  "development_self_test": {
+    "first": {
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 29
+    },
+    "controls": {
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 112
+    }
+  },
+  "closing_review": {
+    "review_counterexamples_before_fix": {
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "final_controls": {
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 116
+    },
+    "layers": [
+      {
+        "passed": 428,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true,
+        "layer": 1,
+        "name": "rules/API and acceptance controls"
+      },
+      {
+        "passed": 17,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true,
+        "layer": 2,
+        "name": "real browser and faults"
+      },
+      {
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true,
+        "layer": 3,
+        "name": "real offline workbench"
+      },
+      {
+        "passed": 30,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "ok": true,
+        "layer": 4,
+        "name": "CLI boundary and startup"
+      }
+    ],
+    "unique_test_count": 478,
+    "duplicates": [],
+    "frozen": true,
+    "scenario_classes": 20,
+    "scenario_unique_executed_nodes": 59,
+    "reviewer": "Same agent, separate pass; no independent human/sub-agent claim"
+  },
+  "offline_stability": {
+    "mode": "off",
+    "requested_runs": 10,
+    "executed_runs": 10,
+    "successes": 10,
+    "target_success": 9,
+    "frozen": true,
+    "ok": true
+  },
+  "real_model_entry": {
+    "mode": "required",
+    "requested_runs": 1,
+    "executed_runs": 1,
+    "successes": 1,
+    "target_success": 1,
+    "frozen": true,
+    "ok": true
+  },
+  "business_review": [
+    {
+      "mode": "off",
+      "task": "ba76bd143c8c",
+      "orders": [
+        "PO-A1FC2588A1FA",
+        "PO-1DC5AA951814"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.01,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "2977dd69b877",
+      "orders": [
+        "PO-B8E11DA84E98",
+        "PO-790910B69122"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.05
+      }
+    },
+    {
+      "mode": "off",
+      "task": "2f62149f9a64",
+      "orders": [
+        "PO-F4EA20136D37",
+        "PO-6AEF9096DDFB"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "f4466b361fd2",
+      "orders": [
+        "PO-AE9EA6FBD219",
+        "PO-9EB2396F45DC"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "837e775ca139",
+      "orders": [
+        "PO-E556122DDF01",
+        "PO-EA98563E89EE"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.16,
+        "reviser": 0.02,
+        "executor": 1.05
+      }
+    },
+    {
+      "mode": "off",
+      "task": "e691b329c66b",
+      "orders": [
+        "PO-6E80F40B2F77",
+        "PO-675F2426BDE2"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "4d4673a7dd48",
+      "orders": [
+        "PO-8F591638E289",
+        "PO-726D9EA66D24"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.05
+      }
+    },
+    {
+      "mode": "off",
+      "task": "3c7a2ef40ba4",
+      "orders": [
+        "PO-A4389F7F1B56",
+        "PO-02D7C8C9A5D5"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "b320e8cceb85",
+      "orders": [
+        "PO-F9E06897BDBD",
+        "PO-B8884510B515"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.0,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "off",
+      "task": "21203de2c095",
+      "orders": [
+        "PO-FD1D3232F359",
+        "PO-43EA5969E14D"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 1.17,
+        "reviser": 0.02,
+        "executor": 1.03
+      }
+    },
+    {
+      "mode": "required",
+      "task": "50e37cf309cf",
+      "orders": [
+        "PO-F945A69D4919",
+        "PO-79BC88FE19F8"
+      ],
+      "total_cents": 299911,
+      "phase_seconds": {
+        "planner": 219.44,
+        "reviser": 148.81,
+        "executor": 119.45
+      }
+    }
+  ],
+  "manual_summary_review": {
+    "numeric_and_identity_check": "Planner v1 amounts/risk counts, Reviser v2 budget/policy, Executor order IDs/quantities/prices/currency/totals match their version and actual orders.",
+    "observation": "Executor table says 重复检查未通过 even though found:false means no duplicate was found; its final paragraph correctly says both checks passed. This is misleading wording, not evidence of a bypassed check.",
+    "status": "Follow-up wording/semantic validation pending; no business/prompt changes in M4-01..12 scope."
+  },
+  "credential_check": {
+    "checked_files": 1022,
+    "current_model_key_matches": 0,
+    "note": "Checks current configured key only; does not attest historical revocation P2-12."
+  },
+  "runtime": {
+    "head": "660706d7d9780b318390925356ae29a1ced97044",
+    "python": "3.12.14",
+    "executable": "D:\\书生智能体比赛temp\\.venv\\Scripts\\python.exe",
+    "packages": [
+      [
+        "aiohappyeyeballs",
+        "2.7.1"
+      ],
+      [
+        "aiohttp",
+        "3.14.5"
+      ],
+      [
+        "aiosignal",
+        "1.4.0"
+      ],
+      [
+        "altair",
+        "6.3.0"
+      ],
+      [
+        "annotated-doc",
+        "0.0.5"
+      ],
+      [
+        "annotated-types",
+        "0.8.0"
+      ],
+      [
+        "anyio",
+        "4.16.0"
+      ],
+      [
+        "apscheduler",
+        "3.11.3"
+      ],
+      [
+        "attrs",
+        "26.1.0"
+      ],
+      [
+        "azure-core",
+        "1.41.0"
+      ],
+      [
+        "azure-identity",
+        "1.27.0"
+      ],
+      [
+        "azure-storage-blob",
+        "12.31.1"
+      ],
+      [
+        "backoff",
+        "2.2.1"
+      ],
+      [
+        "boto3",
+        "1.43.123"
+      ],
+      [
+        "botocore",
+        "1.43.123"
+      ],
+      [
+        "certifi",
+        "2026.10.23"
+      ],
+      [
+        "cffi",
+        "2.1.1"
+      ],
+      [
+        "charset-normalizer",
+        "3.5.2"
+      ],
+      [
+        "click",
+        "8.5.0"
+      ],
+      [
+        "colorama",
+        "0.4.6"
+      ],
+      [
+        "croniter",
+        "6.2.4"
+      ],
+      [
+        "cryptography",
+        "50.0.2"
+      ],
+      [
+        "distro",
+        "1.9.0"
+      ],
+      [
+        "dnspython",
+        "2.9.1"
+      ],
+      [
+        "email-validator",
+        "2.3.0"
+      ],
+      [
+        "expression",
+        "5.8.0"
+      ],
+      [
+        "fastapi",
+        "0.162.0"
+      ],
+      [
+        "fastapi-sso",
+        "0.23.0"
+      ],
+      [
+        "fastuuid",
+        "0.14.0"
+      ],
+      [
+        "filelock",
+        "3.32.7"
+      ],
+      [
+        "frozenlist",
+        "1.8.0"
+      ],
+      [
+        "fsspec",
+        "2026.9.0"
+      ],
+      [
+        "granian",
+        "2.8.7"
+      ],
+      [
+        "greenlet",
+        "3.5.6"
+      ],
+      [
+        "gunicorn",
+        "23.0.0"
+      ],
+      [
+        "h11",
+        "0.16.0"
+      ],
+      [
+        "h2",
+        "4.4.1"
+      ],
+      [
+        "hf-xet",
+        "1.8.0"
+      ],
+      [
+        "hiredis",
+        "3.5.0"
+      ],
+      [
+        "hpack",
+        "4.2.0"
+      ],
+      [
+        "httpcore",
+        "1.0.9"
+      ],
+      [
+        "httpcore2",
+        "2.16.0"
+      ],
+      [
+        "httpx",
+        "0.28.1"
+      ],
+      [
+        "httpx2",
+        "2.16.0"
+      ],
+      [
+        "huggingface_hub",
+        "1.33.0"
+      ],
+      [
+        "hyperframe",
+        "6.1.0"
+      ],
+      [
+        "idna",
+        "3.20"
+      ],
+      [
+        "importlib_metadata",
+        "8.9.0"
+      ],
+      [
+        "iniconfig",
+        "2.3.1"
+      ],
+      [
+        "inquirerpy",
+        "0.3.4"
+      ],
+      [
+        "isodate",
+        "0.7.2"
+      ],
+      [
+        "itsdangerous",
+        "2.2.0"
+      ],
+      [
+        "jinja2",
+        "3.1.6"
+      ],
+      [
+        "jiter",
+        "0.18.0"
+      ],
+      [
+        "jmespath",
+        "1.1.0"
+      ],
+      [
+        "jsonschema",
+        "4.26.0"
+      ],
+      [
+        "jsonschema-specifications",
+        "2025.9.1"
+      ],
+      [
+        "litellm",
+        "1.106.5"
+      ],
+      [
+        "litellm-enterprise",
+        "0.1.76.post1"
+      ],
+      [
+        "litellm-proxy-extras",
+        "0.4.108"
+      ],
+      [
+        "markdown-it-py",
+        "4.2.0"
+      ],
+      [
+        "markupsafe",
+        "3.0.4"
+      ],
+      [
+        "mcp",
+        "2.3.0"
+      ],
+      [
+        "mcp-types",
+        "2.3.0"
+      ],
+      [
+        "mdurl",
+        "0.1.2"
+      ],
+      [
+        "msal",
+        "1.39.0"
+      ],
+      [
+        "msal-extensions",
+        "1.3.1"
+      ],
+      [
+        "multidict",
+        "7.2.1"
+      ],
+      [
+        "narwhals",
+        "2.28.0"
+      ],
+      [
+        "numpy",
+        "2.5.4"
+      ],
+      [
+        "oauthlib",
+        "4.0.1"
+      ],
+      [
+        "openai",
+        "2.54.0"
+      ],
+      [
+        "opentelemetry-api",
+        "1.45.2"
+      ],
+      [
+        "orjson",
+        "3.13.0"
+      ],
+      [
+        "packaging",
+        "26.3"
+      ],
+      [
+        "pandas",
+        "3.1.0"
+      ],
+      [
+        "pfzy",
+        "0.3.4"
+      ],
+      [
+        "pillow",
+        "13.0.0"
+      ],
+      [
+        "pip",
+        "25.0.1"
+      ],
+      [
+        "playwright",
+        "1.64.1"
+      ],
+      [
+        "pluggy",
+        "1.7.0"
+      ],
+      [
+        "polars",
+        "1.44.2"
+      ],
+      [
+        "polars-runtime-32",
+        "1.44.2"
+      ],
+      [
+        "prompt_toolkit",
+        "3.0.53"
+      ],
+      [
+        "propcache",
+        "0.5.4"
+      ],
+      [
+        "protobuf",
+        "7.36.2"
+      ],
+      [
+        "psutil",
+        "7.2.2"
+      ],
+      [
+        "psycopg",
+        "3.3.6"
+      ],
+      [
+        "psycopg-binary",
+        "3.3.6"
+      ],
+      [
+        "pyarrow",
+        "26.0.0"
+      ],
+      [
+        "pycparser",
+        "3.12"
+      ],
+      [
+        "pydantic",
+        "2.14.2"
+      ],
+      [
+        "pydantic-settings",
+        "2.16.2"
+      ],
+      [
+        "pydantic_core",
+        "2.50.2"
+      ],
+      [
+        "pydeck",
+        "0.9.3"
+      ],
+      [
+        "pyee",
+        "14.0.0"
+      ],
+      [
+        "pygments",
+        "2.21.0"
+      ],
+      [
+        "pyjwt",
+        "2.15.1"
+      ],
+      [
+        "pynacl",
+        "1.6.2"
+      ],
+      [
+        "pytest",
+        "9.2.0"
+      ],
+      [
+        "python-dateutil",
+        "2.9.0.post0"
+      ],
+      [
+        "python-dotenv",
+        "1.2.4"
+      ],
+      [
+        "python-multipart",
+        "0.0.33"
+      ],
+      [
+        "pywin32",
+        "312"
+      ],
+      [
+        "pyyaml",
+        "6.0.3"
+      ],
+      [
+        "redis",
+        "8.1.0"
+      ],
+      [
+        "referencing",
+        "0.37.0"
+      ],
+      [
+        "regex",
+        "2026.9.29"
+      ],
+      [
+        "requests",
+        "2.34.2"
+      ],
+      [
+        "restrictedpython",
+        "8.5"
+      ],
+      [
+        "rich",
+        "13.9.4"
+      ],
+      [
+        "rpds-py",
+        "2026.9.1"
+      ],
+      [
+        "rq",
+        "2.12.0"
+      ],
+      [
+        "s3transfer",
+        "0.19.3"
+      ],
+      [
+        "six",
+        "1.17.0"
+      ],
+      [
+        "sniffio",
+        "1.3.1"
+      ],
+      [
+        "soundfile",
+        "0.14.0"
+      ],
+      [
+        "sse-starlette",
+        "3.6.0"
+      ],
+      [
+        "starlette",
+        "1.10.0"
+      ],
+      [
+        "streamlit",
+        "1.66.1"
+      ],
+      [
+        "tiktoken",
+        "0.14.0"
+      ],
+      [
+        "tokenizers",
+        "0.23.3"
+      ],
+      [
+        "tomlkit",
+        "0.15.2"
+      ],
+      [
+        "tqdm",
+        "4.70.1"
+      ],
+      [
+        "truststore",
+        "0.10.5"
+      ],
+      [
+        "typing-inspection",
+        "0.4.4"
+      ],
+      [
+        "typing_extensions",
+        "4.16.0"
+      ],
+      [
+        "tzdata",
+        "2026.6"
+      ],
+      [
+        "tzlocal",
+        "5.4.5"
+      ],
+      [
+        "urllib3",
+        "2.8.0"
+      ],
+      [
+        "uvicorn",
+        "0.54.0"
+      ],
+      [
+        "watchdog",
+        "6.0.0"
+      ],
+      [
+        "wcwidth",
+        "0.9.4"
+      ],
+      [
+        "websockets",
+        "15.0.1"
+      ],
+      [
+        "yarl",
+        "1.25.1"
+      ],
+      [
+        "zipp",
+        "4.1.2"
+      ]
+    ],
+    "platform": "Windows-11-10.0.26200-SP0",
+    "runtime_config": {
+      "RESTOCK_CODEX_BIN": ".venv/codex/node_modules/.bin/codex.cmd",
+      "PLAYWRIGHT_BROWSERS_PATH": "D:\\书生智能体比赛temp\\.venv\\repro-browsers"
+    }
+  },
+  "source_sha256": {
+    "app/__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/business_tools.py": "f1f0e1adb1ad47b7f69b8470d2debbded5e065968d5cc3d203a03d556e2ddb25",
+    "app/config.py": "13afbee6ddb285d28018fe41b5a157b05263891497b77fad42401875dbaca96c",
+    "app/datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app/db.py": "a623255e539d0157ef2c9a84566e5584f8befee00868393a62ed9ca82c3a3529",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app/jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app/ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app/main.py": "a44c5d7b886a51f879dd5eb980c41233898fe56d46872aeb66d8fe515c6f1507",
+    "app/mcp_server.py": "27dd48d2a1e4b124d1c1edd7f2affea17818ee4b970555304d661f6926059e56",
+    "app/models.py": "a0718b5d191ef505efd8c7ec306cbabb318b50925003f57249ef2d26ad0bed58",
+    "app/processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app/procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app/prompts.py": "942382b363845591bd5b86953599bb61d3e5cea36c6a855edd9e497c5944d289",
+    "app/redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app/reports.py": "2a69e2a84440293e5661d6590042f2952a7069b65f5980e4e81f51a7d58df6a9",
+    "app/rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app/runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app/runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app/state_machine.py": "7eb2eb1023f04df2e42ce13c344febfa1e5e8e3def6120947cf7418fde58d98b",
+    "app/validation.py": "2a1fd201813c6ce3f2c2dfe55b892dd5fa751bac91fad60f05ea2b2e0066631d",
+    "ui/app.py": "9fb402a7ed08b50c5be854cf5df50c1a21c9f59de76f672efa80b37eeb840c16",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/acceptance_plugin.py": "8745565c69fcbee6eacd91747df5172ccb703644aa07b48e1023106f1a83e6c0",
+    "tests/scenario_catalog.py": "e2040656a293559c1aeb6bf5c549355b925ba93cf81502cb4ba5f112e635325c",
+    "tests/summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests/support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests/test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests/test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests/test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests/test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests/test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests/test_fixed_scenarios.py": "fc7a62eb80ecd82544da4929be6968013e0230133c6c31428fe9c883ff911dc4",
+    "tests/test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests/test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests/test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests/test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests/test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests/test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests/test_m4_acceptance_tools.py": "55994e1a885918562d4958dd6e82df9f509ee2eb7dce51f276160ee084873c9f",
+    "tests/test_m4_delivery.py": "b32285ea57de54539f08f5dbdcca13ca7ea384cd1e66557420db80031d49bd0b",
+    "tests/test_m4_workbench.py": "c642d8f7f37f38cad268cfbf57b271dadc9c585f4e84c792f6aa29972aa8a5fb",
+    "tests/test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests/test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests/test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests/test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests/test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests/test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests/test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests/test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests/test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests/test_runtime_versions.py": "815c9a2cad923535d994b48c7c5a58901d6cb5a0d021332c3e051f40fddc4687",
+    "tests/test_startup.py": "2ffd0a489a6be25a38f39579d2bae80e1c2ca46bb23b7224f3c952cb2a164c91",
+    "tests/test_step3_api.py": "c22aa9e5024fbc93584a44b9ed2342c56efc35051b21d310a10c60a1456cfb84",
+    "tests/test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests/test_workbench_e2e.py": "034c45ca1add7905c5880675e7f2462b7755b077b32d3b516594a3fd7c58024b",
+    "tests/workbench_flow.py": "fd9937f87bb7995a35269ce449f9367ebc8f6ee3ca950aead6a60e55f4cc915b",
+    "scripts/acceptance_common.py": "c1c86c6827f11ae94e08b0b33327f5bd99cf9fd3b61f1274184186017fc89b25",
+    "scripts/business_evidence.py": "0911aafd2a15cf30ce541f1504013460adda25ba66eb2f220068851b7acce839",
+    "scripts/check_delivery.py": "dc3cae466d698bddcae8d755ffaec4cfd3b33b18f18f7e2906253f7847161de4",
+    "scripts/generate_data.py": "1821207b7014a911c6dbea6ea872d6d4eba6059d0a031c06ba33a7ef68bacaa1",
+    "scripts/run_acceptance.py": "faa5a17713d917c64884f9f69ec8fc4569aea6fd1acccfde54442d9e07e4c3f1",
+    "scripts/run_smoke_e2e.py": "ad1398c19846c6dc5f75b82ba5316f2fbb638ccee3b9e8947e5c3ae676d9d976",
+    "scripts/run_stability.py": "6510433777f0c7d5e5dd879f229519b4d1e25784857f5d1cdd8cf9b1c450a872",
+    "data/contract.json": "c393a6458c83b501f7894f38591a2a7ee3b489c97590f114341dcc48c4daf599",
+    "data/inventory.csv": "64423f216b619a2d59859b4e63397ccd09e677edfc181a7765cb43ec79d8886a",
+    "data/sales.csv": "2b705cfc3054ae189ac5ca5124867e4ec056d0fde0c0ce3ca5fe14e5f689f23d",
+    "data/suppliers.csv": "3d88e9642a898733072f13db3b1cc30e4fe09e67f3bae1ef5996c1ed26cbe015",
+    "agent-integration/codex-config.toml": "9d441a60dacdd5bafcf2bb4aa3e753ad6afbb7c4e6032ee5a8db3f545f10e398",
+    "agent-integration/config.toml": "ea1c12bad8cad498390e6c75b9c64d89b188575b60b8e9a69dfbbf3cebbcabdf",
+    "agent-integration/litellm-config.yaml": "c0c4fad9e239c5adf9564e690b47c3b408b815651c1876f00b047b76be60e861",
+    "start.py": "401ec9f2504c99eb67cee75e8794bb9eed0b54ec74936ee3ee50e6b4dcf4a395",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "requirements.txt": "eea2dcd02dd1c2b3b358f0152b4a3fbb970be320e8a0143edb3ff1b75dca11c4",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    ".python-version": "9bccfb61c57081accd6a0a9bbc2909a77ee387cfe0168a97c8f1592f3d9d6b92",
+    "pytest.ini": "ddfcf6e0017476e9b9e8e55559c80e166c21f4f1ac242c7468dc85ad9dc69e52"
+  },
+  "issues": [
+    {
+      "id": "M4-01",
+      "root_cause": "空 pass 被计为通过，且场景清单与实际入口脱节。",
+      "implementation": "20 场景改为 tests/scenario_catalog.py 的正式节点映射；复用已有规则、API、真实浏览器/工作台故障用例，公共节点只收集一次；补缺价格夹具。",
+      "tests": [
+        "test_fixed_scenario_catalog_has_twenty_real_asserting_targets",
+        "test_layer_and_scenario_collection_uses_each_actual_node_once",
+        "test_scenario_14_price_missing"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_fixed_scenario_catalog_has_twenty_real_asserting_targets": [
+          "tests/test_m4_acceptance_tools.py::test_fixed_scenario_catalog_has_twenty_real_asserting_targets"
+        ],
+        "test_layer_and_scenario_collection_uses_each_actual_node_once": [
+          "tests/test_m4_acceptance_tools.py::test_layer_and_scenario_collection_uses_each_actual_node_once"
+        ],
+        "test_scenario_14_price_missing": [
+          "tests/test_fixed_scenarios.py::test_scenario_14_price_missing"
+        ]
+      }
+    },
+    {
+      "id": "M4-02",
+      "root_cause": "MOQ 字段错误、预算 OR/空优先集合造成错误答案通过；手改状态没有触发真实故障。",
+      "implementation": "MOQ 按 min_order_qty 下限、包装倍数独立核对；紧预算要求金额与未采购项同时成立；优先夹具固定非空手算预期。17/18/19/20 直接映射真实部分失败、晚到单据、受控恢复、进程中断。",
+      "tests": [
+        "test_original_bad_oracles_rejected_with_valid_controls",
+        "test_adjacent_oracle_faults",
+        "test_scenario_03_priority_categories",
+        "test_scenario_07_moq_rounding",
+        "test_scenario_11_budget_insufficient",
+        "test_workbench_partial_reconcile_recover_refresh_export",
+        "test_recover_only_not_submitted_keeps_created_no_duplicates"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_original_bad_oracles_rejected_with_valid_controls": [
+          "tests/test_m4_acceptance_tools.py::test_original_bad_oracles_rejected_with_valid_controls"
+        ],
+        "test_adjacent_oracle_faults": [
+          "tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults"
+        ],
+        "test_scenario_03_priority_categories": [
+          "tests/test_fixed_scenarios.py::test_scenario_03_priority_categories"
+        ],
+        "test_scenario_07_moq_rounding": [
+          "tests/test_fixed_scenarios.py::test_scenario_07_moq_rounding"
+        ],
+        "test_scenario_11_budget_insufficient": [
+          "tests/test_fixed_scenarios.py::test_scenario_11_budget_insufficient"
+        ],
+        "test_workbench_partial_reconcile_recover_refresh_export": [
+          "tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export"
+        ],
+        "test_recover_only_not_submitted_keeps_created_no_duplicates": [
+          "tests/test_fault_injection.py::test_recover_only_not_submitted_keeps_created_no_duplicates"
+        ]
+      }
+    },
+    {
+      "id": "M4-03",
+      "root_cause": "稳定性脚本强制关闭模型，只重复带假适配器的 API 场景。",
+      "implementation": "正式入口运行 30 SKU 工作台：上传/确认、生成、v1 批准、修改/差异、旧批准拒绝、v2 批准、真实 Chromium 录单、独立回读、刷新和 CSV/HTML 导出；必须显式选择 off 或 required。",
+      "tests": [
+        "test_stability_selects_actual_ui_and_explicit_mode",
+        "test_offline_workbench_full_flow",
+        "test_required_model_workbench_full_flow"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json",
+        "outputs/m4-fixes-20261103/stability-off/summary.json",
+        "outputs/m4-fixes-20261103/stability-required/summary.json",
+        "outputs/m4-fixes-20261103/independent-review.json"
+      ],
+      "test_nodes": {
+        "test_stability_selects_actual_ui_and_explicit_mode": [
+          "tests/test_m4_acceptance_tools.py::test_stability_selects_actual_ui_and_explicit_mode"
+        ],
+        "test_offline_workbench_full_flow": [
+          "tests/test_m4_workbench.py::test_offline_workbench_full_flow"
+        ],
+        "test_required_model_workbench_full_flow": [
+          "tests/test_m4_workbench.py::test_required_model_workbench_full_flow"
+        ]
+      }
+    },
+    {
+      "id": "M4-04",
+      "root_cause": "只认进程退出码；安全错误仍使用九成阈值；零次和 skipped 被误记成功。",
+      "implementation": "JUnit 用例结果与业务证据双重验证；任一安全问题/错误/跳过/证据缺口立即阻断。仅有无采购证据的规划/修订超时可占普通失败额度；约束 runs>0 且 1<=target<=runs。",
+      "tests": [
+        "test_safety_failure_blocks_even_nine_successes",
+        "test_ordinary_timeout_threshold_positive_control",
+        "test_incomplete_or_inconsistent_evidence_is_blocking",
+        "test_invalid_run_counts_rejected_before_launch"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json",
+        "outputs/m4-fixes-20261103/stability-off/summary.json",
+        "outputs/m4-fixes-20261103/stability-required/summary.json",
+        "outputs/m4-fixes-20261103/independent-review.json"
+      ],
+      "test_nodes": {
+        "test_safety_failure_blocks_even_nine_successes": [
+          "tests/test_m4_acceptance_tools.py::test_safety_failure_blocks_even_nine_successes"
+        ],
+        "test_ordinary_timeout_threshold_positive_control": [
+          "tests/test_m4_acceptance_tools.py::test_ordinary_timeout_threshold_positive_control"
+        ],
+        "test_incomplete_or_inconsistent_evidence_is_blocking": [
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking"
+        ],
+        "test_invalid_run_counts_rejected_before_launch": [
+          "tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch"
+        ]
+      }
+    },
+    {
+      "id": "M4-05",
+      "root_cause": "第一层包含整个测试集并重复计数，继承真实模型开关，未知层被静默忽略。",
+      "implementation": "收集时按完整 node ID 互斥分层，清空非本层开关；只显式层 5 可调用真实模型。严格拒绝空/未知/重复层；JUnit 统计 passed/failed/errors/skipped，并检查重复身份与空集合。",
+      "tests": [
+        "test_invalid_layers_rejected_before_launch",
+        "test_layer_environment_is_explicit",
+        "test_layer_strict_counts_failures_and_errors",
+        "test_junit_counts_each_case_and_rejects_duplicates",
+        "test_layer_duplicate_case_cannot_pass"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_invalid_layers_rejected_before_launch": [
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch"
+        ],
+        "test_layer_environment_is_explicit": [
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit"
+        ],
+        "test_layer_strict_counts_failures_and_errors": [
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors"
+        ],
+        "test_junit_counts_each_case_and_rejects_duplicates": [
+          "tests/test_m4_acceptance_tools.py::test_junit_counts_each_case_and_rejects_duplicates"
+        ],
+        "test_layer_duplicate_case_cannot_pass": [
+          "tests/test_m4_acceptance_tools.py::test_layer_duplicate_case_cannot_pass"
+        ]
+      }
+    },
+    {
+      "id": "M4-06",
+      "root_cause": "Git 非零退出、空列表、无效路径当干净包；不可读子目录的枚举异常可被静默吞掉。",
+      "implementation": "默认扫描实际目录/ZIP，Git 候选扫描需显式 --tracked；空输入、格式/权限/链接/大小限制错误退出 2；目录显式枚举并传播权限错误。真实合成 ZIP 与解压目录均通过正反例。",
+      "tests": [
+        "test_nongit_extracted_package_is_actually_scanned",
+        "test_missing_input_path_is_not_a_clean_delivery",
+        "test_actual_zip_contents_and_format_controls",
+        "test_tracked_git_error_is_not_empty_success",
+        "test_empty_directory_and_unreadable_member_cannot_pass",
+        "test_unreadable_subdirectory_is_not_silently_omitted"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_nongit_extracted_package_is_actually_scanned": [
+          "tests/test_m4_delivery.py::test_nongit_extracted_package_is_actually_scanned"
+        ],
+        "test_missing_input_path_is_not_a_clean_delivery": [
+          "tests/test_m4_delivery.py::test_missing_input_path_is_not_a_clean_delivery"
+        ],
+        "test_actual_zip_contents_and_format_controls": [
+          "tests/test_m4_delivery.py::test_actual_zip_contents_and_format_controls"
+        ],
+        "test_tracked_git_error_is_not_empty_success": [
+          "tests/test_m4_delivery.py::test_tracked_git_error_is_not_empty_success"
+        ],
+        "test_empty_directory_and_unreadable_member_cannot_pass": [
+          "tests/test_m4_delivery.py::test_empty_directory_and_unreadable_member_cannot_pass"
+        ],
+        "test_unreadable_subdirectory_is_not_silently_omitted": [
+          "tests/test_m4_delivery.py::test_unreadable_subdirectory_is_not_silently_omitted"
+        ]
+      }
+    },
+    {
+      "id": "M4-07",
+      "root_cause": "字符串 glob、子串排除和带引号 Git 文件名导致路径漏检。",
+      "implementation": "按目录组件/文件后缀识别运行目录、数据库/日志/会话及各层 .env；禁止路径直接报错。Git 使用 -z，中文目录及 UTF-16 内容正常检查，报告清单/数量/hash。",
+      "tests": [
+        "test_sensitive_candidate_paths_cannot_pass",
+        "test_unicode_filename_secret_cannot_be_silently_skipped",
+        "test_tracked_source_scope_is_explicit_and_unicode_safe",
+        "test_actual_zip_contents_and_format_controls"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_sensitive_candidate_paths_cannot_pass": [
+          "tests/test_m4_delivery.py::test_sensitive_candidate_paths_cannot_pass"
+        ],
+        "test_unicode_filename_secret_cannot_be_silently_skipped": [
+          "tests/test_m4_delivery.py::test_unicode_filename_secret_cannot_be_silently_skipped"
+        ],
+        "test_tracked_source_scope_is_explicit_and_unicode_safe": [
+          "tests/test_m4_delivery.py::test_tracked_source_scope_is_explicit_and_unicode_safe"
+        ],
+        "test_actual_zip_contents_and_format_controls": [
+          "tests/test_m4_delivery.py::test_actual_zip_contents_and_format_controls"
+        ]
+      }
+    },
+    {
+      "id": "M4-08",
+      "root_cause": "整行注释/示例文字被视为安全豁免。",
+      "implementation": "只允许明确占位值；不因注释、示例、文件名或文档身份跳过内容；覆盖带注释、JSON、引号/无引号赋值与真正占位值。",
+      "tests": [
+        "test_secret_with_example_comment_still_blocks_delivery",
+        "test_assignment_syntax_and_comments_cannot_bypass",
+        "test_explicit_placeholder_values_are_safe"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_secret_with_example_comment_still_blocks_delivery": [
+          "tests/test_m4_delivery.py::test_secret_with_example_comment_still_blocks_delivery"
+        ],
+        "test_assignment_syntax_and_comments_cannot_bypass": [
+          "tests/test_m4_delivery.py::test_assignment_syntax_and_comments_cannot_bypass"
+        ],
+        "test_explicit_placeholder_values_are_safe": [
+          "tests/test_m4_delivery.py::test_explicit_placeholder_values_are_safe"
+        ]
+      }
+    },
+    {
+      "id": "M4-09",
+      "root_cause": "扫描器直接打印命中原行。",
+      "implementation": "诊断仅含路径、行号、问题类型和 [REDACTED]；解析/权限异常不打印原异常内容；机器报告和终端均验证不含合成凭证。该项与用户排除的 P2-12 无关。",
+      "tests": [
+        "test_delivery_diagnostics_do_not_echo_credentials",
+        "test_report_contains_counts_hashes_but_no_credential",
+        "test_encoding_preserves_exit_meaning_and_no_secret",
+        "test_empty_directory_and_unreadable_member_cannot_pass"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_delivery_diagnostics_do_not_echo_credentials": [
+          "tests/test_m4_delivery.py::test_delivery_diagnostics_do_not_echo_credentials"
+        ],
+        "test_report_contains_counts_hashes_but_no_credential": [
+          "tests/test_m4_delivery.py::test_report_contains_counts_hashes_but_no_credential"
+        ],
+        "test_encoding_preserves_exit_meaning_and_no_secret": [
+          "tests/test_m4_delivery.py::test_encoding_preserves_exit_meaning_and_no_secret"
+        ],
+        "test_empty_directory_and_unreadable_member_cannot_pass": [
+          "tests/test_m4_delivery.py::test_empty_directory_and_unreadable_member_cannot_pass"
+        ]
+      }
+    },
+    {
+      "id": "M4-10",
+      "root_cause": "默认 GBK 控制台打印图标异常，且子进程按系统编码解码。",
+      "implementation": "扫描报告为 ASCII 安全 JSON，子进程明确 UTF-8；干净/命中/输入错误分别保持 0/1/2 退出语义，GBK 和 UTF-8 都验证。",
+      "tests": [
+        "test_gbk_console_does_not_crash_on_clean_result",
+        "test_encoding_preserves_exit_meaning_and_no_secret"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_gbk_console_does_not_crash_on_clean_result": [
+          "tests/test_m4_delivery.py::test_gbk_console_does_not_crash_on_clean_result"
+        ],
+        "test_encoding_preserves_exit_meaning_and_no_secret": [
+          "tests/test_m4_delivery.py::test_encoding_preserves_exit_meaning_and_no_secret"
+        ]
+      }
+    },
+    {
+      "id": "M4-11",
+      "root_cause": "错误版本夹具替换整个 ROOT，连带破坏了合法相对 CLI 路径。",
+      "implementation": "只替换锁文件读取；保留实际项目解析根。真实 CLI 的相对/绝对路径均验证匹配版本通过、错误版本按 ValueError 拒绝；产品路径解析未改。",
+      "tests": [
+        "test_runtime_mismatch_is_rejected",
+        "test_real_cli_relative_and_absolute_version_contract"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json"
+      ],
+      "test_nodes": {
+        "test_runtime_mismatch_is_rejected": [
+          "tests/test_runtime_versions.py::test_runtime_mismatch_is_rejected"
+        ],
+        "test_real_cli_relative_and_absolute_version_contract": [
+          "tests/test_runtime_versions.py::test_real_cli_relative_and_absolute_version_contract"
+        ]
+      }
+    },
+    {
+      "id": "M4-12",
+      "root_cause": "只有输出尾部，没有版本冻结、逐轮批准/订单/导出证明；基础设施异常缺少结构化记录。",
+      "implementation": "前后与每轮检查 HEAD、全部产品/脚本/测试/样例/运行配置及依赖指纹（包含未跟踪代码）；各轮保存 JUnit、脱敏日志、数据 hash、v1/v2、批准、独立单据、导出文件/hash。模式分母分开，旧目录禁止覆盖；进程失败/清理失败和畸形证据均留记录并阻断。",
+      "tests": [
+        "test_stability_freeze_detects_mid_run_edit",
+        "test_complete_matching_evidence_passes",
+        "test_business_proof_comparator_rejects_corruption",
+        "test_different_valid_versions_are_not_compared_to_current_plan",
+        "test_malformed_export_is_structured_blocking_result",
+        "test_runner_infrastructure_failure_is_recorded_and_blocks",
+        "test_run_pytest_real_subprocess_counts_skip_as_skip"
+      ],
+      "status": "closed",
+      "development_check": "before.xml reproduced 26 failed / 4 passed; controls2.xml 112 passed; review-after.xml 116 passed",
+      "closing_review": "Separate same-agent review: original + adjacent controls, strict disjoint layers, actual entries; independent-review.json and per-issue tests below",
+      "evidence": [
+        "outputs/m4-fixes-20261103/review-after.xml",
+        "outputs/m4-fixes-20261103/layers-reviewed/summary.json",
+        "outputs/m4-fixes-20261103/stability-off/summary.json",
+        "outputs/m4-fixes-20261103/stability-required/summary.json",
+        "outputs/m4-fixes-20261103/independent-review.json"
+      ],
+      "test_nodes": {
+        "test_stability_freeze_detects_mid_run_edit": [
+          "tests/test_m4_acceptance_tools.py::test_stability_freeze_detects_mid_run_edit"
+        ],
+        "test_complete_matching_evidence_passes": [
+          "tests/test_m4_acceptance_tools.py::test_complete_matching_evidence_passes"
+        ],
+        "test_business_proof_comparator_rejects_corruption": [
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption"
+        ],
+        "test_different_valid_versions_are_not_compared_to_current_plan": [
+          "tests/test_m4_acceptance_tools.py::test_different_valid_versions_are_not_compared_to_current_plan"
+        ],
+        "test_malformed_export_is_structured_blocking_result": [
+          "tests/test_m4_acceptance_tools.py::test_malformed_export_is_structured_blocking_result"
+        ],
+        "test_runner_infrastructure_failure_is_recorded_and_blocks": [
+          "tests/test_m4_acceptance_tools.py::test_runner_infrastructure_failure_is_recorded_and_blocks"
+        ],
+        "test_run_pytest_real_subprocess_counts_skip_as_skip": [
+          "tests/test_m4_acceptance_tools.py::test_run_pytest_real_subprocess_counts_skip_as_skip"
+        ]
+      }
+    }
+  ],
+  "scenario_coverage": {
+    "1": {
+      "label": "上传到导出",
+      "nodes": [
+        "tests/test_m4_workbench.py::test_offline_workbench_full_flow"
+      ]
+    },
+    "2": {
+      "label": "预算减少",
+      "nodes": [
+        "tests/test_m1_api.py::test_full_workbench_api_flow_diff_approval_execution_exports",
+        "tests/test_replenishment_v2.py::test_hand_calculated_partial_purchase_and_shortfall"
+      ]
+    },
+    "3": {
+      "label": "优先类别",
+      "nodes": [
+        "tests/test_fixed_scenarios.py::test_scenario_03_priority_categories",
+        "tests/test_replenishment_v2.py::test_priority_allocation_is_global_and_order_invariant"
+      ]
+    },
+    "4": {
+      "label": "排除 SKU",
+      "nodes": [
+        "tests/test_replenishment_v2.py::test_exclusions_and_zero_demand"
+      ]
+    },
+    "5": {
+      "label": "缺失日期",
+      "nodes": [
+        "tests/test_data_contract.py::test_missing_days_require_explicit_zero_confirmation"
+      ]
+    },
+    "6": {
+      "label": "旧批准失效",
+      "nodes": [
+        "tests/test_m1_api.py::test_full_workbench_api_flow_diff_approval_execution_exports"
+      ]
+    },
+    "7": {
+      "label": "MOQ",
+      "nodes": [
+        "tests/test_fixed_scenarios.py::test_scenario_07_moq_rounding",
+        "tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries[1199-0]",
+        "tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries[1200-12]",
+        "tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries[1799-12]",
+        "tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries[1800-18]",
+        "tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries[4800-48]"
+      ]
+    },
+    "8": {
+      "label": "整包取整",
+      "nodes": [
+        "tests/test_rules.py::test_purchase_qty_moq_and_pack"
+      ]
+    },
+    "9": {
+      "label": "有效在途",
+      "nodes": [
+        "tests/test_replenishment_v2.py::test_inbound_window_boundary[0-20]",
+        "tests/test_replenishment_v2.py::test_inbound_window_boundary[12-20]",
+        "tests/test_replenishment_v2.py::test_inbound_window_boundary[13-0]"
+      ]
+    },
+    "10": {
+      "label": "过晚在途",
+      "nodes": [
+        "tests/test_replenishment_v2.py::test_late_inbound_is_not_deducted"
+      ]
+    },
+    "11": {
+      "label": "预算不足",
+      "nodes": [
+        "tests/test_fixed_scenarios.py::test_scenario_11_budget_insufficient"
+      ]
+    },
+    "12": {
+      "label": "空数据",
+      "nodes": [
+        "tests/test_data_contract.py::test_empty_or_malformed_csv[]",
+        "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n2026-10-01,A,1,extra\\n]",
+        "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n2026-10-01,A\\n]",
+        "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n]",
+        "tests/test_data_contract.py::test_empty_or_malformed_csv[sku,sku\\nA,A\\n]",
+        "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[bad_stock]",
+        "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[missing_day]",
+        "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[missing_file]",
+        "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[unconfirmed]"
+      ]
+    },
+    "13": {
+      "label": "单位口径显式确认",
+      "nodes": [
+        "tests/test_data_contract.py::test_no_implicit_business_confirmation"
+      ]
+    },
+    "14": {
+      "label": "价格缺失",
+      "nodes": [
+        "tests/test_fixed_scenarios.py::test_scenario_14_price_missing[blank]",
+        "tests/test_fixed_scenarios.py::test_scenario_14_price_missing[column]"
+      ]
+    },
+    "15": {
+      "label": "重复 SKU",
+      "nodes": [
+        "tests/test_data_contract.py::test_duplicates_dates_and_cross_table_mismatches"
+      ]
+    },
+    "16": {
+      "label": "非法数值",
+      "nodes": [
+        "tests/test_data_contract.py::test_invalid_sales_values[-1]",
+        "tests/test_data_contract.py::test_invalid_sales_values[-Infinity]",
+        "tests/test_data_contract.py::test_invalid_sales_values[1e1000]",
+        "tests/test_data_contract.py::test_invalid_sales_values[Infinity]",
+        "tests/test_data_contract.py::test_invalid_sales_values[NaN]",
+        "tests/test_data_contract.py::test_invalid_sales_values[]",
+        "tests/test_data_contract.py::test_invalid_sales_values[abc]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[-2-available_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[-2-inbound_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[-available_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[-inbound_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[1.5-available_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[1.5-inbound_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[nan-available_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[nan-inbound_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[unknown-available_qty]",
+        "tests/test_data_contract.py::test_invalid_stock_is_reported[unknown-inbound_qty]",
+        "tests/test_data_contract.py::test_supplier_numeric_validation[lead_days--1]",
+        "tests/test_data_contract.py::test_supplier_numeric_validation[min_order_qty-NaN]",
+        "tests/test_data_contract.py::test_supplier_numeric_validation[pack_size-0]",
+        "tests/test_data_contract.py::test_supplier_numeric_validation[unit_cost_cents-0]",
+        "tests/test_data_contract.py::test_supplier_numeric_validation[unit_cost_cents-1.5]"
+      ]
+    },
+    "17": {
+      "label": "部分成功",
+      "nodes": [
+        "tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export"
+      ]
+    },
+    "18": {
+      "label": "结果未知",
+      "nodes": [
+        "tests/test_m3_live.py::test_live_unknown_revise_cannot_create_duplicate_purchase"
+      ]
+    },
+    "19": {
+      "label": "受控恢复",
+      "nodes": [
+        "tests/test_fault_injection.py::test_recover_only_not_submitted_keeps_created_no_duplicates",
+        "tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export"
+      ]
+    },
+    "20": {
+      "label": "故障恢复",
+      "nodes": [
+        "tests/test_fault_injection.py::test_f5_submit_hang_times_out_then_recovers",
+        "tests/test_m3_workbench.py::test_real_api_process_restart_never_reissues_pending_submission"
+      ]
+    }
+  },
+  "retained_failures": {
+    "baseline": {
+      "failed": 26,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    },
+    "first_ui": {
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "first_ui_explanation": "CSV has per-row costs, not an aggregate row. Replaced the invalid text assertion with independent row/total/version/dataset checks, plus incorrect-CSV controls.",
+    "review_before": {
+      "failed": 4,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    }
+  },
+  "not_claimed": [
+    "Another-machine acceptance",
+    "Public deployment or delivery materials",
+    "Ten required-model stability runs",
+    "Complete execution of real-model acceptance layer 5",
+    "Historical P2-12 revocation"
+  ],
+  "reproduce": [
+    ".venv/Scripts/python.exe scripts/run_acceptance.py --layers 1,2,3,4 --strict",
+    ".venv/Scripts/python.exe scripts/run_stability.py --mode off --runs 10 --target-success 9",
+    ".venv/Scripts/python.exe scripts/run_stability.py --mode required --runs 1 --target-success 1",
+    ".venv/Scripts/python.exe -m pytest tests/test_m4_acceptance_tools.py tests/test_m4_delivery.py tests/test_fixed_scenarios.py -q",
+    ".venv/Scripts/python.exe -m pytest tests/test_runtime_versions.py -q"
+  ],
+  "isolation": "Project .venv; temporary DBs/ports, demo 30-SKU data, explicit modes. Owned process cleanup; no user database reset. Existing model key only injected in subprocess memory.",
+  "evidence_sha256": {
+    "outputs/m4-fixes-20261103/before.log": "0e49afbea059f248330a669d4c9d8d573c00ff72e56a18e4cd796b48f4417ae2",
+    "outputs/m4-fixes-20261103/before.xml": "f0979cdbac42eddc18eac9cd04186f496a16fc4eb75c9b9ebf90dc8f9ee3e25f",
+    "outputs/m4-fixes-20261103/closeout_notes.json": "dbb6e52ea24cedede45d37393b9f23856a8e0f063930b60fbedc47502453bd54",
+    "outputs/m4-fixes-20261103/controller.log": "b39be05396ab30a2b1049d4eb5b48c70058c362fb108fbedd60716c23e98e709",
+    "outputs/m4-fixes-20261103/controller.xml": "234e56e07593f2f3657e461187478cf292fcce879c730be42e6b812c4caf6109",
+    "outputs/m4-fixes-20261103/controls2.log": "5e652fef3411477bec8a1feb56c355d53666d18aa5faf8ee8155f8b3d32b129f",
+    "outputs/m4-fixes-20261103/controls2.xml": "f498122a76bfcca0249185d7e8b0e33bf36ec267a5233dbb0de855939cb0637f",
+    "outputs/m4-fixes-20261103/first.log": "0e666f76e4e09c6258bcfab2287462c86d4eeb135a9fa99fac0072c2a6f2f943",
+    "outputs/m4-fixes-20261103/first.xml": "1237701874b3d2e084076df0f5a2c75e59d2ed601d24a10327a2f04d46d6b44c",
+    "outputs/m4-fixes-20261103/independent-review.json": "9a4ac20dca6994f008551aa006a0aa951d6695a3a811542b652bf2eae1b31932",
+    "outputs/m4-fixes-20261103/layers-reviewed-entry.log": "baad368126056b5e979d4b609f4cad621d2c8659c27a4166e3a78c398f65adf6",
+    "outputs/m4-fixes-20261103/review-after.log": "dc76bc08df337099fbcad9c7bc4e4f5e2ccc2cdbd98a890723e182188140f725",
+    "outputs/m4-fixes-20261103/review-after.xml": "0676c9d3b0560c386e9b3ca9749335cc70a945d143867fe32fe799e606f5fc8c",
+    "outputs/m4-fixes-20261103/review-before.log": "b112860330f01b6b39cccdd9187dea79a164c645c756c22b3292cd9b02629c9c",
+    "outputs/m4-fixes-20261103/review-before.xml": "e78b1d22d21fdc2f03f9d345891e0cffe64412d215bffc10c0c5bd9f111c8a1a",
+    "outputs/m4-fixes-20261103/scenario-coverage.json": "330c6a4557ff0d72c13f71ad2a0b8735332c9489967a0a10e7a8d0d87bee16ee",
+    "outputs/m4-fixes-20261103/stability-off-entry.log": "7e8ae3feb168fd6f6c150716b79c5b21714948d538e29a3dc4c4c8e9da06866b",
+    "outputs/m4-fixes-20261103/stability-required-entry.log": "2664a8b466757d43d622f7444d1210bab340c5d061933ad52c821088b9034ee0",
+    "outputs/m4-fixes-20261103/entry-first/after.json": "37ffaabc4616f436404bb0101daebeadc34bb85cd022e2c1beef4834e90974c4",
+    "outputs/m4-fixes-20261103/entry-first/before.json": "37ffaabc4616f436404bb0101daebeadc34bb85cd022e2c1beef4834e90974c4",
+    "outputs/m4-fixes-20261103/entry-first/progress.json": "58ff6158720d59e53beb2843964ee4be1d447dc6428b4e70be3377dd2765c282",
+    "outputs/m4-fixes-20261103/entry-first/summary.json": "f1f557bf090f9f1913c4a03f037c21b65c5e648dc942a57974c5e1b80c6f435b",
+    "outputs/m4-fixes-20261103/entry-second/after.json": "ea81e72be7bcbfe17646c3b5f66c06a265ddce8029e6111e3c8621e9c617a084",
+    "outputs/m4-fixes-20261103/entry-second/before.json": "ea81e72be7bcbfe17646c3b5f66c06a265ddce8029e6111e3c8621e9c617a084",
+    "outputs/m4-fixes-20261103/entry-second/progress.json": "deae8f1797324943465b2733b40a06731f4d55950e32be1e56615a2ed94f018a",
+    "outputs/m4-fixes-20261103/entry-second/summary.json": "384ab308737dfa67bff8c0bb86733e343511b274a6a279bcd45641be1e2beee5",
+    "outputs/m4-fixes-20261103/layered-final/after.json": "ea81e72be7bcbfe17646c3b5f66c06a265ddce8029e6111e3c8621e9c617a084",
+    "outputs/m4-fixes-20261103/layered-final/before.json": "ea81e72be7bcbfe17646c3b5f66c06a265ddce8029e6111e3c8621e9c617a084",
+    "outputs/m4-fixes-20261103/layered-final/summary.json": "a6ac33d270c1d7456b4988b6a62258a664855a4a70bd101a1f11af59194d5e8f",
+    "outputs/m4-fixes-20261103/layers-reviewed/after.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/layers-reviewed/before.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/layers-reviewed/summary.json": "673b4b87fd9fd72a8b57751a7d571d0cee04b3ca9493a42ccb4c26bc5bdf5708",
+    "outputs/m4-fixes-20261103/stability-off/after.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/stability-off/before.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/stability-off/progress.json": "34351aca135ebc5b08068b581820251dd3b57b903281093282ae51e655f23fae",
+    "outputs/m4-fixes-20261103/stability-off/summary.json": "4f368120cf97779bb83d0ae038a7b63e83849c1a2bbca118b7cc2ecf8428956e",
+    "outputs/m4-fixes-20261103/stability-required/after.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/stability-required/before.json": "1dc61cf374b37487d0addf459ed6c7d799865f0f1efff686cddaf27390fcacdd",
+    "outputs/m4-fixes-20261103/stability-required/progress.json": "6c6508b39bbb67c38565f79c07c8f185150078478a690f889c37398d52a492c3",
+    "outputs/m4-fixes-20261103/stability-required/summary.json": "0b6d47f161f3f323021d92e15f6492a2c3b25dfcdbaefdfbceec99354f8dc520",
+    "outputs/m4-fixes-20261103/entry-first/run-01/pytest.log": "25453d9596d404a57f6c70935f2c92436e522c3986a5540bc98b126880d007dd",
+    "outputs/m4-fixes-20261103/entry-first/run-01/result.json": "1928376b44684246399af50b79fffe5f212fb7ed771c3059bb6df312c081b57e",
+    "outputs/m4-fixes-20261103/entry-first/run-01/result.xml": "5a1855f22d9af5228e96640e56a401b32e1b409193d2a1ab539e3e4ff3776cb6",
+    "outputs/m4-fixes-20261103/entry-first/run-01/verdict.json": "fc508616a14603cb2880a4f9e8f6a2f21045743b19375a0d36d093203b913255",
+    "outputs/m4-fixes-20261103/entry-first/run-01/business/business.json": "718dcbd1f273af426cbc0dd010008c9958c25ea8122118ba2652a8ca7fb247ef",
+    "outputs/m4-fixes-20261103/entry-second/run-01/pytest.log": "8232217b13e35aadfc40ba0021313e2b9594a89c790b4604792e912054f61ac4",
+    "outputs/m4-fixes-20261103/entry-second/run-01/result.json": "aab8a6537ef2981b139c480818de9846da57d228e8a759999d014d2f5372095c",
+    "outputs/m4-fixes-20261103/entry-second/run-01/result.xml": "b46b1264694ead02111c4474efa8037721ecebfd5fb726c8972832357546adb7",
+    "outputs/m4-fixes-20261103/entry-second/run-01/verdict.json": "37b3956c275bb9a4e86169d3b1de8c6fe85bdba28e39a34ad14b4a515b86ce97",
+    "outputs/m4-fixes-20261103/entry-second/run-01/business/business.json": "e8674987fde19ef6cd76bd9e485dbc486db88e15fe457e5e259be610d29fc0c2",
+    "outputs/m4-fixes-20261103/layered-final/layer-1/pytest.log": "a5927239122ff0aa4b8d82c8e472cabfcddb68a450b4ec696d93b03cd2604916",
+    "outputs/m4-fixes-20261103/layered-final/layer-1/result.json": "4b694558143cb7372c7c2073a339f64919c34ec6e9491a8096caf9b47838ed19",
+    "outputs/m4-fixes-20261103/layered-final/layer-1/result.xml": "7f1f44beb97a941dd6d14caa175150988e662dcbaa55b1efd994987b984f9578",
+    "outputs/m4-fixes-20261103/layered-final/layer-2/pytest.log": "f3c97b81c6708fa197342492565e1b6488f7fa43b9a539ac27790b9ca06f124b",
+    "outputs/m4-fixes-20261103/layered-final/layer-2/result.json": "db8fb443f84648d514000ada1d17c26c56740b5a8e84e9f7d2056861c3c043e6",
+    "outputs/m4-fixes-20261103/layered-final/layer-2/result.xml": "8e7fe220b20c43fdff603ad813b695a49c258d0fb1b44ad2a54abbade6ae1675",
+    "outputs/m4-fixes-20261103/layered-final/layer-3/pytest.log": "abe662939f7c8775821b4f4558a5ca8b83e4aaee86b36e3f81f6926fa9bd0da5",
+    "outputs/m4-fixes-20261103/layered-final/layer-3/result.json": "77073c6a06e8605f8e0ec1113e0a258576165c3193b8970695e68d1fadfc2b8e",
+    "outputs/m4-fixes-20261103/layered-final/layer-3/result.xml": "d3164892d80a0c82876fa0e87459dd7003b8bc6e80858aab8f620262d0a54ac5",
+    "outputs/m4-fixes-20261103/layered-final/layer-4/pytest.log": "4778aa3d8e4cda617064e373786740fe4cbaddd66bf5f60638c177f73f237f27",
+    "outputs/m4-fixes-20261103/layered-final/layer-4/result.json": "76cccc380c113d390eda8b4855c0478e1eaa59f0a60d44c23eba8c45e1399b6d",
+    "outputs/m4-fixes-20261103/layered-final/layer-4/result.xml": "187b7d8a13a8d0ef5f15d8e54d80fd5d50d156d55b0b1d022221266c58c7051e",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-1/pytest.log": "b96af4af9ad3f4d46d0dd316482367ad2a10368e5068c305e6b8f367dd3a8341",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-1/result.json": "c886c44774ba6b8877625231faee6e221b2b62e3b2f5c615d35fb542bbcf985e",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-1/result.xml": "2fa0e5503f75a16b97fd4f95c4969dd9dd9fe5f7ca0483d6fa72b435a058c05d",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-2/pytest.log": "55c5ab988f0efb798833979a731d273d7a8fab9005bb92b83ee9e780676daf07",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-2/result.json": "58489f2fc22b0120fa91ffb17a045c89448f15d6ed1dcfefbbb3418db4e09a0f",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-2/result.xml": "6851d7759fd7ac7db8395516856996edf4b8001249863eaa756bcbf571cdb692",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-3/pytest.log": "822f2edb76b6c34d6925051686bd202266334746baa6c2acb93c12097fac710c",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-3/result.json": "85f9b27abaf4e2a8b9ea09cda1e8eb596a0f853b5b1faf06eda6167e0a9688ea",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-3/result.xml": "cf77ab14df57f4b7b92f6bb473d64f33a3d38e227b82cf9acc76d3e6fa5cce9e",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-4/pytest.log": "a6cd29f942fa90d254c9c7e056ffe8706c23b29df1a69cd57b9f1a2ce649c1de",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-4/result.json": "c74b5c27cacb4bedb4763e89bd0bd270553bab6cda0a313df00b57cc898fd6f9",
+    "outputs/m4-fixes-20261103/layers-reviewed/layer-4/result.xml": "2ebe021bc985e4c06dd8eb646087e0615c06406a0d9988e515ba3461bade678b",
+    "outputs/m4-fixes-20261103/stability-off/run-01/pytest.log": "11d6baab81c14d69bc030a9e0876982271dbaaf20da5999d36555f8492b5bd66",
+    "outputs/m4-fixes-20261103/stability-off/run-01/result.json": "663c68fd7ae6a50cc017e8284bd6ff19bdf588c91ecc305d709a8cef6779ed3f",
+    "outputs/m4-fixes-20261103/stability-off/run-01/result.xml": "e641a544066c5f08bc8c88e626579267aca9cef14bec77bfce72417ce581aeca",
+    "outputs/m4-fixes-20261103/stability-off/run-01/verdict.json": "0ba4dc41961b64d978871b2b0a934b8fd340ae7888002d7376db346b06579a3d",
+    "outputs/m4-fixes-20261103/stability-off/run-02/pytest.log": "c4ce23000cce7f9e235cf2fca8a2ac94659972286fa2e894d88edcaa5894cc02",
+    "outputs/m4-fixes-20261103/stability-off/run-02/result.json": "a66ab4fada9949ebc6207e46332dc10037cfb66478da777db90266f288a32e42",
+    "outputs/m4-fixes-20261103/stability-off/run-02/result.xml": "fdf7d2644ea0a82029788a934340792a528c8f910b9989aba7eec6a19899e096",
+    "outputs/m4-fixes-20261103/stability-off/run-02/verdict.json": "2625bf3cad487b735e7a617ce39c92e245a12e50c0c669f227f5cd59fdf32eec",
+    "outputs/m4-fixes-20261103/stability-off/run-03/pytest.log": "9f30604f5ce6ce423a5e1b13f04cf842560aa8969b249de99dfde891411c4457",
+    "outputs/m4-fixes-20261103/stability-off/run-03/result.json": "83ee00821d85070a0ae4709845b9c637f43f2f2b321578fc5f5c8190ccf42a77",
+    "outputs/m4-fixes-20261103/stability-off/run-03/result.xml": "1b7503953f356d43effde8ac1f43b9414c2f1070c548fb3ca2a910cf1cb4bca2",
+    "outputs/m4-fixes-20261103/stability-off/run-03/verdict.json": "a22ece1fc25223c72d234296a190df44662105c80ca93b7b5d3e8a55f06ac8d0",
+    "outputs/m4-fixes-20261103/stability-off/run-04/pytest.log": "351500e618214fe77d0dd2bf64a09f3333271d96bfefe5b88868e7047c3d1bd0",
+    "outputs/m4-fixes-20261103/stability-off/run-04/result.json": "c941b4cd9b5898cc577b3438ede528724106d59f08d35657ce875f4d455684d0",
+    "outputs/m4-fixes-20261103/stability-off/run-04/result.xml": "64924b40d4389997d356453c157ef5519ca040f7643d15a9f221ee1deea6d366",
+    "outputs/m4-fixes-20261103/stability-off/run-04/verdict.json": "62ebd2a3d882c00475439af73e12cbcafd5630d2aac5fdcfaef584955c3f3eb7",
+    "outputs/m4-fixes-20261103/stability-off/run-05/pytest.log": "4b953632f44a39e05a40e82dbed75031cd6f3a61766cb70b461d0388822834e0",
+    "outputs/m4-fixes-20261103/stability-off/run-05/result.json": "4a48a2323b077cf7f84789b05ad6fb8a50ed3f0e9293492c08798fe28fac629f",
+    "outputs/m4-fixes-20261103/stability-off/run-05/result.xml": "dcac833ce8f8e1379648cff09aeacb107e3eec01440878f5dfde91868bcdf5fe",
+    "outputs/m4-fixes-20261103/stability-off/run-05/verdict.json": "051778e71a17eaa223039967fe2d4445284c0c9615cb812f405d9bd4dcc9f3c0",
+    "outputs/m4-fixes-20261103/stability-off/run-06/pytest.log": "3754bfc8f9663236cb203510214ff7327988f9032c4bd64855b2ec1cb2742331",
+    "outputs/m4-fixes-20261103/stability-off/run-06/result.json": "1c4b828173dcd7ac526d9ad98886cf04a1cc5dd0d3464d7342456b1e3de09814",
+    "outputs/m4-fixes-20261103/stability-off/run-06/result.xml": "45982df3f05e83ba2cf65bcf991085e0602b34c569fa78c20d17346262338f4f",
+    "outputs/m4-fixes-20261103/stability-off/run-06/verdict.json": "885f1af8438bc08b6f68c96ffb6d03f3eb1aa9dfc45ed953df46ffafc3487576",
+    "outputs/m4-fixes-20261103/stability-off/run-07/pytest.log": "60d42395eb538a12341c5a0e3b1770145422b9e899d6643afd8a1f8775c6c903",
+    "outputs/m4-fixes-20261103/stability-off/run-07/result.json": "c20766c050c489d606bf6231336c2b2b942d5df2b8bc2a62511e9b562e73a057",
+    "outputs/m4-fixes-20261103/stability-off/run-07/result.xml": "20481d016e052878c95cb6ac3540ea05c4729b4244397e275e6dfd7d19bedf3a",
+    "outputs/m4-fixes-20261103/stability-off/run-07/verdict.json": "bd2723d9069226b6bb986456cec7f4fa65867292615f4a74af0d70490573ae80",
+    "outputs/m4-fixes-20261103/stability-off/run-08/pytest.log": "d426d72315f3d9a25da41500574510b6c5bb7281693fe721d35757e2a79fc002",
+    "outputs/m4-fixes-20261103/stability-off/run-08/result.json": "34e606dc37578849090aa202d05070a79ce344901831045e4a80f5860129a1f2",
+    "outputs/m4-fixes-20261103/stability-off/run-08/result.xml": "5ec6435099511882c79e046c08d9cccfd8d1ff08a9283ca93811179aad186b59",
+    "outputs/m4-fixes-20261103/stability-off/run-08/verdict.json": "3d73976aa76c8164995bc0c6e6cf4d83d9966c5e14fdc33a908d637e52b9e61c",
+    "outputs/m4-fixes-20261103/stability-off/run-09/pytest.log": "6ef9795398d729992c0bb08af116a31c749b16e636f4384f5f7b61dc71d3177d",
+    "outputs/m4-fixes-20261103/stability-off/run-09/result.json": "92e2b484a70650b106fae98c3336215b4e84f87d5b5aa2739ad3e2dc10a9d5e5",
+    "outputs/m4-fixes-20261103/stability-off/run-09/result.xml": "9ba1bae02ed6120715dcc758b09b2a8f9ce40656a7f09dae1b4820d24ddc3d6d",
+    "outputs/m4-fixes-20261103/stability-off/run-09/verdict.json": "4ff0af445b7b3295796733381dec8b6bf14e91a686be09d9a3e8193dba451bf0",
+    "outputs/m4-fixes-20261103/stability-off/run-10/pytest.log": "b5c3f899045159cf64610d041e4a5bc960b8740b591626fce2c4665f797e6cf8",
+    "outputs/m4-fixes-20261103/stability-off/run-10/result.json": "a9e24ab42590f909a85546653faeeab11bf8f71e6261f346d9bbf93c1433a148",
+    "outputs/m4-fixes-20261103/stability-off/run-10/result.xml": "8dc056fa0dd7d6bf0739f3f49d8e613be5e79452d140f2bf78d2cfe3bb5cc450",
+    "outputs/m4-fixes-20261103/stability-off/run-10/verdict.json": "3c5efc024d8a5efbff60bec62839ea7d67665e144176feb8effe4fb501adf2eb",
+    "outputs/m4-fixes-20261103/stability-off/run-01/business/business.json": "a2f4699e6a85d2411836b73d6f1f632bbce40f5586df0b0b4fd36b3cb42a4398",
+    "outputs/m4-fixes-20261103/stability-off/run-02/business/business.json": "0ae9f03eed918a172f29456792a867cc9a525ba3545c6b9194b91cd92d7c5ca4",
+    "outputs/m4-fixes-20261103/stability-off/run-03/business/business.json": "0067cc865ae21e0e757b1282c5778fefaccbf9d03f932db6db017500425d4e2a",
+    "outputs/m4-fixes-20261103/stability-off/run-04/business/business.json": "f1463a17acca26f01e46d7918a550be9f66cbf0f6df7e7e565092ce26659e69f",
+    "outputs/m4-fixes-20261103/stability-off/run-05/business/business.json": "b9c3b3a8ca80bd6218e2cc083b1b921259b07df6b23327ba7a988f18965b1d40",
+    "outputs/m4-fixes-20261103/stability-off/run-06/business/business.json": "ad1874a30f573d758257658f965769a7416190c9c4dc0de429c6eb32e71baa94",
+    "outputs/m4-fixes-20261103/stability-off/run-07/business/business.json": "e3cbc6a11054bd9f25d2e686d5e3db64c7f580e1f4d7a8bf587e6818d93f9ce3",
+    "outputs/m4-fixes-20261103/stability-off/run-08/business/business.json": "1d583c1c3b973c59f2795a3e9f87f9a380538a83e9cbf3e44b50d9bb9c44e06d",
+    "outputs/m4-fixes-20261103/stability-off/run-09/business/business.json": "7bcbf1e3d74ad60182c7619d699208130fba735ae74c17fa54b8071efa2ce5d9",
+    "outputs/m4-fixes-20261103/stability-off/run-10/business/business.json": "907302ae63ebc958fff9192ee6eda49d28232485a4c22fb41a32bab906560b44",
+    "outputs/m4-fixes-20261103/stability-required/run-01/pytest.log": "e815aeb4879837fdf31fb5e049df894811864db1ef8e87a3cb295263ef80a3f3",
+    "outputs/m4-fixes-20261103/stability-required/run-01/result.json": "a73835a177ae532da427fecd2ced08fa3c17d082e1d88f52f738108d955cb851",
+    "outputs/m4-fixes-20261103/stability-required/run-01/result.xml": "0a88621a21e1a53fb15e811ccb6c6389ead02680d62790e138519aac77179e3b",
+    "outputs/m4-fixes-20261103/stability-required/run-01/verdict.json": "249c8a28203c125c1303e102f3ef1d91a2d13cf20bfec1462f9616650724bde8",
+    "outputs/m4-fixes-20261103/stability-required/run-01/business/business.json": "bad8caf87acef6649d9694a1a2f54807008cc6d5980b1e0eb31bbd1ca54a45b1"
+  },
+  "working_tree_status_at_closeout": [
+    " M ENGINEERING_PLAN.md",
+    " M README.md",
+    " M scripts/check_delivery.py",
+    " M scripts/run_acceptance.py",
+    " M scripts/run_stability.py",
+    " M tests/test_fixed_scenarios.py",
+    " M tests/test_runtime_versions.py",
+    "?? docs/verification/m4-20261103.json",
+    "?? docs/verification/m4-closeout-20261103.json",
+    "?? docs/verification/m4_audit_controls.py",
+    "?? docs/verification/m4_real_workbench_audit.py",
+    "?? scripts/acceptance_common.py",
+    "?? scripts/business_evidence.py",
+    "?? tests/acceptance_plugin.py",
+    "?? tests/scenario_catalog.py",
+    "?? tests/test_m4_acceptance_tools.py",
+    "?? tests/test_m4_delivery.py",
+    "?? tests/test_m4_workbench.py",
+    "?? tests/workbench_flow.py"
+  ],
+  "document_check": {
+    "local_links_checked": 33,
+    "issue_statuses_checked": 12,
+    "diff_check": "passed",
+    "deferred_13_17_bodies": "unchanged from pre-fix plan"
+  }
+}

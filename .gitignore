@@ -29,3 +29,6 @@ codex-main.tar.gz
 # 损坏的 Git 元数据备份（历史 objects/refs/logs/配置，可能含敏感信息，不进 git 与交付包）
 .git-broken/
 .pytest-tmp/
+
+# Project-local installer runtimes, cache and generated defaults
+.restock/

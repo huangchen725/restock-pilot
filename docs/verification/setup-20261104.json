@@ -1,0 +1,436 @@
+{
+  "schema": 1,
+  "date": "2026-11-04",
+  "branch": "temporary",
+  "base_commit": "b8250e4fb4eb4ed58286fd1bc424827dda99e54f",
+  "scope": "Project-specific Windows bootstrap installation, repeat/failure/config preservation, and impacted startup regressions. No commit/push.",
+  "product_runtime_changed": false,
+  "runtime_configuration_changed": "Installer defaults fall below process env and .env; managed Node PATH is process-local.",
+  "bootstrap_manifest": {
+    "schema": 1,
+    "python": {
+      "version": "3.12.14",
+      "provider": "Astral python-build-standalone 20260814",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.12.14%2B20260814-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "filename": "cpython-3.12.14-20260814-win-x64.tar.gz",
+      "sha256": "89f18f6932917163b74339ebcec2645c8e47ae7f1c5f2ac37f2b4f4cf3beb647"
+    },
+    "node": {
+      "version": "24.19.0",
+      "provider": "Node.js official Windows x64 ZIP",
+      "url": "https://nodejs.org/dist/v24.19.0/node-v24.19.0-win-x64.zip",
+      "filename": "node-v24.19.0-win-x64.zip",
+      "archive_root": "node-v24.19.0-win-x64",
+      "sha256": "57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73"
+    }
+  },
+  "source_sha256": {
+    ".env.example": "c57020b1612bb37480cb0eb883d4e02921c3a8e7c35b6d0f6af7f4ed9e5499c0",
+    ".python-version": "9bccfb61c57081accd6a0a9bbc2909a77ee387cfe0168a97c8f1592f3d9d6b92",
+    "bootstrap-lock.json": "2091626fac1cb30783f2ec5fb3c3891ddc3a79d4244b20b87d83ef32d916faab",
+    "pytest.ini": "ddfcf6e0017476e9b9e8e55559c80e166c21f4f1ac242c7468dc85ad9dc69e52",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    "requirements.txt": "eea2dcd02dd1c2b3b358f0152b4a3fbb970be320e8a0143edb3ff1b75dca11c4",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "setup.cmd": "1d6f64f699433ead6d14dc284d4f00c765049741ed411baa84eb86c9c5c027ea",
+    "start.cmd": "ac30207d175d8e8e7cf998d4094044098464a66c3f136f0f642183db0b427b14",
+    "start.py": "66f2d162f0071654f4b4ed1967b962fdd09696036a550e9f1cf344dfd44fa17d",
+    "agent-integration\\codex-config.toml": "9d441a60dacdd5bafcf2bb4aa3e753ad6afbb7c4e6032ee5a8db3f545f10e398",
+    "agent-integration\\config.toml": "ea1c12bad8cad498390e6c75b9c64d89b188575b60b8e9a69dfbbf3cebbcabdf",
+    "agent-integration\\litellm-config.yaml": "c0c4fad9e239c5adf9564e690b47c3b408b815651c1876f00b047b76be60e861",
+    "app\\agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app\\business_tools.py": "f1f0e1adb1ad47b7f69b8470d2debbded5e065968d5cc3d203a03d556e2ddb25",
+    "app\\config.py": "98915136472b021f5150c7130350ae871cdd5d4ba525b0c625fa82dcd67f452c",
+    "app\\datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app\\db.py": "a623255e539d0157ef2c9a84566e5584f8befee00868393a62ed9ca82c3a3529",
+    "app\\execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app\\jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app\\ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app\\main.py": "a44c5d7b886a51f879dd5eb980c41233898fe56d46872aeb66d8fe515c6f1507",
+    "app\\mcp_server.py": "27dd48d2a1e4b124d1c1edd7f2affea17818ee4b970555304d661f6926059e56",
+    "app\\models.py": "a0718b5d191ef505efd8c7ec306cbabb318b50925003f57249ef2d26ad0bed58",
+    "app\\processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app\\procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app\\prompts.py": "942382b363845591bd5b86953599bb61d3e5cea36c6a855edd9e497c5944d289",
+    "app\\redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app\\reports.py": "2a69e2a84440293e5661d6590042f2952a7069b65f5980e4e81f51a7d58df6a9",
+    "app\\rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app\\runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app\\runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app\\state_machine.py": "7eb2eb1023f04df2e42ce13c344febfa1e5e8e3def6120947cf7418fde58d98b",
+    "app\\validation.py": "2a1fd201813c6ce3f2c2dfe55b892dd5fa751bac91fad60f05ea2b2e0066631d",
+    "app\\__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "data\\contract.json": "c393a6458c83b501f7894f38591a2a7ee3b489c97590f114341dcc48c4daf599",
+    "data\\inventory.csv": "64423f216b619a2d59859b4e63397ccd09e677edfc181a7765cb43ec79d8886a",
+    "data\\sales.csv": "2b705cfc3054ae189ac5ca5124867e4ec056d0fde0c0ce3ca5fe14e5f689f23d",
+    "data\\suppliers.csv": "3d88e9642a898733072f13db3b1cc30e4fe09e67f3bae1ef5996c1ed26cbe015",
+    "scripts\\acceptance_common.py": "8144e7eb73fc74ca9c28797d0ca66e96c2b3494c72b89c118d8d5602433c81ef",
+    "scripts\\business_evidence.py": "0911aafd2a15cf30ce541f1504013460adda25ba66eb2f220068851b7acce839",
+    "scripts\\check_delivery.py": "9fea5c0f005c5687f4f87dfbbc0acae520989409589ef4abaebd35429d9f1b4c",
+    "scripts\\generate_data.py": "1821207b7014a911c6dbea6ea872d6d4eba6059d0a031c06ba33a7ef68bacaa1",
+    "scripts\\install_environment.py": "c8d2255b5cfb3718f453263fccd665af71d76daf8a9a7bb8b2ef252c68142c62",
+    "scripts\\run_acceptance.py": "07ea2e39369e4a51b759f677f96f74efacdaa5b1f7265e1581599d98c8606c9b",
+    "scripts\\run_smoke_e2e.py": "ad1398c19846c6dc5f75b82ba5316f2fbb638ccee3b9e8947e5c3ae676d9d976",
+    "scripts\\run_stability.py": "6510433777f0c7d5e5dd879f229519b4d1e25784857f5d1cdd8cf9b1c450a872",
+    "scripts\\setup.ps1": "80c30dab2615f1dfbee8fb56e3e05f96140908eafa9d5dc6ef13ea2504937de6",
+    "tests\\acceptance_plugin.py": "b55c43bea204ac6ab0ab02cff04f27ac1f64416fe9dc211447efc2a391918761",
+    "tests\\scenario_catalog.py": "e2040656a293559c1aeb6bf5c549355b925ba93cf81502cb4ba5f112e635325c",
+    "tests\\summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests\\support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests\\test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests\\test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests\\test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests\\test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests\\test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests\\test_fixed_scenarios.py": "fc7a62eb80ecd82544da4929be6968013e0230133c6c31428fe9c883ff911dc4",
+    "tests\\test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests\\test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests\\test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests\\test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests\\test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests\\test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests\\test_m4_acceptance_tools.py": "41b88c11ecf94c4ff9ed2316398e1ec26f39232eb8bf76c0d2b5d326b8aa4b0a",
+    "tests\\test_m4_delivery.py": "b32285ea57de54539f08f5dbdcca13ca7ea384cd1e66557420db80031d49bd0b",
+    "tests\\test_m4_workbench.py": "c642d8f7f37f38cad268cfbf57b271dadc9c585f4e84c792f6aa29972aa8a5fb",
+    "tests\\test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests\\test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests\\test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests\\test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests\\test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests\\test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests\\test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests\\test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests\\test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests\\test_runtime_versions.py": "815c9a2cad923535d994b48c7c5a58901d6cb5a0d021332c3e051f40fddc4687",
+    "tests\\test_setup.py": "592fce110dcac75ef924f921e083c8cfc090ccc72afd81e083d7309fd8923fab",
+    "tests\\test_setup_e2e.py": "799d7f9ce3ded31c6efea46c2ae4ea9dab9d28d27b6ecff38bdea55c42158354",
+    "tests\\test_startup.py": "2ffd0a489a6be25a38f39579d2bae80e1c2ca46bb23b7224f3c952cb2a164c91",
+    "tests\\test_step3_api.py": "c22aa9e5024fbc93584a44b9ed2342c56efc35051b21d310a10c60a1456cfb84",
+    "tests\\test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests\\test_workbench_e2e.py": "034c45ca1add7905c5880675e7f2462b7755b077b32d3b516594a3fd7c58024b",
+    "tests\\workbench_flow.py": "fd9937f87bb7995a35269ce449f9367ebc8f6ee3ca950aead6a60e55f4cc915b",
+    "tests\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ui\\app.py": "9fb402a7ed08b50c5be854cf5df50c1a21c9f59de76f672efa80b37eeb840c16",
+    "tests\\fixtures\\planner-rejected-182.txt": "a838b551c5f3c3507c8f7a94d88b994b8b39466634c33bb2f7a7e707ff789369"
+  },
+  "development": {
+    "initial_missing_entry_controls": {
+      "passed": 0,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    "first_unit_attempt": {
+      "passed": 20,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    "review_before_fixes": {
+      "passed": 0,
+      "failed": 2,
+      "errors": 0,
+      "skipped": 0
+    },
+    "log_rule_counterexample": {
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "closing_review": {
+    "targeted": {
+      "passed": 179,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "installation_layer": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "frozen": true
+    },
+    "fresh_environment_product_tests": {
+      "passed": 51,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "reviewer": "same agent, separate implementation and closing review; overlapping test sets are not added together"
+  },
+  "installation_runs": [
+    {
+      "name": "first",
+      "exit": 0,
+      "status": "complete",
+      "failed_step": null,
+      "env_preserved": null,
+      "steps": [
+        {
+          "step": "manifest",
+          "status": "verified",
+          "seconds": 0.0
+        },
+        {
+          "step": "node",
+          "status": "installed",
+          "seconds": 3.89
+        },
+        {
+          "step": "venv",
+          "status": "installed",
+          "seconds": 7.52
+        },
+        {
+          "step": "dependencies",
+          "status": "installed",
+          "seconds": 150.75
+        },
+        {
+          "step": "configuration",
+          "status": "created",
+          "seconds": 0.12
+        },
+        {
+          "step": "cli",
+          "status": "installed",
+          "seconds": 12.3
+        },
+        {
+          "step": "browser",
+          "status": "reused",
+          "seconds": 1.94
+        },
+        {
+          "step": "runtime",
+          "status": "verified",
+          "seconds": 0.94
+        }
+      ]
+    },
+    {
+      "name": "repeat-offline",
+      "exit": 0,
+      "status": "complete",
+      "failed_step": null,
+      "env_preserved": true,
+      "steps": [
+        {
+          "step": "manifest",
+          "status": "verified",
+          "seconds": 0.0
+        },
+        {
+          "step": "node",
+          "status": "reused",
+          "seconds": 0.08
+        },
+        {
+          "step": "venv",
+          "status": "reused",
+          "seconds": 0.06
+        },
+        {
+          "step": "dependencies",
+          "status": "reused",
+          "seconds": 0.91
+        },
+        {
+          "step": "configuration",
+          "status": "preserved",
+          "seconds": 0.11
+        },
+        {
+          "step": "cli",
+          "status": "reused",
+          "seconds": 0.12
+        },
+        {
+          "step": "browser",
+          "status": "reused",
+          "seconds": 0.62
+        },
+        {
+          "step": "runtime",
+          "status": "verified",
+          "seconds": 0.95
+        }
+      ]
+    },
+    {
+      "name": "invalid-existing-config",
+      "exit": 1,
+      "status": "failed",
+      "failed_step": "runtime",
+      "env_preserved": null,
+      "steps": [
+        {
+          "step": "manifest",
+          "status": "verified",
+          "seconds": 0.0
+        },
+        {
+          "step": "node",
+          "status": "reused",
+          "seconds": 0.06
+        },
+        {
+          "step": "venv",
+          "status": "reused",
+          "seconds": 0.08
+        },
+        {
+          "step": "dependencies",
+          "status": "reused",
+          "seconds": 0.89
+        },
+        {
+          "step": "configuration",
+          "status": "preserved",
+          "seconds": 0.11
+        },
+        {
+          "step": "cli",
+          "status": "reused",
+          "seconds": 0.14
+        },
+        {
+          "step": "browser",
+          "status": "reused",
+          "seconds": 0.64
+        }
+      ]
+    },
+    {
+      "name": "corrected-config",
+      "exit": 0,
+      "status": "complete",
+      "failed_step": null,
+      "env_preserved": true,
+      "steps": [
+        {
+          "step": "manifest",
+          "status": "verified",
+          "seconds": 0.0
+        },
+        {
+          "step": "node",
+          "status": "reused",
+          "seconds": 0.06
+        },
+        {
+          "step": "venv",
+          "status": "reused",
+          "seconds": 0.06
+        },
+        {
+          "step": "dependencies",
+          "status": "reused",
+          "seconds": 0.91
+        },
+        {
+          "step": "configuration",
+          "status": "preserved",
+          "seconds": 0.11
+        },
+        {
+          "step": "cli",
+          "status": "reused",
+          "seconds": 0.12
+        },
+        {
+          "step": "browser",
+          "status": "reused",
+          "seconds": 0.61
+        },
+        {
+          "step": "runtime",
+          "status": "verified",
+          "seconds": 0.94
+        }
+      ]
+    }
+  ],
+  "configuration_preserved": true,
+  "standalone_python_confirmed": "Fresh pyvenv.cfg points to the project .restock/python, not Codex desktop runtime.",
+  "network_repeat_control": "Invalid process HTTP/HTTPS/ALL proxy plus asserted component reuse; this is simulated network unavailability, not OS firewall isolation.",
+  "issues": {
+    "ENV-01": {
+      "status": "closed for same-machine automated bootstrap",
+      "tests": [
+        "test_setup_entrypoints_exist_without_python_prerequisite",
+        "test_blank_path_install_repeat_failure_recovery_and_product_flow",
+        "test_failed_step_can_resume_without_losing_previous_configuration"
+      ]
+    },
+    "ENV-02": {
+      "status": "closed",
+      "tests": [
+        "test_bootstrap_artifacts_are_locked_and_match_runtime",
+        "test_bad_archive_hash_never_extracts_or_executes",
+        "test_download_positive_cache_and_network_failure",
+        "test_existing_wrong_version_node_is_rejected_before_npm",
+        "test_blank_path_install_repeat_failure_recovery_and_product_flow"
+      ]
+    },
+    "ENV-03": {
+      "status": "closed",
+      "tests": [
+        "test_cmd_bootstrap_rejects_corrupt_cached_python_under_restricted_policy",
+        "test_blank_path_install_repeat_failure_recovery_and_product_flow"
+      ]
+    },
+    "ENV-05": {
+      "status": "closed",
+      "tests": [
+        "test_existing_env_preserved_byte_for_byte",
+        "test_missing_env_created_once_from_example",
+        "test_missing_template_does_not_leave_partial_config",
+        "test_managed_defaults_precedence_and_no_config_write",
+        "test_new_generated_defaults_do_not_override_explicit_bad_cli",
+        "test_install_lock_refuses_concurrent_owner_then_releases",
+        "test_blank_path_install_repeat_failure_recovery_and_product_flow"
+      ]
+    },
+    "ENV-04": {
+      "status": "delivery branch merge/tag deferred",
+      "note": "Implementation is on temporary only; no merge or push authorized in this turn."
+    }
+  },
+  "retained_failures": [
+    "fresh-entry.log / fresh-entry-2.log / fresh-entry-3.log: unavailable PowerShell hash helper; replaced with .NET SHA-256; diagnostics hardened",
+    "fresh-entry-4.log / fresh-entry-5.log: Windows image handle prevented moving Node after execution; now publish verified bytes first, then check version before npm",
+    "review-before.xml: missing template left partial .env and dependency-name normalization mismatch",
+    "log-before.xml: known boolean switch incorrectly redacted; now shares app/redaction.py",
+    "review-controls.xml: old workspace CLI path/E2E switches not configured; retained 5 failures and 4 skips, not counted as product acceptance"
+  ],
+  "reproduce": [
+    "setup.cmd -NoPause",
+    ".venv/Scripts/python.exe scripts/run_acceptance.py --layers 6 --strict",
+    ".venv/Scripts/python.exe -m pytest tests/test_setup.py tests/test_startup.py tests/test_runtime_versions.py tests/test_agent_runtime.py tests/test_m4_delivery.py tests/test_m4_acceptance_tools.py -q"
+  ],
+  "limits": [
+    "Windows x64 only; requires Windows PowerShell 5.1 and system tar.exe",
+    "Same host, blank PATH/fresh project; M4-13 physical other-machine gate remains open",
+    "No real model calls/key-validity claim",
+    "No public deployment or M4-14 closure",
+    "Explicit incompatible venv/runtime or custom configuration is preserved and rejected, not silently overwritten"
+  ],
+  "evidence_sha256": {
+    "outputs/setup-development-20261104/closed-controls.xml": "6ef4096ce605fc9757e97bf2512850a0a08941c17808bc8bacba01d209e1fb8a",
+    "outputs/setup-development-20261104/layer6-reviewed/summary.json": "f40c2fcc0c245e39bd45693e2101bf086666f2aa74503c2643970d80d6cbbddd",
+    "outputs/setup-development-20261104/layer6-reviewed/before.json": "bc12ff34961585f3b795afcd72e8288939b0f05da9c1753671bb0dca547f2f5e",
+    "outputs/setup-development-20261104/layer6-reviewed/after.json": "bc12ff34961585f3b795afcd72e8288939b0f05da9c1753671bb0dca547f2f5e",
+    "outputs/setup-development-20261104/layer6-reviewed/layer-6/result.xml": "4e498d8e7005e0ba14d43bdaa3b3ed6b7718b12c26a4463f21e14f63ceead39d",
+    "outputs/setup-reviewed-20261104/summary.json": "3feca9ae1808a247d808e1179a4711786b321f4620c3071a87c19480a5e96d2f",
+    "outputs/setup-reviewed-20261104/runs.json": "048c534147ead8038659edfa4fd25a3bdaa1693f3d32e05cf4fdfd3ce21d29be",
+    "outputs/setup-reviewed-20261104/product.xml": "01732c614a740dd7beb0e7fedc6af3067b3b29530ef576ccb62ce0411967a717",
+    "outputs/setup-reviewed-20261104/first.log": "e54ff6f353bdffc8de3441ff70c1076c1673339b4933f97def6c4b3775c8a247",
+    "outputs/setup-reviewed-20261104/repeat-offline.log": "890b89fa58e7c19350ad6f63d5476037dbbe089086e2872d63cdeca48b824d48",
+    "outputs/setup-reviewed-20261104/invalid-existing-config.log": "1b8c94749e07d2afa3150b33f5021095822cfa45faab19d368a5767fb0355ad5",
+    "outputs/setup-reviewed-20261104/corrected-config.log": "770ef70ed91cb770ea3ce35a774b7c90a060f8f88839d439d2158da6897fbfc7"
+  }
+}

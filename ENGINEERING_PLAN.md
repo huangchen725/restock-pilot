@@ -1,6 +1,6 @@
 # RestockPilot 工程执行计划
 
-更新日期：2026-11-03（剩余六项 P2 修复、真实模型复验与规范更新；P2-12 按用户要求排除）。本文是后续工程安排与验收的主入口；README 提供当前进度和启动说明，旧日志保留历史结果。
+更新日期：2026-11-04（temporary 新机自动安装已完成同机隔离验收；M4-13 异机与 M4-14 部署仍待完成；P2-12 继续排除）。本文是后续工程安排与验收的主入口；README 提供当前进度和启动说明，旧日志保留历史结果。
 
 目标是交付一次完整的店铺补货任务：用户提供销售、库存和供应商资料，提出要求，复核及修改方案，批准后创建采购申请，最后拿到已核对的申请单、清单和报告。完成指采购申请正确创建，不表示已经支付、采购到货。
 
@@ -75,6 +75,8 @@ Planner、Reviser、Executor 表示三个工作阶段。Executor 可以只解释
 - 已落实自动检查：正式反例进入默认回归，运行版本不符由启动程序拒绝。完整 CI 与分支保护尚未配置，不能声称所有违规提交已被自动拦截。
 
 下一步按 M4 建立固定产品场景、冻结版本连续稳定性、异机复现与交付材料。本轮不把这些未验证事项勾为完成，也不再把用户排除的 P2-12 反复列为本轮阻塞。
+
+M4 的最新结果与新增修复条目见 [M4 完整验收与修复计划](#m4-audit)，不要以本节原 38 项关闭情况推断 M4 已完成。
 
 ## 当前基线
 
@@ -256,21 +258,303 @@ Planner、Reviser、Executor 表示三个工作阶段。Executor 可以只解释
 
 P0/P1 在上述历史范围内关闭。本节仅记录 2026-11-02 第二轮证据；后续 P2 与真实模型结果以本文顶部当前审计台账为准。冻结版本稳定性、异机复现和公开交付不能由这份历史记录代替。
 
+<a id="setup-closeout"></a>
+## 新机自动安装（2026-11-04 关闭复核）
+
+**已完成项目专用的 Windows x64 自动安装入口。** 当前为 `temporary@b8250e4` 加本轮工作区修改；未提交或推送。该项完成的是环境准备，不等于 M4-13 已在另一台机器通过，也不等于 M4-14 已部署。可重跑入口、逐项测试及源码指纹见 [安装验收索引](docs/verification/setup-20261104.json)。
+
+入口为 `setup.cmd` → `scripts/setup.ps1` → `scripts/install_environment.py`，启动为 `start.cmd` → 原 `start.py`。固定 SHA-256 验证后的 Astral CPython 3.12.14 与官方 Node 24.19.0 安装到 `.restock/`；依赖、CLI 在 `.venv/`，浏览器为项目缓存。无需预装 Python、Node 或 Codex 桌面，不执行全局安装、注册表/PATH 修改或数据库重置；操作系统前提是 Windows x64、PowerShell 5.1 和系统 tar.exe。
+
+| 编号 | 根因与实现 | 自测与关闭复核 | 当前状态 |
+|---|---|---|---|
+| ENV-01 | 原来只有已准备环境的启动器。新增阶段化安装、真实版本检查、互斥和逐次结果；有效组件复用，失败后可重试。 | 缺入口原反例保留；正式第 6 层在无 Python/Node 的 PATH 和新目录中执行首次安装、重复、错误配置拒绝、纠正后恢复。 | 已关闭（同机自动化范围） |
+| ENV-02 | Python 锁定版本无明确 Windows 获取来源。新增 bootstrap-lock.json 固定独立发行来源、版本和 SHA-256；下载先校验再执行。 | 损坏缓存拒绝、不安全归档拒绝、错误运行版本拒绝；新 .venv 的 base Python 实测指向项目 `.restock/python`。 | 已关闭 |
+| ENV-03 | PowerShell 默认 npm.ps1 会受执行策略影响。双击入口使用本次进程策略，Node 安装明确调用 npm.cmd。 | 受限策略入口实际执行；没有修改系统执行策略。缺少自动加载哈希命令的实测失败已改用 .NET SHA-256。 | 已关闭 |
+| ENV-05 | 人工配置衔接及重装覆盖风险。现有 .env 字节保持，缺失才创建；默认值另存 `.restock/environment.json`，进程环境 > .env > 安装默认值。 | 空文件/BOM/换行/自定义项保持；错误路径拒绝且配置不变、纠正后恢复；并发拒绝、失败不发布成功状态。日志沿用既有脱敏规则。 | 已关闭 |
+| ENV-04 | main/temporary 交付分支尚未统一。 | 本轮限定 temporary；正式交付合并或标签需后续明确操作。 | 本轮不合并分支 |
+
+- 开发自测与失败留证：原缺入口两项失败，归档于 `before.xml`。真实安装发现 PowerShell 哈希辅助命令不可用、Windows 刚执行 Node 后目录无法移动，均保留日志后修正；归档校验和最终版本检查没有取消。另复现缺模板遗留半份配置、依赖名称规范化、布尔开关被误脱敏三项，修复前 XML 均保留。
+- 最终定向回归：**179 passed / 0 failed / 0 skipped**，覆盖安装器、配置优先级、启动、版本、真实 CLI 允许/恶意调用、交付扫描和分层控制器。旧工程首次未设置正确 CLI 路径与开关的 5 failed / 4 skipped 保留，不充作本次通过。
+- 正式安装关闭复核：第 6 层 **1 passed / 0 failed / 0 skipped**，运行前后源码/依赖指纹一致。四轮退出码依次为 **0 / 0 / 1 / 0**：首次安装、重复安装、故意配置错误、用户纠正后恢复。重复轮设置无效网络代理并断言全部组件复用；这是模拟网络不可用，不冒称操作系统断网测试。
+- 新环境产品验证：新下载的独立 Python/Node 和新 .venv 中 **51 passed / 0 failed / 0 skipped**，包括四服务启动/停止、相对与绝对 CLI 路径、允许/恶意工具调用、CLI 生命周期、真实浏览器工作台上传→修改→批准→录单→回读→导出。没有调用真实模型；上述组有重叠，不相加成总数。
+- 配置保护：原有 `.env` 在重复、拒绝和恢复三轮均保持原字节；明显无效 CLI 配置不会被安装默认值掩盖。生成的环境默认值仅在实际运行版本验证后原子发布；失败日志与此前成功记录均保留。
+
+原始记录：`outputs/setup-development-20261104/`、`outputs/setup-reviewed-20261104/`。回归源为 `tests/test_setup.py` 与 `tests/test_setup_e2e.py`。关闭复核由同一 Agent 分开发自测与第二次复核完成，不冒称另一审阅者。
+
+下一步：在另一台受支持机器使用当前源码运行 setup.cmd 并完成一个任务，取得 M4-13 实机证据；再按 M4-14 补访问授权、额度、演示重置与 HTTPS 体验部署。本轮未改变这两个里程碑的未完成状态。
+
 ## M4 产品验收与比赛交付
 
 优先级 P0。A 负责重复运行与环境复现，B 负责演示、说明与交付包。
 
-- [ ] 建立约 20 个固定产品场景，覆盖正常任务、预算调整、优先级、排除商品、数据缺项、版本过期、故障与恢复；预期结果由手工案例或独立断言给出。
-- [x] 已建立业务、浏览器故障、真实 CLI 假模型与真实书生的分层入口；本轮显式启用非模型集成，真实模型另验，skipped 不计通过。
-- [ ] 选取少量关键场景调用真实书生重复运行；记录成功与失败，不只保留最佳结果。
-- [ ] 冻结版本连续 10 次正常完整流程至少成功 9 次，作为内部目标；测试中未经批准写入、重复申请和金额不一致均为阻断问题。
-- [ ] 另一台环境按说明启动并完成一个任务，验证固定运行时与依赖，保留启动和停止说明。
+- [x] 20 类固定产品场景已有明确输入和独立预期，映射到 59 个去重后实际执行的测试节点；正常/恢复场景使用真实工作台或浏览器，规则/数据场景按层级记录。见 M4-01/02。
+- [x] 正式严格分层入口实测：478 passed / 0 failed / 0 errors / 0 skipped，四层互斥、零重复，源码/依赖前后指纹一致。真实模型第 5 层不混入该总数。见 M4-05。
+- [x] 首次审计完成两次 30 SKU 真实书生工作台流程；本轮修复后通过正式 required 入口另验 1 次，均保留各自版本的原始输出及业务证据。不同版本样本不合并成十轮稳定性；本轮摘要措辞观察见下方关闭记录。
+- [ ] 冻结版本连续稳定性按模式记录：正式入口已完成 off 模式 30 SKU 工作台 10/10，安全门槛与逐轮取证通过（M4-03/04/12 已关闭）；新版 required 入口另验 1/1。仍不声明十轮真实书生稳定性达标，不把两种模式混算。
+- [x] 新机自动安装能力已完成同机隔离验收，支持配置保留、重复执行与失败后恢复；见安装关闭记录。
+- [ ] 另一台环境使用 setup.cmd 启动并完成一个任务，验证固定运行时与依赖，保留启动和停止说明；同机新目录记录不代替本项。
 - [ ] 部署体验环境：配置独立演示数据、访问边界、调用额度和重置方式；核实链接可用，不公开无保护的采购或模型调用入口。
 - [ ] 准备技术文档、第三方组件说明、代码包、视频和体验链接；材料准确区分自研业务能力、Codex 运行时、书生模型和自建演示后台。
-- [ ] 完成交付包检查，材料不包含真实密钥或个人运行数据。日志脱敏本轮已验证；历史密钥吊销/轮换按用户要求排除本轮，不记为已完成。
-- [ ] 核对赛事官方截止与最终清单。现有仓库记录为 11 月 5 日 23:59:59，ZIP、技术文档 PDF、视频链接与应用体验链接；模型文件等项目按实际 API 使用方式和官方要求确认。
+- [ ] 完成实际交付包检查。扫描器 M4-06 至 M4-10 已通过实际合成 ZIP/解压目录正反例，含路径、权限、编码与脱敏；真实比赛交付包尚未制作，本项不提前勾选。历史密钥吊销/轮换按用户要求排除，不记为已完成。
+- [x] 已核对本届赛道官方明示规则：报名与提交均为北京时间 2026-11-10 23:59:59；技术 PDF、视频/体验链接、代码和模型材料要求见 M4 审计。API-only 模型材料处理仍需确认并纳入 M4-15，不能自行豁免。
 
 验收目标用于验证可用产品，不要求论文式消融实验。失败必须清楚显示，不能把模型自述作为采购成功的证明。
+
+<a id="m4-audit"></a>
+### M4 完整验收与修复计划（2026-11-03）
+
+**本轮关闭结论：M4-01 至 M4-12 全部已关闭；M4 整体仍未完成。** 本轮只修改验收脚本、测试和文档，业务实现、主工程及运行数据库保持原状。M4-13 至 M4-17 按用户要求不处理，原状态保留。当前工作区为 `temporary@660706d` 加本轮未提交修改；没有提交或推送。
+
+当前 [关闭索引与文件指纹](docs/verification/m4-closeout-20261103.json) 逐项记录根因、测试名、入口、开发自测和关闭复核；[首次审计索引](docs/verification/m4-20261103.json) 保留修复前事实。不得用旧审计的未修状态或旧 377 数量代替当前结论。
+
+- 开发自测：保留原 26 failed / 4 passed 反例；逐步补齐 112 项控制器、扫描器与手算检查。首轮真实 UI 曾因 CSV 无总额行而失败，修为逐行与求和核对，并增加损坏导出的拒绝控制，原记录保留。
+- 关闭复核：同一 Agent 在实现后重新审查，另复现 4 个目录权限/异常留证反例并修复；最终定向 **116 passed**。正式严格分层 **478 passed / 0 failed / 0 errors / 0 skipped**（层 1/2/3/4 分别 428/17/3/30），包含真实故障、工作台、CLI 允许/恶意调用与启动。各组有重叠，不累计成新的测试总数。
+- 稳定性与真实入口：正式脚本 off **10/10**，required 书生 `intern-s2` **1/1**，各轮均为 30 SKU 上传到导出；每轮独立实际两张 SUBMITTED 申请，SKU-007 为 1×6427 分、SKU-009 为 37×7932 分，合计 **299911 分**。批准、版本、数量/单价/金额、重复执行拒绝和 CSV/HTML 均复核。独立回读 22 张申请与 11 份 CSV；两种模式分开统计，不声明真实模型十轮稳定性。
+- 冻结与隔离：正式运行前后 HEAD、源码/测试/配置/样例及依赖指纹一致，包含未跟踪代码；按轮保存 XML、脱敏日志、数据/方案 hash、人工批准、单据与导出 hash。每轮独立端口/数据库，凭证不写入交付文件。主目录不改；只有本次启动进程会被清理。
+
+真实模型另有一处本轮未修的措辞观察：Executor 表格把 `found:false` 写成“重复检查未通过”，后文又正确写为“两单均通过重复检查”。实际含义是未找到重复，单据、数量、金额和防重行为均核对一致；这是模型汇总表述不准确，后续需改进措辞/语义校验，不能宣传为摘要完全无误。本轮未扩展修改业务提示词，也未把它当成采购检查被绕过。原文和定位保留在关闭索引的 `manual_summary_review`。
+
+复验入口见 README 的“M4 验收入口”。原始证据为 `outputs/m4-fixes-20261103/`；可提交回归在 `tests/test_m4_acceptance_tools.py`、`tests/test_m4_delivery.py`、`tests/test_fixed_scenarios.py`、`tests/test_runtime_versions.py` 和场景目录对应节点。关闭复核由同一开发 Agent 分两次完成，不冒称独立审阅者。
+
+#### 首次完整审计基线（修复前，保留历史）
+
+**修复前结论：M4 不通过，不能标为交付完成。** 被测 `temporary@660706d`，本轮未修改产品代码、未提交推送。独立验收记录、问题编号与源码指纹见 [M4 验收索引](docs/verification/m4-20261103.json)。原 P0/P1/P2 的 38 项台账保持其原范围；下述是新增 M4 问题，不将验收工具缺陷误报成已发生的真实重复采购。
+
+| 工程计划要求 | 实际验收结果 | 结论 |
+|---|---|---|
+| 约 20 个固定场景与独立预期 | 新文件 20 个函数中 10 个是 pass；另外发现错误字段/弱断言/手改故障状态。已有 M0/M3 可信测试可复用，映射见下表。 | 未通过，M4-01/02 |
+| 分层运行且 skipped 不算通过 | 直接运行回归 377 passed / 0 failed / 2 skipped，135.31 秒；此计数包含 10 个占位，不能当有效覆盖数。新增分层脚本存在范围/开关/计数错误。 | 原入口可用，M4 包装脚本未通过，M4-05 |
+| 真实书生关键场景重复 | 两轮真实书生＋30 SKU＋工作台，通过上传、生成、自然语言预算修订、差异、人工批准、真实录单、独立回读、防重、刷新和 CSV/HTML 下载；2 passed / 0 failed / 0 skipped。人工核对模型说明与单据。 | 本轮两次样本通过，非 10 次真实模型稳定性 |
+| 冻结版本正常流程 10 次及安全阻断 | 新取证的离线工作台 10/10，通过真实 UI/浏览器/采购；每轮记录 HEAD、独立任务、回执和导出。原稳定脚本仍模拟执行，且安全失败/skip/零次运行可误判成功。 | 离线业务稳定样本通过；正式门槛未通过，M4-03/04/12 |
+| 异机复现 | 用户确认无另一台环境记录。此前新 venv 及本轮测试均为同机。 | 缺项，M4-13 |
+| 体验部署、访问限制、额度与重置 | 用户确认无体验链接；未部署公开环境。 | 缺项，M4-14 |
+| 技术材料、视频、模型说明、交付包 | 用户确认未准备；没有实际包可验收。 | 缺项，M4-15 |
+| 交付包敏感内容检查 | 当前源目录扫描报告 0 命中，但负向控制发现失败开放、路径/内容绕过、诊断回显秘密和编码崩溃。不能据此认定安全。 | 未通过，M4-06 至 M4-10 |
+| 官方截止与清单核对 | 官网第三届目标赛道 id=160/ckey=5 已核对；报名/提交均为北京时间 2026-11-10 23:59:59。API-only 模型材料豁免未明确。 | 截止与明示规则已核实，材料口径在 M4-15 跟踪 |
+
+**证据范围。** 回归 `outputs/m4-audit-660706d/full.xml`；工具独立反例 `controls.xml` 为 **4 passed / 26 failed / 0 skipped**，失败数量不等于独立缺陷数。此前 Agent 的十份工作台 XML 确为每份 1 passed、无失败/跳过，测试有独立单据断言；本轮另行补齐冻结和逐轮证据，没有把其十个 exit=0 冒充真实模型验收。原记录保留在 `outputs/m4-acceptance-20261103/`。
+
+真实模型两轮的三个阶段耗时分别为 {'planner': 375.84, 'reviser': 67.76, 'executor': 151.81} 秒和 {'planner': 94.23, 'reviser': 93.09, 'executor': 134.95} 秒；每轮实际两张申请，299911 分（2999.11 元），数量/单价/币种、单号及 v1/v2 对应关系均核对。真实 API 测试 `tests/test_real_m2.py` 的两项在本组普通回归中跳过；本轮调用的是单独的真实工作台审计入口，不能混写成原两项被重跑。
+
+当前没有发现本轮真实单据中的未经批准写入、重复申请或金额不一致；安全门槛反例是对验收控制器注入错误结果，证明它会误放行，不是宣称生产系统已经发生这些错误。运行使用隔离端口/数据库和演示数据；合成密钥用于检测器反例，真实书生只使用既有配置并在内存注入，未写入交付文件。P2-12 按用户要求继续排除。
+
+#### 本轮执行顺序与后续
+
+1. 已完成验收误放行、扫描漏检/回显、编码与相对路径夹具修复：M4-01/02/04/05/06/07/08/09/10/11，正反例与实际入口均复核。
+2. 已完成 M4-03/12：正式稳定性入口接入真实工作台和逐轮证据；off 10/10 与 required 1/1 分开记录。时延指标 M4-16 保持原状态，本轮不调整。
+3. M4-13 至 M4-17 本轮按用户要求不处理。异机、体验、材料与实际交付包检查仍保留后续安排，不由本次脚本修复替代。
+
+**优先级口径：** P1 表示阻断 M4 验收/交付；不代表都属于生产采购安全漏洞。首次审计有 16 项待修、待补或待明确，M4-17 当时已纠正文档事实。本次 M4-01 至 M4-12 关闭；M4-13 至 M4-17 未处理。以下触发和错误结果保留首次审计事实，当前状态及复核证据附在各项末尾。
+
+#### M4-01 · P1 · 十个固定场景为空占位（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：20 个 test 中 05/09/10/12/13/14/15/16/18/20 只有 pass，pytest 会把它们算通过。
+- 违反契约/缺口：固定场景须有真实触发、独立预期与断言；数量不能代替覆盖。
+- 修复与关闭条件：优先复用下方已有可信测试，为 20 场景建立映射；缺口再补。禁止纯 pass/无检查占位计入验收；故意破坏对应业务约束时测试必须失败。
+- 证据与位置：tests/test_fixed_scenarios.py:134；controls.xml::test_fixed_scenarios_have_no_empty_pass
+
+- 根因与实现：空 pass 被计为通过，且场景清单与实际入口脱节。 20 场景改为 tests/scenario_catalog.py 的正式节点映射；复用已有规则、API、真实浏览器/工作台故障用例，公共节点只收集一次；补缺价格夹具。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_fixed_scenario_catalog_has_twenty_real_asserting_targets`；`tests/test_m4_acceptance_tools.py::test_layer_and_scenario_collection_uses_each_actual_node_once`；`tests/test_fixed_scenarios.py::test_scenario_14_price_missing`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-02 · P1 · 业务断言与故障场景不能识别错误（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：MOQ 读取不存在的 moq 字段默认 1；数量 1 小于 min_order_qty=24 仍通过。预算 2000 超过 1000，只要 skipped 非空仍通过；优先类别集合为空会跳过检查。场景 17 手工改状态，19 接受 409，不能证明恢复。
+- 违反契约/缺口：手算或独立预期、故障确实发生、以实际业务结果判成功。
+- 修复与关闭条件：用 min_order_qty；必须同时检查预算和未满足需求；明确夹具应有优先类别。部分成功需真实故障触发并按已有/新增单据分别核对；恢复不能只接受任意状态码。保留本轮三个错误答案反例和正常对照。
+- 证据与位置：tests/test_fixed_scenarios.py:117,167,204,253,276；controls.xml 的 MOQ/budget/priority 三项
+
+- 根因与实现：MOQ 字段错误、预算 OR/空优先集合造成错误答案通过；手改状态没有触发真实故障。 MOQ 按 min_order_qty 下限、包装倍数独立核对；紧预算要求金额与未采购项同时成立；优先夹具固定非空手算预期。17/18/19/20 直接映射真实部分失败、晚到单据、受控恢复、进程中断。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_original_bad_oracles_rejected_with_valid_controls`；`tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults`；`tests/test_fixed_scenarios.py::test_scenario_03_priority_categories`；`tests/test_fixed_scenarios.py::test_scenario_07_moq_rounding`；`tests/test_fixed_scenarios.py::test_scenario_11_budget_insufficient`；`tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export`；`tests/test_fault_injection.py::test_recover_only_not_submitted_keeps_created_no_duplicates`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-03 · P1 · 稳定性入口实际重复模拟接口流程（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：run_stability 强制 off，只重复 scenario_01；采购适配器被替换为 _FakeAdapter，未经过上传/UI/真实浏览器/模型。
+- 违反契约/缺口：运行方式必须与声明对应；模拟接线不证明完整产品稳定性。
+- 修复与关闭条件：稳定性入口选择真实工作台和演示后台流程，明确 off/required、数据规模与场景；用实际回读和导出判断成功。复用本轮审计流程，不能继续把模拟 API 循环称为产品完整流程。
+- 证据与位置：scripts/run_stability.py:24；tests/test_fixed_scenarios.py:15,68,81
+
+- 根因与实现：稳定性脚本强制关闭模型，只重复带假适配器的 API 场景。 正式入口运行 30 SKU 工作台：上传/确认、生成、v1 批准、修改/差异、旧批准拒绝、v2 批准、真实 Chromium 录单、独立回读、刷新和 CSV/HTML 导出；必须显式选择 off 或 required。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_stability_selects_actual_ui_and_explicit_mode`；`tests/test_m4_workbench.py::test_offline_workbench_full_flow`；`tests/test_m4_workbench.py::test_required_model_workbench_full_flow`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；正式 off 10/10、required 1/1，逐轮业务证据与冻结检查通过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-04 · P1 · 安全失败、跳过和零次运行仍可达标（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：注入 9 次成功+1 次未经批准/重复申请/金额不一致，均返回 0；1 skipped 也被当成功；runs=0,target=0 返回 0。
+- 违反契约/缺口：硬性安全问题必须阻断；skipped 不算通过；必须有实际验收样本。
+- 修复与关闭条件：结构化区分普通失败与安全阻断，任一安全阻断直接不合格；校验 runs>0、1<=target<=runs；读取实际测试用例结果而非仅 exit=0。三类安全失败、skip、0 次均应拒绝，9 成功+普通超时对照按既定阈值判定。
+- 证据与位置：scripts/run_stability.py:29,36,70；controls.xml 的 stability 六项反例
+
+- 根因与实现：只认进程退出码；安全错误仍使用九成阈值；零次和 skipped 被误记成功。 JUnit 用例结果与业务证据双重验证；任一安全问题/错误/跳过/证据缺口立即阻断。仅有无采购证据的规划/修订超时可占普通失败额度；约束 runs>0 且 1<=target<=runs。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_safety_failure_blocks_even_nine_successes`；`tests/test_m4_acceptance_tools.py::test_ordinary_timeout_threshold_positive_control`；`tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking`；`tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；正式 off 10/10、required 1/1，逐轮业务证据与冻结检查通过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-05 · P1 · 分层运行不隔离、重复计数并接受空层（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：普通层跑整个 tests/，后续浏览器/UI/边界重复计数；继承 RUN_REAL_MODEL_E2E=1 会在普通层跑真实模型；只选 999 层严格模式仍返回 0。默认严格层还包含本应另验的 skip。
+- 违反契约/缺口：各层范围、模型调用授权、通过/失败/跳过须准确独立。
+- 修复与关闭条件：显式排除其他层，清理不属本层的开关；真实模型仅显式选第 5 层后运行。拒绝空/未知/重复层；用 JUnit 记录用例 ID 去重、errors/skips/退出状态，默认严格非模型层应可完整通过。
+- 证据与位置：scripts/run_acceptance.py:25,36,76,81；controls.xml 的 layer 三项反例
+
+- 根因与实现：第一层包含整个测试集并重复计数，继承真实模型开关，未知层被静默忽略。 收集时按完整 node ID 互斥分层，清空非本层开关；只显式层 5 可调用真实模型。严格拒绝空/未知/重复层；JUnit 统计 passed/failed/errors/skipped，并检查重复身份与空集合。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch`；`tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit`；`tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors`；`tests/test_m4_acceptance_tools.py::test_junit_counts_each_case_and_rejects_duplicates`；`tests/test_m4_acceptance_tools.py::test_layer_duplicate_case_cannot_pass`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-06 · P1 · 交付扫描输入无效仍返回通过（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：非 Git 解压目录中的合成密钥、含密钥 ZIP、不存在路径均返回 0。git ls-files 非零退出不抛异常，被当成空文件列表。
+- 违反契约/缺口：必须检查真实交付对象；空扫描或读取失败不是安全通过。
+- 修复与关闭条件：定义实际 ZIP/解压目录验收入口；验证存在、类型、可读及非空文件清单。处理 Git 非零状态；若不支持 ZIP 明确拒绝。扫描实际包内容，不能用源仓库扫描代替交付包验收。
+- 证据与位置：scripts/check_delivery.py:83；controls.xml 的 nongit/missing_input/zip 三项
+
+- 根因与实现：Git 非零退出、空列表、无效路径当干净包；不可读子目录的枚举异常可被静默吞掉。 默认扫描实际目录/ZIP，Git 候选扫描需显式 --tracked；空输入、格式/权限/链接/大小限制错误退出 2；目录显式枚举并传播权限错误。真实合成 ZIP 与解压目录均通过正反例。
+- 正反例与实际入口：`tests/test_m4_delivery.py::test_nongit_extracted_package_is_actually_scanned`；`tests/test_m4_delivery.py::test_missing_input_path_is_not_a_clean_delivery`；`tests/test_m4_delivery.py::test_actual_zip_contents_and_format_controls`；`tests/test_m4_delivery.py::test_tracked_git_error_is_not_empty_success`；`tests/test_m4_delivery.py::test_empty_directory_and_unreadable_member_cannot_pass`；`tests/test_m4_delivery.py::test_unreadable_subdirectory_is_not_silently_omitted`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-07 · P1 · 敏感路径与中文文件名漏检（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：outputs/run.log、data/customer.db、session.sqlite/jsonl、.git-broken、.venv、nested/.env 全部通过；中文路径中已知密钥也漏检。glob 被当作字符串，排除逻辑为子串，git 输出带引号的文件名未解码。
+- 违反契约/缺口：运行数据库、缓存、会话和凭证不能进入交付包；文件不得被无声漏扫。
+- 修复与关闭条件：按目录组件与正确 glob/后缀匹配；候选包中出现禁止目录应报错，不能先忽略；Git 文件名使用 -z，遍历实际文件并记录扫描数量。七种路径、中文路径及正常源文件对照均验证。
+- 证据与位置：scripts/check_delivery.py:42,55,84,99；controls.xml 七个 paths 及 unicode_filename
+
+- 根因与实现：字符串 glob、子串排除和带引号 Git 文件名导致路径漏检。 按目录组件/文件后缀识别运行目录、数据库/日志/会话及各层 .env；禁止路径直接报错。Git 使用 -z，中文目录及 UTF-16 内容正常检查，报告清单/数量/hash。
+- 正反例与实际入口：`tests/test_m4_delivery.py::test_sensitive_candidate_paths_cannot_pass`；`tests/test_m4_delivery.py::test_unicode_filename_secret_cannot_be_silently_skipped`；`tests/test_m4_delivery.py::test_tracked_source_scope_is_explicit_and_unicode_safe`；`tests/test_m4_delivery.py::test_actual_zip_contents_and_format_controls`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-08 · P1 · 密钥后加“示例”即可绕过检测（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：真实格式的合成 INTERN_API_KEY 行只需加 # 示例，检查就返回通过。
+- 违反契约/缺口：是否秘密不能仅由旁边的文字声明决定。
+- 修复与关闭条件：占位值仅按明确值/样例规则处理，不能跳过整行注释命中。带示例注释的非占位密钥仍须失败，真正安全的示例值作为正例。
+- 证据与位置：scripts/check_delivery.py:72；controls.xml::test_secret_with_example_comment_still_blocks_delivery
+
+- 根因与实现：整行注释/示例文字被视为安全豁免。 只允许明确占位值；不因注释、示例、文件名或文档身份跳过内容；覆盖带注释、JSON、引号/无引号赋值与真正占位值。
+- 正反例与实际入口：`tests/test_m4_delivery.py::test_secret_with_example_comment_still_blocks_delivery`；`tests/test_m4_delivery.py::test_assignment_syntax_and_comments_cannot_bypass`；`tests/test_m4_delivery.py::test_explicit_placeholder_values_are_safe`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-09 · P1 · 扫描诊断回显匹配到的密钥正文（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：有效检测反例虽返回非零，但 stdout 含完整合成凭证；当前代码会把命中行前 100 字直接打印。
+- 违反契约/缺口：检查与诊断本身也必须脱敏，不能扩大泄露。
+- 修复与关闭条件：输出文件名、行号、类型和遮蔽片段；异常日志也不含凭证。保留能检出密钥的正例，并断言 stdout/stderr/记录中无原值。与已排除的历史 P2-12 轮换事项分开。
+- 证据与位置：scripts/check_delivery.py:74,135；controls.xml::test_delivery_diagnostics_do_not_echo_credentials
+
+- 根因与实现：扫描器直接打印命中原行。 诊断仅含路径、行号、问题类型和 [REDACTED]；解析/权限异常不打印原异常内容；机器报告和终端均验证不含合成凭证。该项与用户排除的 P2-12 无关。
+- 正反例与实际入口：`tests/test_m4_delivery.py::test_delivery_diagnostics_do_not_echo_credentials`；`tests/test_m4_delivery.py::test_report_contains_counts_hashes_but_no_credential`；`tests/test_m4_delivery.py::test_encoding_preserves_exit_meaning_and_no_secret`；`tests/test_m4_delivery.py::test_empty_directory_and_unreadable_member_cannot_pass`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-10 · P2 · Windows 默认编码下脚本打印崩溃（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：使用 cp936 输出干净结果时，打印勾号也会 UnicodeEncodeError；非零退出来自编码异常，不能解释为检查发现了问题。
+- 违反契约/缺口：交付入口应能在声明环境运行，错误与发现结果须可区分。
+- 修复与关闭条件：采用编码安全输出/明确 UTF-8 初始化，子进程输出显式解码；GBK 与 UTF-8 下分别验证干净、命中及实际异常，退出语义稳定。
+- 证据与位置：scripts/check_delivery.py 的结果输出；controls.xml::test_gbk_console_does_not_crash_on_clean_result
+
+- 根因与实现：默认 GBK 控制台打印图标异常，且子进程按系统编码解码。 扫描报告为 ASCII 安全 JSON，子进程明确 UTF-8；干净/命中/输入错误分别保持 0/1/2 退出语义，GBK 和 UTF-8 都验证。
+- 正反例与实际入口：`tests/test_m4_delivery.py::test_gbk_console_does_not_crash_on_clean_result`；`tests/test_m4_delivery.py::test_encoding_preserves_exit_meaning_and_no_secret`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-11 · P2 · 版本拒绝测试错误改变相对路径根目录（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：文档相对 RESTOCK_CODEX_BIN 正常预检成功，但测试把 runtime_versions.ROOT 改到 tmp，CLI 相对路径随之失效，抛 FileNotFoundError 而非目标版本不符。绝对路径全量通过。
+- 违反契约/缺口：测试应验证目标契约，不能依赖本机绝对路径掩盖夹具问题。
+- 修复与关闭条件：隔离版本清单位置与项目解析根；绝对/相对配置都须覆盖正确版本通过、错误版本拒绝。不能放宽成捕获任意异常，也不能修改产品为写死路径。
+- 证据与位置：tests/test_runtime_versions.py:14；relative-preflight.log；relative-test.xml：3 passed / 1 failed
+
+- 根因与实现：错误版本夹具替换整个 ROOT，连带破坏了合法相对 CLI 路径。 只替换锁文件读取；保留实际项目解析根。真实 CLI 的相对/绝对路径均验证匹配版本通过、错误版本按 ValueError 拒绝；产品路径解析未改。
+- 正反例与实际入口：`tests/test_runtime_versions.py::test_runtime_mismatch_is_rejected`；`tests/test_runtime_versions.py::test_real_cli_relative_and_absolute_version_contract`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-12 · P2 · 冻结身份、逐轮证据及统计口径未绑定（已关闭，2026-11-03 复核）
+
+- 触发与实际结果：正式稳定性脚本只打印尾部结果，无源码/环境指纹、逐轮业务证据；旧十份 XML 无完整绑定。本轮已补 HEAD/源码、10 轮 XML/任务/回执/导出及两轮真实 UI 记录。
+- 违反契约/缺口：冻结版本、模式、数据、成功率分母与证据必须可追溯；不同模式不能混算。
+- 修复与关闭条件：将本轮取证方法落实到正式入口：运行前后检查 HEAD+源码/依赖指纹，每轮保留数据和计划 hash、批准、目标订单/总额、失败原文；独立列 off 10 次和 required 样本，不声称 10 次真实书生稳定性。
+- 证据与位置：scripts/run_stability.py；baseline.json、offline-stability.json、real-ui.xml
+
+- 根因与实现：只有输出尾部，没有版本冻结、逐轮批准/订单/导出证明；基础设施异常缺少结构化记录。 前后与每轮检查 HEAD、全部产品/脚本/测试/样例/运行配置及依赖指纹（包含未跟踪代码）；各轮保存 JUnit、脱敏日志、数据 hash、v1/v2、批准、独立单据、导出文件/hash。模式分母分开，旧目录禁止覆盖；进程失败/清理失败和畸形证据均留记录并阻断。
+- 正反例与实际入口：`tests/test_m4_acceptance_tools.py::test_stability_freeze_detects_mid_run_edit`；`tests/test_m4_acceptance_tools.py::test_complete_matching_evidence_passes`；`tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption`；`tests/test_m4_acceptance_tools.py::test_different_valid_versions_are_not_compared_to_current_plan`；`tests/test_m4_acceptance_tools.py::test_malformed_export_is_structured_blocking_result`；`tests/test_m4_acceptance_tools.py::test_runner_infrastructure_failure_is_recorded_and_blocks`；`tests/test_m4_acceptance_tools.py::test_run_pytest_real_subprocess_counts_skip_as_skip`。
+- 开发自测：原失败保留，正常/拒绝及相邻边界通过；最终定向 116 项为共享记录，不逐项重复计数。
+- 关闭复核：最终严格分层 478 项零失败/跳过；正式 off 10/10、required 1/1，逐轮业务证据与冻结检查通过；状态已关闭。证据见 [逐项关闭索引](docs/verification/m4-closeout-20261103.json) 与 `outputs/m4-fixes-20261103/`。
+
+#### M4-13 · P1 · 异机复现尚无证据（交付缺项）
+
+- 触发与实际结果：用户确认只有四个 M4 文件改动，没有另一台环境记录；同机新 venv 不能代替异机。
+- 违反契约/缺口：M4 要求另一台环境按说明启动并完成任务。
+- 修复与关闭条件：在另一台受支持 Windows x64 环境从锁定依赖与代码开始，完成上传到导出；记录实际版本、配置方式、批准/单据核对及停止进程。不得写入个人绝对路径或沿用本机结果。
+- 证据与位置：用户本轮明确确认；工程计划 M4 异机条目
+
+#### M4-14 · P1 · 体验部署及访问边界未准备（交付缺项）
+
+- 触发与实际结果：用户确认没有体验链接；当前仅有隔离本地演示服务。
+- 违反契约/缺口：M4 要求体验可达、独立演示数据、访问限制、额度与重置策略。
+- 修复与关闭条件：准备经授权的体验环境后验证链接、访问/审批限制、模型用量、重置和恢复；不能直接公开未保护的采购或模型接口。此轮未部署公开服务。
+- 证据与位置：用户确认；当前 README 仅 localhost 入口
+
+#### M4-15 · P1 · 官方材料、模型说明与实际交付包缺失（交付缺项）
+
+- 触发与实际结果：无技术 PDF、视频、体验链接、实际 ZIP 或模型材料；官网要求代码和模型文件/权重，未明确 API-only 豁免。
+- 违反契约/缺口：M4 交付及官方赛道材料要求；源仓库扫描不能证明实际包安全。
+- 修复与关闭条件：形成技术 PDF（说明书生/Codex/自研边界、第三方来源与复现方式），含 <=5 分钟、>=720P 视频及体验链接；按官方名称打包代码和模型材料。确认 API 模式的模型材料口径，不能自行省略；修复扫描器后对真实包复验并保留 hash。
+- 证据与位置：用户确认；官方赛道 id=160/ckey=5；official-requirements.json
+
+#### M4-16 · P2 · 模型时延目标未定义（验收口径待明确）
+
+- 触发与实际结果：两轮 30 SKU 的三个阶段合计约 595.41 秒、322.27 秒；Planner 375.84 秒与 94.23 秒，波动明显。计划未给时间上限。
+- 违反契约/缺口：可用性与演示方案应有明确验收口径；不能自行捏造 SLA 或以超长等待冒充稳定。
+- 修复与关闭条件：确定阶段/整任务时延目标，记录分布、超时结果及页面进度提示；基于固定场景验证。不因视频 <=5 分钟就擅自判定任务必须 5 分钟内完成。
+- 证据与位置：两轮 real-ui JSON 的 phase_seconds；实际页面等待与自动更新
+
+#### M4-17 · P2 · 仓库截止日期过时（本轮文档已纠正）
+
+- 触发与实际结果：README/计划为 11 月 5 日；官网本赛道报名与提交时间戳均 1794326399，即北京时间 2026-11-10 23:59:59。
+- 违反契约/缺口：官方事实须当前核验，旧通知不能代替本届赛道规则。
+- 修复与关闭条件：本轮已更正 README 与工程计划并保存官方来源；不据此推断报名/提交已完成，不自动改写内部排期。提交前再次核对页面更新。
+- 证据与位置：官网 http://www.aiinnovation.com.cn/web/#/trackDetail?id=160&ckey=5；official-requirements.json
+
+#### 20 个场景的复用映射
+
+以下旧表保留首次审计的定位依据，表内“新文件状态”均为修复前状态。当前权威映射为 [tests/scenario_catalog.py](tests/scenario_catalog.py)，20 类场景对应 59 个去重后实际执行节点，完整覆盖记录在关闭索引；表内 pass、模拟恢复和错误断言已由上述正式节点替换，不再计作当前验收。规则/API 层通过仍不称为完整 UI 通过。
+
+| 场景 | 新文件状态 | 可复用测试/证据 | 层级与限定 |
+|---|---|---|---|
+| 01 正常任务 | API 模拟，未上传/真实执行 | `tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download；本轮真实 UI 两轮` | UI + 真实采购；模型分别统计 |
+| 02 预算减少 | 有 API 断言 | `tests/test_replenishment_v2.py::test_hand_calculated_partial_purchase_and_shortfall；工作台差异/批准失效` | 手算 + UI |
+| 03 优先类别 | 集合为空时放行 | `tests/test_rules.py::test_priority_categories_beat_stockout；test_replenishment_v2.py::test_priority_allocation_is_global_and_order_invariant` | 规则 |
+| 04 排除 SKU | 有 API 断言 | `tests/test_replenishment_v2.py::test_exclusions_and_zero_demand` | 规则/API |
+| 05 缺失销售日期 | pass 占位 | `tests/test_data_contract.py::test_missing_days_require_explicit_zero_confirmation` | 合同/校验 |
+| 06 旧批准失效 | 仅检查撤销状态 | `tests/test_m1_api.py::test_full_workbench_api_flow_diff_approval_execution_exports；本轮 UI v1 批准后修订` | API/UI |
+| 07 MOQ | 读错字段默认 1 | `tests/test_rules.py::test_purchase_qty_moq_and_pack；test_replenishment_v2.py::test_budget_moq_and_pack_boundaries` | 手算；MOQ 为最低量而非必为倍数 |
+| 08 整包取整 | 有 API 约束 | `tests/test_replenishment_v2.py::test_budget_moq_and_pack_boundaries` | 手算/规则 |
+| 09 有效在途 | pass 占位 | `tests/test_replenishment_v2.py::test_inbound_window_boundary` | 规则 |
+| 10 窗口外在途 | pass 占位 | `tests/test_replenishment_v2.py::test_late_inbound_is_not_deducted` | 规则 |
+| 11 预算不足 | OR 可放过超支 | `tests/test_replenishment_v2.py::test_hand_calculated_partial_purchase_and_shortfall` | 手算 |
+| 12 空 CSV | pass 占位 | `tests/test_data_contract.py::test_empty_or_malformed_csv；test_m0_api.py::test_data_errors_stop_before_model_or_plan` | 合同/API |
+| 13 单位/口径 | pass 占位 | `tests/test_data_contract.py::test_no_implicit_business_confirmation；本轮 UI 显式确认` | 显式合同；不能声称自动识别未提供的混合单位 |
+| 14 缺价格 | pass 占位 | `tests/test_data_contract.py::test_supplier_numeric_validation；test_duplicates_dates_and_cross_table_mismatches` | 补缺字段专用夹具与独立预期 |
+| 15 重复 SKU | pass 占位 | `tests/test_data_contract.py::test_duplicates_dates_and_cross_table_mismatches` | 校验 |
+| 16 非法数值 | pass 占位 | `tests/test_data_contract.py::test_invalid_sales_values / test_invalid_stock_is_reported / test_supplier_numeric_validation` | 校验 |
+| 17 部分成功 | 手改状态/模拟回执 | `tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export` | 真实 UI 故障/采购 |
+| 18 结果未知 | pass 占位 | `tests/test_m3_live.py::test_live_unknown_revise_cannot_create_duplicate_purchase` | 真实晚到单据/阻断 |
+| 19 受控恢复 | 接受 200 或 409 | `tests/test_m3_workbench.py::test_workbench_partial_reconcile_recover_refresh_export；test_fault_injection.py::test_recover_only_not_submitted_keeps_created_no_duplicates` | 真实恢复/防重 |
+| 20 故障恢复 | pass 占位 | `tests/test_fault_injection.py 的 F1/F5/F6/F7；test_m3_workbench.py::test_real_api_process_restart_never_reissues_pending_submission` | 真实浏览器/进程 |
+
+历史审计探针 `docs/verification/m4_audit_controls.py` 绑定修复前 `660706d` 接口，须在该版本重放；当前正式回归已迁入 `tests/test_m4_acceptance_tools.py` 和 `tests/test_m4_delivery.py`，不能用旧探针接口错误判定新版产品失败。历史两轮真实工作台审计仍保留；本轮正式入口为 `tests/test_m4_workbench.py` 及 `scripts/run_stability.py`，真实模型必须显式 required，并使用独立目录保存每次结果。
+
+官方依据：[本届赛道页面](http://www.aiinnovation.com.cn/web/#/trackDetail?id=160&ckey=5)。浏览工具的 HTTPS 访问超时后，通过该站匿名 HTTP 页面及其前端公开读取接口取得数据；仅使用 id=160/ckey=5，未混用默认返回的往届赛道，也未执行报名/提交操作。原始公开响应及时间戳存于本轮证据目录；核验日期为 2026-11-03，时区 Asia/Shanghai。官方明示技术 PDF 须含视频与体验链接，视频不超过 5 分钟且至少 720P；代码及模型材料需按官网命名规则打包。以上不等于报名或提交已完成。
 
 ## 分工与内部排期
 
