@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "branch": "temporary",
+  "base_commit": "e5242054c833afb9566546f44ff863cac8cb0bf9",
+  "scope": "Documentation and capability investigation only. No product implementation, credential read, model API call, live merchant access, commit or push.",
+  "source_fingerprints": {
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/mcp_server.py": "27dd48d2a1e4b124d1c1edd7f2affea17818ee4b970555304d661f6926059e56",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae"
+  },
+  "desktop_browser_check": {
+    "environment": "Current Codex desktop conversation; in-app browser; public official documentation only",
+    "result": "passed for listed basic operations",
+    "operations": [
+      "Open and read Computer Use page",
+      "Expand Windows policy disclosure and observe added content",
+      "Click Browser link and verify destination",
+      "Open surface selector and choose Codex CLI",
+      "Read CLI limitation and capture screenshot",
+      "Close only the tab created for this investigation"
+    ],
+    "evidence": "Current conversation CUA tool observations; final URL https://learn.chatgpt.com/docs/browser?surface=cli",
+    "not_tested": [
+      "Native Windows app input",
+      "Chrome extension connectivity",
+      "Authenticated merchant login",
+      "Business table pagination or export",
+      "Persistent/unattended operation",
+      "RestockPilot CLI to browser bridge",
+      "Intern model visual or page-action ability"
+    ]
+  },
+  "cli_metadata": {
+    "version": "codex-cli 0.166.0-alpha.5.1",
+    "isolated_codex_home": true,
+    "checks": [
+      {
+        "args": [
+          "--version"
+        ],
+        "exit_code": 0
+      },
+      {
+        "args": [
+          "features",
+          "list"
+        ],
+        "exit_code": 0
+      },
+      {
+        "args": [
+          "mcp",
+          "--help"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "feature_flags": [
+      "browser_use                              stable             true",
+      "browser_use_external                     stable             true",
+      "computer_use                             stable             true",
+      "in_app_browser                           stable             true",
+      "view_image                               stable             true"
+    ],
+    "interpretation": "Flags are recognized in a fresh CLI config. This does not establish desktop service connectivity or product support."
+  },
+  "boundary_probe": {
+    "scope": "Pure validator probe from AST of current source; not real CLI/model/browser E2E",
+    "source_sha256": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "allowed_business_call": "accepted",
+    "unsupported_ui_calls": [
+      {
+        "kind": "computer_call",
+        "result": "rejected",
+        "reason": "禁止通用命令、文件、网络及其他工具调用"
+      },
+      {
+        "kind": "browser_call",
+        "result": "rejected",
+        "reason": "禁止通用命令、文件、网络及其他工具调用"
+      }
+    ]
+  },
+  "status": {
+    "documentation_and_desktop_basic_check": "completed",
+    "M5-0A_product_integration": "pending",
+    "M5-0B_real_source": "pending_no_pilot",
+    "real_model": "not_run",
+    "product_regression": "not_run_docs_only"
+  },
+  "local_raw_evidence": [
+    "outputs/computer-use-review-20261104/cli-metadata.json",
+    "outputs/computer-use-review-20261104/boundary-probe.json"
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://learn.chatgpt.com/docs/computer-use",
+      "supports": "Desktop setup, supported environments, Windows foreground requirements"
+    },
+    {
+      "id": "S2",
+      "url": "https://learn.chatgpt.com/docs/browser?surface=cli",
+      "supports": "Built-in Browser unavailable in Codex CLI/IDE; desktop browser session separation"
+    },
+    {
+      "id": "S3",
+      "url": "https://learn.chatgpt.com/docs/chrome-extension",
+      "supports": "Extension setup, browser profiles and site permissions"
+    },
+    {
+      "id": "S4",
+      "url": "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+      "supports": "CLI STDIO/HTTP MCP and browser examples: Playwright and Chrome DevTools; no proof of current product integration."
+    },
+    {
+      "id": "S5",
+      "url": "https://developers.openai.com/api/docs/guides/tools-computer-use",
+      "supports": "Application-owned driver/session/permissions and custom UI tools; no proof of Intern model compatibility"
+    },
+    {
+      "id": "S6",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "supports": "Separate in_app_browser, browser_use and computer_use controls; built-in Browser is not equivalent to browser automation."
+    }
+  ],
+  "clarification": {
+    "date": "2026-11-04",
+    "built_in_browser": "Desktop Browser availability is not evidence that CLI cannot control external browsers.",
+    "official_external_browser_path": "Codex CLI supports MCP; official documentation lists Playwright and Chrome DevTools browser services.",
+    "chosen_direction": "Standalone CLI with Intern model and scoped external-browser integration; no built-in Browser dependency.",
+    "evidence_boundary": "Documentation confirmation only in this correction; no new CLI/browser/model integration run. Existing desktop observations and product-pending statuses are unchanged."
+  }
+}
