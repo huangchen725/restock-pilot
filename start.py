@@ -218,6 +218,9 @@ def main(argv=None) -> int:
     except ImportError:
         print("请先用项目解释器执行 -m pip install -r requirements.txt。", file=sys.stderr)
         return 1
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     env = os.environ.copy()
     mode = "off" if args.offline else env.get("RESTOCK_AGENT_MODE", "required").lower()
     if mode not in {"off", "required"}:

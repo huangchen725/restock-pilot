@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 from app.redaction import redact
 
 FLAGS = ('RUN_REAL_MODEL_E2E', 'RUN_AGENT_BOUNDARY_E2E', 'RUN_PLAYWRIGHT_E2E',
-         'RUN_WORKBENCH_E2E', 'RUN_STARTUP_E2E')
+         'RUN_WORKBENCH_E2E', 'RUN_STARTUP_E2E', 'RUN_SETUP_E2E')
 
 
 def save_json(path, value):
@@ -43,10 +43,10 @@ def fingerprint(root=ROOT):
     # Includes untracked source and tests: HEAD alone cannot freeze a dirty worktree.
     for folder in ('app', 'ui', 'tests', 'scripts', 'data', 'agent-integration'):
         for path in sorted((root/folder).rglob('*')):
-            if path.is_file() and path.suffix in ('.py','.csv','.toml','.yaml','.yml','.json') and not any(
+            if path.is_file() and path.suffix in ('.py','.ps1','.cmd','.csv','.toml','.yaml','.yml','.json') and not any(
                     p in ('__pycache__', 'node_modules', '.venv', '.codex', 'sessions', 'outputs') for p in path.parts):
                 files[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('start.py','runtime-lock.json','requirements.txt','requirements.lock','.python-version','pytest.ini'):
+    for name in ('start.py','setup.cmd','start.cmd','bootstrap-lock.json','runtime-lock.json','requirements.txt','requirements.lock','.python-version','pytest.ini'):
         path = root/name
         if path.exists():
             files[name] = hashlib.sha256(path.read_bytes()).hexdigest()

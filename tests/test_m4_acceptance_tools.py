@@ -144,14 +144,14 @@ def test_stability_selects_actual_ui_and_explicit_mode(tmp_path,monkeypatch,mode
     if mode=='off':assert observed['env']['RUN_REAL_MODEL_E2E']=='0'
 
 
-@pytest.mark.parametrize('layers',['999','','1,1','1,6','x','1,'])
+@pytest.mark.parametrize('layers',['999','','1,1','1,7','x','1,'])
 def test_invalid_layers_rejected_before_launch(layers,monkeypatch):
     monkeypatch.setattr(acceptance,'run_layer',lambda *a:pytest.fail('must not launch'))
     with pytest.raises(SystemExit) as exc:acceptance.main(['--layers',layers,'--strict'])
     assert exc.value.code==2
 
 
-@pytest.mark.parametrize('layer',[1,2,3,4,5])
+@pytest.mark.parametrize('layer',[1,2,3,4,5,6])
 def test_layer_environment_is_explicit(tmp_path,monkeypatch,layer):
     for flag in common.FLAGS:monkeypatch.setenv(flag,'1')
     observed={}

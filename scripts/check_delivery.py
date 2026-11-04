@@ -16,7 +16,7 @@ MAX_FILE = 50 * 1024 * 1024
 MAX_TOTAL = 256 * 1024 * 1024
 MAX_FILES = 10000
 BANNED_DIRS = {'.git', '.git-broken', '.venv', 'node_modules', '__pycache__',
-               '.pytest_cache', 'outputs', '.codex', '.workbuddy'}
+               '.pytest_cache', 'outputs', '.codex', '.workbuddy', '.restock'}
 PLACEHOLDERS = {'', 'your_api_key', 'your_key_here', 'your-api-key', 'replace_me',
                 'changeme', '<your-api-key>', '${INTERN_API_KEY}'}
 PATTERNS = [

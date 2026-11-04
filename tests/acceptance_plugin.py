@@ -6,6 +6,8 @@ import pytest
 
 def layer_for(node):
     file, _, name = node.partition('::')
+    if file=='tests/test_setup_e2e.py':
+        return 6
     if file in ('tests/test_real_m2.py',) or name.startswith('test_required_model_workbench'):
         return 5
     if file in ('tests/test_agent_runtime.py','tests/test_startup.py'):
@@ -20,7 +22,7 @@ def layer_for(node):
 
 
 def pytest_addoption(parser):
-    parser.addoption('--restock-layer', type=int, choices=range(1,6))
+    parser.addoption('--restock-layer', type=int, choices=range(1,7))
     parser.addoption('--restock-scenarios', action='store_true')
     parser.addoption('--restock-collection')
 

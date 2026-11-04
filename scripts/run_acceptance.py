@@ -14,6 +14,7 @@ LAYERS = {
     3: ('real offline workbench', (), ('RUN_WORKBENCH_E2E',)),
     4: ('CLI boundary and startup', (), ('RUN_AGENT_BOUNDARY_E2E','RUN_STARTUP_E2E')),
     5: ('real InternLM API/workbench', (), ('RUN_REAL_MODEL_E2E',)),
+    6: ('fresh Windows setup (network downloads)', (), ('RUN_SETUP_E2E',)),
 }
 
 
@@ -23,7 +24,7 @@ def parse_layers(value):
     except ValueError:
         raise argparse.ArgumentTypeError('Expected comma-separated layer numbers') from None
     if not numbers or len(numbers)!=len(set(numbers)) or any(n not in LAYERS for n in numbers):
-        raise argparse.ArgumentTypeError('Layers must be unique numbers from 1 to 5')
+        raise argparse.ArgumentTypeError('Layers must be unique numbers from 1 to 6')
     return numbers
 
 
