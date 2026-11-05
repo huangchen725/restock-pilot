@@ -10,7 +10,6 @@ import logging
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -18,16 +17,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.browser_collection import BrowserConfig
 from app import db
-from app.models import DataContract, DatasetSnapshot, canonical_json
-from app.validation import prepare_snapshot, snapshot_hash
+from app.models import DataContract, DatasetSnapshot, PurchaseContext, canonical_json
+from app.validation import prepare_snapshot, snapshot_hash, normalize_snapshot_numbers
 
 COLUMNS = {
     'sales': ['date', 'sku', 'sold_qty'],
     'inventory': ['sku', 'name', 'category', 'available_qty', 'inbound_qty', 'inbound_eta'],
     'suppliers': ['sku', 'supplier_id', 'unit_cost_cents', 'lead_days', 'pack_size', 'min_order_qty'],
 }
-NUMBERS = {'sales': ['sold_qty'], 'inventory': ['available_qty', 'inbound_qty', 'inbound_eta'],
-           'suppliers': ['unit_cost_cents', 'lead_days', 'pack_size', 'min_order_qty']}
+
 FILES = {*[name + '.csv' for name in COLUMNS], 'manifest.json'}
 MAX_BATCH_BYTES = 15 * 1024 * 1024
 
@@ -49,6 +47,7 @@ class SourceConfig(BaseModel):
     contract: DataContract
     schedule: Schedule
     browser: BrowserConfig | None = None
+    purchase_system_id: str | None = Field(default=None,min_length=1,max_length=160)
 
 
 class Observation(BaseModel):
@@ -63,6 +62,7 @@ class Observation(BaseModel):
     sales: list[dict[str, str]] = Field(max_length=100000)
     inventory: list[dict[str, str]] = Field(max_length=10000)
     suppliers: list[dict[str, str]] = Field(max_length=10000)
+    purchase_context: PurchaseContext | None = None
 
 
 class CollectionError(ValueError):
@@ -98,8 +98,13 @@ def get_source(conn, sid):
 
 def create_source(conn, config):
     c = config.model_dump()
+    if config.browser and not c["purchase_system_id"]:
+        c["purchase_system_id"]="merchant-test-v1:"+config.merchant_id
     if any(not c[k].strip() for k in ('name', 'merchant_id', 'warehouse_id')):
         raise CollectionError('来源、商户和仓库名称不能为空。', 422)
+    system=c.get('purchase_system_id')
+    if system is not None and (not system.strip() or system!=system.strip()):
+        raise CollectionError('采购系统身份不能空白或带首尾空格。',422)
     if config.browser and config.environment != "test":
         raise CollectionError("当前网页适配器只用于模拟测试页，真实平台需单独适配验收。", 422)
     if config.browser and config.contract.missing_sales != "reject":
@@ -130,6 +135,11 @@ def update_schedule(conn, sid, schedule):
             state['next_save_at'] = stamp(now + timedelta(seconds=schedule.save_every_seconds))
         if schedule.collect_every_seconds != previous['collect_every_seconds']:
             state['next_collect_at'] = stamp(now + timedelta(seconds=schedule.collect_every_seconds))
+        if schedule.check_every_seconds != previous['check_every_seconds']:
+            for group in db.replenishment_groups(conn):
+                if group['config']['source_id'] == sid:
+                    group['state']['next_check_at'] = stamp(now + timedelta(seconds=schedule.check_every_seconds))
+                    db.save_replenishment_group(conn, group)
         c['schedule'] = schedule.model_dump()
         db.update_source(conn, sid, state, c)
 
@@ -144,26 +154,7 @@ def _normalize(observation, contract):
     snapshot, errors = prepare_snapshot(*tables, contract)
     if errors:
         raise CollectionError('；'.join(errors[:20]), 422)
-    # Canonical numeric spelling avoids new versions for 004 vs 4 or 4.0 vs 4.
-    for name in COLUMNS:
-        for row in getattr(snapshot, name):
-            for key in NUMBERS[name]:
-                if row[key] != '':
-                    value = Decimal(row[key])
-                    if name != 'sales':
-                        row[key] = str(int(value))
-                    elif value == 0:
-                        row[key] = '0'
-                    else:
-                        # Decimal.normalize() would round long input to the current
-                        # decimal context. Strip zeros from the exact tuple instead.
-                        sign, digits, exponent = value.as_tuple()
-                        digits = list(digits)
-                        while digits[-1] == 0:
-                            digits.pop(); exponent += 1
-                        exact = Decimal((sign, tuple(digits), exponent))
-                        row[key] = format(exact, 'f') if exponent >= -30 else str(exact)
-    return snapshot
+    return normalize_snapshot_numbers(snapshot)
 
 
 def accept_observation(conn, sid, observation):
@@ -196,6 +187,15 @@ def accept_observation(conn, sid, observation):
             if any(observation.row_counts[name] != len(getattr(observation, name)) for name in COLUMNS):
                 raise CollectionError('采集行数与声明不一致，不能发布。', 422)
             snapshot = _normalize(observation, DataContract.model_validate(config['contract']))
+            if observation.purchase_context is not None:
+                from app.purchase_context import attach
+                try:
+                    snapshot=attach(snapshot,observation.purchase_context,observation.source_as_of)
+                    if config.get('purchase_system_id') not in (None,observation.purchase_context.system_id):
+                        raise ValueError('采购系统身份不能在后续批次中改变')
+                except ValueError as exc:raise CollectionError(str(exc),422) from None
+            elif config.get('purchase_system_id'):
+                raise CollectionError('该来源已声明采购系统，后续批次不能省略采购上下文。',422)
             source_local = datetime.fromisoformat(observation.source_as_of.replace('Z', '+00:00'))
             if snapshot.window_end > source_local.date().isoformat():
                 raise CollectionError('销售截止日不能晚于源数据时间。', 422)
@@ -211,6 +211,7 @@ def accept_observation(conn, sid, observation):
                 state['pending_batch_id'] = None
             if not same and state['latest_observed_dataset_id'] is not None:
                 db.invalidate_source_approvals(conn, sid)
+            if observation.purchase_context:config['purchase_system_id']=observation.purchase_context.system_id
             state.update(last_success_at=stamp(now), observed_at=stamp(observed), source_as_of=source_local.isoformat(),
                          last_batch_id=observation.batch_id, latest_observed_dataset_id=did,
                          next_collect_at=stamp(now + timedelta(seconds=config['schedule']['collect_every_seconds'])),
@@ -222,7 +223,7 @@ def accept_observation(conn, sid, observation):
             if exc.status != 409:
                 state['last_problem'] = str(exc)
         state['last_attempt_at'] = stamp(now)
-        db.update_source(conn, sid, state)
+        db.update_source(conn, sid, state, config=config)
         db.save_observation(conn, sid, observation.batch_id, payload_hash, result)
         return result
 
@@ -257,6 +258,8 @@ def read_package(root, sid, did, expected=None):
         if any((folder / name).is_symlink() for name in FILES):
             raise ValueError()
         manifest = json.loads((folder / 'manifest.json').read_text(encoding='utf-8'))
+        if type(manifest.get('schema')) is not int or manifest['schema'] != (2 if manifest.get('purchase_context') is not None else 1):
+            raise ValueError()
         if manifest['source_id'] != sid or manifest['dataset_id'] != did or set(manifest['files']) != FILES - {'manifest.json'}:
             raise ValueError()
         if expected is not None and manifest != expected:
@@ -268,6 +271,9 @@ def read_package(root, sid, did, expected=None):
                 raise ValueError()
         from app.datasets import ingest
         snapshot, problems = ingest({n: data[n + '.csv'] for n in COLUMNS}, DataContract.model_validate(manifest['contract']))
+        if not problems and manifest.get('purchase_context') is not None:
+            from app.purchase_context import attach
+            snapshot=attach(snapshot,manifest['purchase_context'],manifest['source_as_of'])
         if problems or 'ds-' + snapshot_hash(snapshot) != did:
             raise ValueError()
         return manifest
@@ -294,6 +300,8 @@ def write_package(root, sid, config, state, snapshot):
                                'run_id':state['pending_batch_id'], 'quantity_basis':'net sales and available pieces',
                                'eta_reference':'source_as_of local calendar date'} if config.get('browser') else None,
                 'files': {}}
+    if snapshot.purchase_context is not None:
+        manifest.update(schema=2,purchase_context=snapshot.purchase_context.model_dump())
     for name in COLUMNS:
         data = _csv_bytes(snapshot, name)
         with (staging / (name + '.csv')).open('xb') as output:
@@ -384,7 +392,8 @@ def source_info(conn, sid, root=None):
             record['data_status'] = {'ready': True, 'reason': None}
         except CollectionError as exc:
             record['data_status'] = {'ready': False, 'reason': str(exc)}
-    record['automation'] = {'collection': bool(record['config'].get('browser', {}).get('enabled')) if record['config'].get('browser') else False, 'publication': True, 'replenishment': False}
+    record['automation'] = {'collection': bool(record['config'].get('browser', {}).get('enabled')) if record['config'].get('browser') else False, 'publication': True,
+        'replenishment': any(g['config']['source_id']==sid and g['config']['enabled'] for g in db.replenishment_groups(conn))}
     return record
 
 

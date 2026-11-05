@@ -72,6 +72,11 @@ class TaskRecord:
         self.approved_version = version
         self.transition(TaskState.APPROVED)
 
+    def retry_generation(self):
+        if self.state!=TaskState.FAILED or self.approved_plan_hash or self.approved_version:
+            raise TransitionError('已批准或未失败的任务不能重新生成。')
+        self.state=TaskState.ANALYZING
+
     def check_execution_authority(self, plan_hash: str) -> None:
         """执行前校验：待执行方案必须与批准指纹逐字一致。"""
         if self.state not in (TaskState.APPROVED, TaskState.EXECUTING):

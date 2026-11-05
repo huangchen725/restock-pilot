@@ -1,0 +1,1306 @@
+{
+  "schema": 1,
+  "date": "2026-11-05",
+  "baseline": "e875405e177b9e76edee0d67ba41251e0d3361b4",
+  "branch": "temporary",
+  "scope": "M5-3 independent technical acceptance, synthetic CSV and local demo procurement; full M5 remains active.",
+  "source_sha256": {
+    "app/__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/approval_queue.py": "b5bd5b71b0d31f42c34faa8eb5105ee1becb472b437c4f21bc1b5f2df0c8db71",
+    "app/browser_collection.py": "78648e1d23d15fc32454e8f11016b1149661597a77cbc17aad0116f3e2f0eb31",
+    "app/business_tools.py": "e92b13084d80438fd64499bebbed76ea76bc5e746f6be4b3febad3fb9d6618ce",
+    "app/collection.py": "52190b502516661b049fd3d1f6626455ce563489bb40ba4a0628ebe149170a25",
+    "app/collection_api.py": "c3fae04b7a104c1c26d50093c45a120c2caa672e2e21acbb8ab87121ff5de9ad",
+    "app/collector.py": "792ede254e18df978a4eddd0beb9757a8a7ef0c5210b67acb087f04803e6e044",
+    "app/config.py": "98915136472b021f5150c7130350ae871cdd5d4ba525b0c625fa82dcd67f452c",
+    "app/datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app/db.py": "a0acdcfe9e65eff39cd946dc4c20cb76bb2489b5e6b0a4b66d1e5f610872f1f1",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app/jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app/ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app/main.py": "af4b4337bcaa2adc7a32d5361e88a2899a58e8d6679359c65ecc869888e38727",
+    "app/mcp_server.py": "9f754c0d9cd73095d7a30bdcf2db5e2f7323e00cfeba1efbf8a4e33957c1b8de",
+    "app/merchant_test_portal.py": "4e5210bdda2b1cf843e9d3233b8de5229ab2e6abe938c2caaaa40422c1e9dd1c",
+    "app/models.py": "a0718b5d191ef505efd8c7ec306cbabb318b50925003f57249ef2d26ad0bed58",
+    "app/processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app/procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app/prompts.py": "942382b363845591bd5b86953599bb61d3e5cea36c6a855edd9e497c5944d289",
+    "app/redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app/reports.py": "2a69e2a84440293e5661d6590042f2952a7069b65f5980e4e81f51a7d58df6a9",
+    "app/rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app/runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app/runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app/state_machine.py": "5e7e577d9025f91dd13d7122c9a248c4286cf28cd4047bcb8b244f7e0e681d89",
+    "app/user_messages.py": "543c4d28a16c7750d39a86c75f618348fe76b52925f26f1bc32dfde6426bf6ee",
+    "app/validation.py": "2a1fd201813c6ce3f2c2dfe55b892dd5fa751bac91fad60f05ea2b2e0066631d",
+    "ui/app.py": "f8719f34db5d31f0a94e912d230970832c704c8d1cc24398e7cea53843ed5fa1",
+    "ui/collection_panel.py": "4f551b4c012e5e014fbfb538de3c01fc3f112ad0ec0d5ffaa2ca1f42d4b7db24",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/acceptance_plugin.py": "e908b46bb48a27dcd167cfdf4107b607e28ae15d178790acff4279a8b200492a",
+    "tests/native_entry_checks.py": "fa8c848a40f260d1779a8fb48406260c181f338a48c92ce302820cf9dbdd0a98",
+    "tests/scenario_catalog.py": "e2040656a293559c1aeb6bf5c549355b925ba93cf81502cb4ba5f112e635325c",
+    "tests/summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests/support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests/test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests/test_approval_queue.py": "a46f712f0682381c2a281bab4108b8f490c4c4b156f51003b726d29a1087715e",
+    "tests/test_approval_queue_live.py": "c8df7e55e2f8449e0dc8de2ee0933bb1808df8b02f33589d1eef363bdda56e27",
+    "tests/test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests/test_browser_collection.py": "1ac2783b491cd05368c6a0960b52b9e36ae20c7b45531a019b827edcac403bb8",
+    "tests/test_collection.py": "2e7d3767078dfe7cf65d9886fbf169ce695a0f1575d2441b4dd12764cebf5990",
+    "tests/test_collection_workbench.py": "980e8fcbd5b412d7db5b0606c5fa28022305a32eca2c35f332137b369f3578f6",
+    "tests/test_collector_cli.py": "798bceff0b151a68160b187ae9e9804dc1d92693742d39d228671960a2018eb4",
+    "tests/test_collector_state.py": "be83e33fd3344959277850858dd12b1777c40d4d372de9b4cc0d2e1e32eb3f84",
+    "tests/test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests/test_desktop_lifecycle.py": "3d0bf763509ce3fb343914c2028a4c870883d1665f1b86488a9a5da3fbfa2bc2",
+    "tests/test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests/test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests/test_fixed_scenarios.py": "fc7a62eb80ecd82544da4929be6968013e0230133c6c31428fe9c883ff911dc4",
+    "tests/test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests/test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests/test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests/test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests/test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests/test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests/test_m4_acceptance_tools.py": "41b88c11ecf94c4ff9ed2316398e1ec26f39232eb8bf76c0d2b5d326b8aa4b0a",
+    "tests/test_m4_delivery.py": "b32285ea57de54539f08f5dbdcca13ca7ea384cd1e66557420db80031d49bd0b",
+    "tests/test_m4_workbench.py": "c642d8f7f37f38cad268cfbf57b271dadc9c585f4e84c792f6aa29972aa8a5fb",
+    "tests/test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests/test_merchant_test_portal.py": "6c76ba21ab9152a768b63b300efbda4da3f4f14c6d65faf80d3ccc9c51cee805",
+    "tests/test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests/test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests/test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests/test_real_collection.py": "5b23e346455043d45f61147710d2990632a046fb7dd741136fe59c7c237576c5",
+    "tests/test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests/test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests/test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests/test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests/test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests/test_runtime_versions.py": "815c9a2cad923535d994b48c7c5a58901d6cb5a0d021332c3e051f40fddc4687",
+    "tests/test_setup.py": "592fce110dcac75ef924f921e083c8cfc090ccc72afd81e083d7309fd8923fab",
+    "tests/test_setup_e2e.py": "fa938ab5535b1067bcee3c2b5fea9d1a42133c207ee10021d615e74315804a38",
+    "tests/test_startup.py": "824b4da906b5e4897660d9fd61bba389dea952f181a57119f93a920c4c324e59",
+    "tests/test_step3_api.py": "c22aa9e5024fbc93584a44b9ed2342c56efc35051b21d310a10c60a1456cfb84",
+    "tests/test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests/test_usability_core.py": "91ed9c71f13f9a1ba221d18535a9b4c8702b31d670fc452311ac475532b21eb8",
+    "tests/test_usability_ui.py": "7be53159758f299b965910147d38c873e66de71984fb3b46f9e7c8579596d0a8",
+    "tests/test_workbench_e2e.py": "034c45ca1add7905c5880675e7f2462b7755b077b32d3b516594a3fd7c58024b",
+    "tests/workbench_flow.py": "946626b7cc5f30bb72fe59aa68b0cc031ed6735b7c4de55cac1ce638ccfe4267",
+    "scripts/acceptance_common.py": "c7d71af9ae0536bfd9bbbbb37e23c765517fd5fb644dd2eb4771dff733a07113",
+    "scripts/business_evidence.py": "6bff2be33c094aafd60e0899af4d04a850f5e869ba9b41fa68230564d42a7832",
+    "scripts/check_delivery.py": "9fea5c0f005c5687f4f87dfbbc0acae520989409589ef4abaebd35429d9f1b4c",
+    "scripts/generate_data.py": "1821207b7014a911c6dbea6ea872d6d4eba6059d0a031c06ba33a7ef68bacaa1",
+    "scripts/install_environment.py": "c8d2255b5cfb3718f453263fccd665af71d76daf8a9a7bb8b2ef252c68142c62",
+    "scripts/install_window.ps1": "1e5ccd7b8e79d579b77fb9f3fac55937976ddb86a560d752503679fbb7d8157b",
+    "scripts/launch.ps1": "879cd84e310986b7d026e770f1c2a160f0d391f1ece6cc6303f5faafa2e1b7b3",
+    "scripts/owned_process.ps1": "ad7f85399f54fd4cf3caf586add2c47501d81ba8dee8e79b154e4f6aba628d15",
+    "scripts/run_acceptance.py": "07ea2e39369e4a51b759f677f96f74efacdaa5b1f7265e1581599d98c8606c9b",
+    "scripts/run_smoke_e2e.py": "ad1398c19846c6dc5f75b82ba5316f2fbb638ccee3b9e8947e5c3ae676d9d976",
+    "scripts/run_stability.py": "6510433777f0c7d5e5dd879f229519b4d1e25784857f5d1cdd8cf9b1c450a872",
+    "scripts/setup.ps1": "a363704b5e70ef2c9e4b9b009a5e7aeea164101423ada53aa2562857fabff608",
+    "data/contract.json": "c393a6458c83b501f7894f38591a2a7ee3b489c97590f114341dcc48c4daf599",
+    "data/inventory.csv": "64423f216b619a2d59859b4e63397ccd09e677edfc181a7765cb43ec79d8886a",
+    "data/sales.csv": "2b705cfc3054ae189ac5ca5124867e4ec056d0fde0c0ce3ca5fe14e5f689f23d",
+    "data/suppliers.csv": "3d88e9642a898733072f13db3b1cc30e4fe09e67f3bae1ef5996c1ed26cbe015",
+    "agent-integration/codex-config.toml": "9d441a60dacdd5bafcf2bb4aa3e753ad6afbb7c4e6032ee5a8db3f545f10e398",
+    "agent-integration/config.toml": "ea1c12bad8cad498390e6c75b9c64d89b188575b60b8e9a69dfbbf3cebbcabdf",
+    "agent-integration/litellm-config.yaml": "c0c4fad9e239c5adf9564e690b47c3b408b815651c1876f00b047b76be60e861",
+    "desktop.py": "0f6072172ea91dce5c2339ec81b5e43cddfcf640a3b96f129000ee1b8a799134",
+    "launcher_control.py": "0c0c7ece448e5d845a6918e0b959bd5e80cc0bfa7183b3c33b356d51707f2f10",
+    "RestockPilot.vbs": "be6e4399cff53d3fadb89a6a084c2b39e890abbdd19d17c589ca634d2c8aa2e2",
+    "安装或修复 RestockPilot.vbs": "8764b7a963ae475f43a0b23c04d6c8a71552d1b20da221388e85760463b2597b",
+    "关闭 RestockPilot.vbs": "5d909aea528326c012cb114c94e66d482fa439c53af38feceef545a9b71e2a13",
+    ".streamlit/config.toml": "c6bdace88610b3a82d69d6964ae979ae6a61bcbdb235b841f1f33da425800396",
+    "start.py": "62e0fad98cac4ded7b9067896ed3370be2fe99705a1f0e2c8f1b4e43014e118a",
+    "setup.cmd": "1d6f64f699433ead6d14dc284d4f00c765049741ed411baa84eb86c9c5c027ea",
+    "start.cmd": "ac30207d175d8e8e7cf998d4094044098464a66c3f136f0f642183db0b427b14",
+    "bootstrap-lock.json": "2091626fac1cb30783f2ec5fb3c3891ddc3a79d4244b20b87d83ef32d916faab",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "requirements.txt": "eea2dcd02dd1c2b3b358f0152b4a3fbb970be320e8a0143edb3ff1b75dca11c4",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    ".python-version": "9bccfb61c57081accd6a0a9bbc2909a77ee387cfe0168a97c8f1592f3d9d6b92",
+    "pytest.ini": "ddfcf6e0017476e9b9e8e55559c80e166c21f4f1ac242c7468dc85ad9dc69e52"
+  },
+  "verification_addition_after_real": {
+    "tests/test_approval_queue.py": "53d4945001212789b8ea7c046aacbb839e73741cee610b4415ff0977aef4f8b6"
+  },
+  "runtime": {
+    "schema": 1,
+    "platform": "win32",
+    "machine": "AMD64",
+    "python": "3.12.14",
+    "codex": "0.166.0-alpha.5.1",
+    "playwright": "1.64.1",
+    "chromium_revision": "1248",
+    "chromium_version": "156.0.8078.4"
+  },
+  "interpreter": {
+    "python": "3.12.14",
+    "executable": "D:\\书生智能体比赛temp\\.venv\\Scripts\\python.exe",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "frozen_real_run": {
+    "before": "outputs/m5-queue-real-before.json",
+    "after": "outputs/m5-queue-real-after.json",
+    "equal": true,
+    "product_unchanged_after_real": true
+  },
+  "results": {
+    "unique_passed": 191,
+    "selected_executions": 207,
+    "failed": 0,
+    "skipped": 0,
+    "full_regression": false,
+    "groups": [
+      {
+        "scope": "interfaces",
+        "raw_junit": "outputs/m5-queue-final-core.xml",
+        "sha256": "1697011963bcb219a5f738bd26ee76137e41fedee58e1f7a0b49d7a0374ac652",
+        "selected_class": null,
+        "passed": 143,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_approval_queue.py::test_approval_and_intent_are_atomic_and_idempotent",
+          "tests/test_approval_queue.py::test_unauthorized_and_stale_approval_create_no_intent",
+          "tests/test_approval_queue.py::test_queue_commit_failure_rolls_back_approval",
+          "tests/test_approval_queue.py::test_dispatch_replay_executes_once_and_preserves_report",
+          "tests/test_approval_queue.py::test_expired_and_revoked_intents_never_execute",
+          "tests/test_approval_queue.py::test_changed_source_invalidates_queued_execution",
+          "tests/test_approval_queue.py::test_restart_claim_without_attempt_requeues_but_attempt_requires_check",
+          "tests/test_approval_queue.py::test_task_claim_collision_requeues_without_losing_approval",
+          "tests/test_approval_queue.py::test_repeated_approval_different_id_and_post_start_revoke_refused",
+          "tests/test_approval_queue.py::test_partial_failure_is_not_automatically_retried",
+          "tests/test_approval_queue.py::test_orphan_submit_intent_is_not_treated_as_unstarted",
+          "tests/test_approval_queue.py::test_pending_intent_survives_database_reopen",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[None]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[missing_approval]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_hash]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_version]",
+          "tests/test_m4_acceptance_tools.py::test_original_bad_oracles_rejected_with_valid_controls[assert_moq-good0-bad0]",
+          "tests/test_m4_acceptance_tools.py::test_original_bad_oracles_rejected_with_valid_controls[<lambda>-good1-bad1]",
+          "tests/test_m4_acceptance_tools.py::test_original_bad_oracles_rejected_with_valid_controls[assert_priority-good2-bad2]",
+          "tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults[empty_moq]",
+          "tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults[missing_moq]",
+          "tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults[no_shortfall]",
+          "tests/test_m4_acceptance_tools.py::test_adjacent_oracle_faults[priority_reversed]",
+          "tests/test_m4_acceptance_tools.py::test_fixed_scenario_catalog_has_twenty_real_asserting_targets",
+          "tests/test_m4_acceptance_tools.py::test_safety_failure_blocks_even_nine_successes[unauthorized_write]",
+          "tests/test_m4_acceptance_tools.py::test_safety_failure_blocks_even_nine_successes[duplicate_order]",
+          "tests/test_m4_acceptance_tools.py::test_safety_failure_blocks_even_nine_successes[amount_mismatch]",
+          "tests/test_m4_acceptance_tools.py::test_ordinary_timeout_threshold_positive_control",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[skip]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[empty]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[error]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[exit]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[missing]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[mode]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[export]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[approval]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[dataset]",
+          "tests/test_m4_acceptance_tools.py::test_incomplete_or_inconsistent_evidence_is_blocking[unsafe_timeout]",
+          "tests/test_m4_acceptance_tools.py::test_complete_matching_evidence_passes[off]",
+          "tests/test_m4_acceptance_tools.py::test_complete_matching_evidence_passes[required]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch[0-0]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch[-1-1]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch[1-0]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_run_counts_rejected_before_launch[1-2]",
+          "tests/test_m4_acceptance_tools.py::test_stability_selects_actual_ui_and_explicit_mode[off-test_offline_workbench_full_flow-RUN_WORKBENCH_E2E]",
+          "tests/test_m4_acceptance_tools.py::test_stability_selects_actual_ui_and_explicit_mode[required-test_required_model_workbench_full_flow-RUN_REAL_MODEL_E2E]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[999]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[1,1]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[1,7]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[x]",
+          "tests/test_m4_acceptance_tools.py::test_invalid_layers_rejected_before_launch[1,]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[1]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[2]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[3]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[4]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[5]",
+          "tests/test_m4_acceptance_tools.py::test_layer_environment_is_explicit[6]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change0]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change1]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change2]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change3]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change4]",
+          "tests/test_m4_acceptance_tools.py::test_layer_strict_counts_failures_and_errors[change5]",
+          "tests/test_m4_acceptance_tools.py::test_junit_counts_each_case_and_rejects_duplicates",
+          "tests/test_m4_acceptance_tools.py::test_stability_freeze_detects_mid_run_edit",
+          "tests/test_m4_acceptance_tools.py::test_layer_duplicate_case_cannot_pass",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[amount]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[quantity]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[duplicate]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[order_status]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[wrong_version]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[old_approval]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[old_dataset]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[csv_amount]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[html_order]",
+          "tests/test_m4_acceptance_tools.py::test_business_proof_comparator_rejects_corruption[missing_model_tool]",
+          "tests/test_m4_acceptance_tools.py::test_different_valid_versions_are_not_compared_to_current_plan",
+          "tests/test_m4_acceptance_tools.py::test_run_pytest_real_subprocess_counts_skip_as_skip",
+          "tests/test_m4_acceptance_tools.py::test_layer_and_scenario_collection_uses_each_actual_node_once",
+          "tests/test_m4_acceptance_tools.py::test_malformed_export_is_structured_blocking_result",
+          "tests/test_m4_acceptance_tools.py::test_runner_infrastructure_failure_is_recorded_and_blocks[launch]",
+          "tests/test_m4_acceptance_tools.py::test_runner_infrastructure_failure_is_recorded_and_blocks[cleanup]",
+          "tests/test_collection.py::test_sources_accept_confirmed_config",
+          "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[save_every_seconds-0]",
+          "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[collect_every_seconds-True]",
+          "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[check_every_seconds--1]",
+          "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[max_age_seconds-1.5]",
+          "tests/test_collection.py::test_stage_then_publish_complete_csv_and_independent_values",
+          "tests/test_collection.py::test_changes_coalesce_and_equivalent_data_does_not_republish",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[incomplete]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[row_count]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[foreign]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[missing_day]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[extra_field]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[future]",
+          "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[old]",
+          "tests/test_collection.py::test_pending_state_survives_db_reopen_and_settings_are_independent",
+          "tests/test_collection.py::test_published_files_recover_after_database_failure",
+          "tests/test_collection.py::test_source_change_blocks_old_approval_before_csv_save",
+          "tests/test_collection.py::test_stale_or_corrupted_source_blocks_new_task_and_approval",
+          "tests/test_collection.py::test_omitting_source_cannot_bypass_freshness_guard",
+          "tests/test_collection.py::test_failed_disk_write_keeps_old_version_and_pending_data",
+          "tests/test_collection.py::test_concurrent_publishing_has_one_formal_version",
+          "tests/test_collection.py::test_background_worker_saves_without_creating_task",
+          "tests/test_collection.py::test_source_identity_and_settings_cannot_be_overwritten",
+          "tests/test_collection.py::test_data_reversion_reuses_immutable_formal_files",
+          "tests/test_collection.py::test_normalizing_decimal_preserves_all_digits_without_context_rounding",
+          "tests/test_collection.py::test_extreme_timezone_is_rejected_without_server_error",
+          "tests/test_collection.py::test_background_corruption_is_visible_and_retries_are_scheduled",
+          "tests/test_collection.py::test_preexisting_manual_task_is_not_retroactively_bound_by_identical_source_data",
+          "tests/test_collection.py::test_source_calendar_day_uses_declared_offset_not_utc_date",
+          "tests/test_collection.py::test_successful_unchanged_save_clears_previous_publish_error",
+          "tests/test_m3_acceptance.py::test_recovery_is_async_exclusive_and_rechecks_approval",
+          "tests/test_m3_acceptance.py::test_reconciliation_is_async_and_excludes_revision",
+          "tests/test_m3_acceptance.py::test_receipt_event_transaction_rolls_back_both",
+          "tests/test_m3_acceptance.py::test_submit_intent_without_result_is_never_retried",
+          "tests/test_m3_acceptance.py::test_legacy_missing_receipts_are_unknown_not_confirmed_empty",
+          "tests/test_m3_acceptance.py::test_noop_after_partial_recomputes_remaining_plan",
+          "tests/test_m3_acceptance.py::test_valid_history_can_be_audited_after_a_new_approval",
+          "tests/test_m3_acceptance.py::test_stale_approved_v2_without_covered_deduction_cannot_execute",
+          "tests/test_m3_acceptance.py::test_recovery_with_mismatched_actual_receipt_remains_pending",
+          "tests/test_m3_acceptance.py::test_lower_budget_than_existing_orders_is_rejected",
+          "tests/test_m3_acceptance.py::test_nested_transactions_roll_back_without_deleting_prior_rows",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[readback_before_submit]",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[finish_before_lookup]",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[missing_result]",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[duplicate_result]",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[missing_finish]",
+          "tests/test_m3_acceptance.py::test_audit_rejects_corruption_of_a_valid_chain[cancelled_receipt]",
+          "tests/test_m3_acceptance.py::test_legacy_later_failed_record_does_not_erase_past_submission[unknown]",
+          "tests/test_m3_acceptance.py::test_legacy_later_failed_record_does_not_erase_past_submission[created]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[None]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[301]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[401]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[403]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[404]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[429]",
+          "tests/test_m3_acceptance.py::test_lookup_only_accepts_success_response[500]",
+          "tests/test_m3_acceptance.py::test_lookup_requires_recognized_empty_page",
+          "tests/test_recover_api.py::test_recover_rejects_mismatched_approved_hash",
+          "tests/test_recover_api.py::test_recover_rejects_unapproved_state",
+          "tests/test_recover_api.py::test_recover_full_flow_with_audit_and_state"
+        ]
+      },
+      {
+        "scope": "browser_queue",
+        "raw_junit": "outputs/m5-queue-final2.xml",
+        "sha256": "0f65ae343e8558079d390e1a0c8c8808e448fcaa6517509bf53974f726196991",
+        "selected_class": "test_approval_queue_live",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_approval_queue_live.py::test_workbench_one_approval_executes_and_exports_30_sku",
+          "tests/test_approval_queue_live.py::test_queue_partial_result_stops_and_controlled_recovery_does_not_rebuy",
+          "tests/test_approval_queue_live.py::test_queued_execution_crash_keeps_unknown_and_never_reposts"
+        ]
+      },
+      {
+        "scope": "startup",
+        "raw_junit": "outputs/m5-queue-startup-fixed.xml",
+        "sha256": "22166e9de4e3bd907894f7019609fd1f76b4482c0cc1b3e388ef8cabe3c63454",
+        "selected_class": null,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_startup.py::test_dotenv_location_precedence_and_literal_secret",
+          "tests/test_startup.py::test_missing_dotenv_is_optional",
+          "tests/test_startup.py::test_missing_key_rejected_before_any_services_start",
+          "tests/test_startup.py::test_offline_has_no_gateway_or_cli_dependency",
+          "tests/test_startup.py::test_logs_redact_secret_and_authorization",
+          "tests/test_startup.py::test_busy_port_is_not_adopted_or_closed",
+          "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[local-test-secret]",
+          "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[0]",
+          "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[1]",
+          "tests/test_startup.py::test_partial_launch_failure_can_roll_back_started_service",
+          "tests/test_startup.py::test_exited_child_does_not_report_ready",
+          "tests/test_startup.py::test_health_timeout_stops_unready_process",
+          "tests/test_startup.py::test_entrypoint_rolls_back_partial_startup",
+          "tests/test_startup.py::test_real_entrypoint_health_status_and_ctrl_c[True]",
+          "tests/test_startup.py::test_real_entrypoint_health_status_and_ctrl_c[False]",
+          "tests/test_desktop_lifecycle.py::test_local_stop_requires_control_token_and_preserves_other_instances",
+          "tests/test_desktop_lifecycle.py::test_missing_browser_rejected_before_start",
+          "tests/test_desktop_lifecycle.py::test_stop_during_preflight_releases_probe",
+          "tests/test_desktop_lifecycle.py::test_mismatched_managed_service_url_is_rejected[RESTOCK_API_URL]",
+          "tests/test_desktop_lifecycle.py::test_mismatched_managed_service_url_is_rejected[RESTOCK_LITELLM_URL]",
+          "tests/test_desktop_lifecycle.py::test_crashed_supervisor_leaves_no_service_or_grandchild",
+          "tests/test_desktop_lifecycle.py::test_stale_pid_record_does_not_block_setup_but_kernel_lock_does",
+          "tests/test_desktop_lifecycle.py::test_setup_lock_release_after_abnormal_owner_exit",
+          "tests/test_desktop_lifecycle.py::test_installer_gui_calls_only_existing_bootstrap_and_preserves_locks",
+          "tests/test_desktop_lifecycle.py::test_launcher_credentials_never_reach_product_cli",
+          "tests/test_desktop_lifecycle.py::test_stop_returns_only_after_recorded_service_descendants_exit"
+        ]
+      },
+      {
+        "scope": "pinned_cli_and_real_model",
+        "raw_junit": "outputs/m5-queue-real.xml",
+        "sha256": "56ebead2c26683a1e6c999da1ff99a39dab1d5e89f48399c6e2eafa97173da54",
+        "selected_class": null,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-exec_command]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[custom_tool_call-apply_patch]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__other__read]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[computer_call-]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_file]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_mcp_resource]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-view_image]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[web_search_call-]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__approve]",
+          "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__build_plan]",
+          "tests/test_agent_runtime.py::test_request_and_child_environment_expose_only_capabilities",
+          "tests/test_agent_runtime.py::test_namespace_alias_cannot_smuggle_a_different_executor",
+          "tests/test_agent_runtime.py::test_broker_rejects_uncredentialed_calls_and_unknown_routes",
+          "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[False]",
+          "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[True]",
+          "tests/test_approval_queue_live.py::test_required_model_workbench_one_approval"
+        ]
+      },
+      {
+        "scope": "concurrency_closeout",
+        "raw_junit": "outputs/m5-queue-concurrency.xml",
+        "sha256": "8c626050d34b5a14ab2540b1cd9e6a2b2c66b2de690e7975d8350c1f59076766",
+        "selected_class": null,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_approval_queue.py::test_approval_and_intent_are_atomic_and_idempotent",
+          "tests/test_approval_queue.py::test_unauthorized_and_stale_approval_create_no_intent",
+          "tests/test_approval_queue.py::test_queue_commit_failure_rolls_back_approval",
+          "tests/test_approval_queue.py::test_dispatch_replay_executes_once_and_preserves_report",
+          "tests/test_approval_queue.py::test_expired_and_revoked_intents_never_execute",
+          "tests/test_approval_queue.py::test_changed_source_invalidates_queued_execution",
+          "tests/test_approval_queue.py::test_restart_claim_without_attempt_requeues_but_attempt_requires_check",
+          "tests/test_approval_queue.py::test_task_claim_collision_requeues_without_losing_approval",
+          "tests/test_approval_queue.py::test_repeated_approval_different_id_and_post_start_revoke_refused",
+          "tests/test_approval_queue.py::test_partial_failure_is_not_automatically_retried",
+          "tests/test_approval_queue.py::test_orphan_submit_intent_is_not_treated_as_unstarted",
+          "tests/test_approval_queue.py::test_pending_intent_survives_database_reopen",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[None]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[missing_approval]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_hash]",
+          "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_version]",
+          "tests/test_approval_queue.py::test_concurrent_consumers_claim_one_execution"
+        ]
+      },
+      {
+        "scope": "adjacent_workbench",
+        "raw_junit": "outputs/m5-queue-adjacent.xml",
+        "sha256": "4858f56cf7e764d112f60876411a520010b30622508d9f274a051c2377241267",
+        "selected_class": null,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "nodes": [
+          "tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download",
+          "tests/test_collection_workbench.py::test_source_settings_scheduled_csv_download_and_old_approval_block[1]"
+        ]
+      }
+    ]
+  },
+  "real_model": {
+    "model": "intern-s2",
+    "mode": "required",
+    "sample_skus": 30,
+    "task_id": "aa9912538dd6",
+    "phase_seconds": {
+      "planner": 132.3,
+      "reviser": 113.34,
+      "executor": 97.17
+    },
+    "final_approval": {
+      "version": 2,
+      "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+      "request_id": "7775411eabb1463c94059692f3a77bd2",
+      "expires_in_seconds": 1800,
+      "task_id": "aa9912538dd6",
+      "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+      "created_at": "2026-11-04T19:23:44.412680+00:00",
+      "updated_at": "2026-11-04T19:23:44.412680+00:00",
+      "expires_at": "2026-11-04T19:53:44.412680+00:00",
+      "status": "queued",
+      "error": null
+    },
+    "execute_button_clicks": 0,
+    "independent_orders": [
+      {
+        "order_id": "PO-E774D380F304",
+        "external_ref": "aa9912538dd6-v2-SUP-06",
+        "supplier_id": "SUP-06",
+        "status": "SUBMITTED",
+        "lines": [
+          {
+            "sku": "SKU-007",
+            "name": "商品07",
+            "order_qty": 1,
+            "unit_cost_cents": 6427,
+            "line_total_cents": 6427
+          }
+        ],
+        "total_cost_cents": 6427
+      },
+      {
+        "order_id": "PO-8A397CEEF5B1",
+        "external_ref": "aa9912538dd6-v2-SUP-02",
+        "supplier_id": "SUP-02",
+        "status": "SUBMITTED",
+        "lines": [
+          {
+            "sku": "SKU-009",
+            "name": "商品09",
+            "order_qty": 37,
+            "unit_cost_cents": 7932,
+            "line_total_cents": 293484
+          }
+        ],
+        "total_cost_cents": 293484
+      }
+    ],
+    "exports": {
+      "csv": {
+        "path": "delivered.csv",
+        "sha256": "e01adf041343ec604e88b9e7d23e795ea92f1d0d995f2f71b555ec810b2658d1"
+      },
+      "html": {
+        "path": "delivered.html",
+        "sha256": "69108baa1d96b47ffc462ad7e9fcf6dbcd25efba1827553c83e8308b51b49ce9"
+      }
+    },
+    "shutdown": {
+      "recorded_processes": 12,
+      "remaining_owned": [],
+      "open_service_ports": []
+    },
+    "tool_events": [
+      {
+        "seq": 2,
+        "kind": "business_tool",
+        "payload": {
+          "operation_id": "fa83cb55028e4319ab19a76d2c9a30d3",
+          "stage": "planner",
+          "tool": "inspect_dataset",
+          "version": 0,
+          "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+          "arguments": {
+            "task_id": "aa9912538dd6"
+          },
+          "result": {
+            "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+            "dataset_hash": "7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+            "currency": "CNY",
+            "amount_unit": "人民币分；100 分 = 1 元",
+            "sku_count": 30,
+            "problems": [],
+            "window_start": "2026-09-03",
+            "window_end": "2026-09-30",
+            "contract": {
+              "quantity_unit": "piece",
+              "available_is_net": true,
+              "cost_includes_tax_shipping": true,
+              "inbound_eta_is_days": true,
+              "missing_sales": "reject",
+              "window_end": "2026-09-30"
+            }
+          }
+        },
+        "created_at": "2026-11-04 19:19:48"
+      },
+      {
+        "seq": 3,
+        "kind": "business_tool",
+        "payload": {
+          "operation_id": "fa83cb55028e4319ab19a76d2c9a30d3",
+          "stage": "planner",
+          "tool": "build_plan",
+          "version": 0,
+          "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+          "arguments": {
+            "task_id": "aa9912538dd6",
+            "policy": {
+              "budget_cents": 500000,
+              "cover_days": 30,
+              "excluded_skus": [],
+              "priority_categories": [],
+              "safety_days": 7
+            },
+            "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22"
+          },
+          "result": {
+            "plan": {
+              "currency": "CNY",
+              "amount_unit": "人民币分；100 分 = 1 元，非美元或美分",
+              "plan_id": "aa9912538dd6",
+              "version": 1,
+              "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+              "policy": {
+                "budget_cents": 500000,
+                "cover_days": 30,
+                "safety_days": 7,
+                "priority_categories": [],
+                "excluded_skus": []
+              },
+              "total_cost_cents": 499716,
+              "budget_remaining_cents": 284,
+              "sku_count": 30,
+              "ordered": [
+                {
+                  "sku": "SKU-009",
+                  "order_qty": 63,
+                  "unit_cost_cents": 7932,
+                  "line_total_cents": 499716,
+                  "supplier_id": "SUP-02",
+                  "unmet_qty": 413
+                }
+              ],
+              "skipped": [
+                "SKU-026",
+                "SKU-029",
+                "SKU-010",
+                "SKU-013",
+                "SKU-025",
+                "SKU-003",
+                "SKU-005",
+                "SKU-012",
+                "SKU-015",
+                "SKU-018",
+                "SKU-007",
+                "SKU-002",
+                "SKU-011",
+                "SKU-017",
+                "SKU-020",
+                "SKU-022",
+                "SKU-028",
+                "SKU-016",
+                "SKU-006",
+                "SKU-008",
+                "SKU-001"
+              ],
+              "excluded_skus": [],
+              "low_confidence_skus": [
+                "SKU-002",
+                "SKU-003",
+                "SKU-004",
+                "SKU-007",
+                "SKU-008",
+                "SKU-012",
+                "SKU-014",
+                "SKU-015",
+                "SKU-016",
+                "SKU-018",
+                "SKU-019",
+                "SKU-020",
+                "SKU-021",
+                "SKU-022",
+                "SKU-023",
+                "SKU-024",
+                "SKU-027",
+                "SKU-030"
+              ],
+              "stockout_skus": [
+                "SKU-003",
+                "SKU-007",
+                "SKU-009",
+                "SKU-010",
+                "SKU-012",
+                "SKU-013",
+                "SKU-015",
+                "SKU-017",
+                "SKU-018",
+                "SKU-025",
+                "SKU-026",
+                "SKU-029"
+              ],
+              "unmet_total_qty": 10105
+            },
+            "plan_hash": "e14a59b1463f959df6117d90edb3641f77b3a3b7a0894d44d9cb725972738ae5",
+            "reused": false,
+            "candidate_only": true
+          }
+        },
+        "created_at": "2026-11-04 19:20:24"
+      },
+      {
+        "seq": 8,
+        "kind": "business_tool",
+        "payload": {
+          "operation_id": "6a8002f6d21c40eeb584b5c7e5d7e0a4",
+          "stage": "reviser",
+          "tool": "revise_plan",
+          "version": 1,
+          "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+          "arguments": {
+            "task_id": "aa9912538dd6",
+            "policy": {
+              "budget_cents": 300000,
+              "cover_days": 30,
+              "safety_days": 7,
+              "priority_categories": [],
+              "excluded_skus": []
+            },
+            "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22"
+          },
+          "result": {
+            "plan": {
+              "currency": "CNY",
+              "amount_unit": "人民币分；100 分 = 1 元，非美元或美分",
+              "plan_id": "aa9912538dd6",
+              "version": 2,
+              "dataset_id": "ds-7b04f762e203a4b384a1652b27e80f8b1d41685033d6255ff4847ef9a9b0da22",
+              "policy": {
+                "budget_cents": 300000,
+                "cover_days": 30,
+                "safety_days": 7,
+                "priority_categories": [],
+                "excluded_skus": []
+              },
+              "total_cost_cents": 299911,
+              "budget_remaining_cents": 89,
+              "sku_count": 30,
+              "ordered": [
+                {
+                  "sku": "SKU-007",
+                  "order_qty": 1,
+                  "unit_cost_cents": 6427,
+                  "line_total_cents": 6427,
+                  "supplier_id": "SUP-06",
+                  "unmet_qty": 780
+                },
+                {
+                  "sku": "SKU-009",
+                  "order_qty": 37,
+                  "unit_cost_cents": 7932,
+                  "line_total_cents": 293484,
+                  "supplier_id": "SUP-02",
+                  "unmet_qty": 439
+                }
+              ],
+              "skipped": [
+                "SKU-026",
+                "SKU-029",
+                "SKU-010",
+                "SKU-013",
+                "SKU-025",
+                "SKU-003",
+                "SKU-005",
+                "SKU-012",
+                "SKU-015",
+                "SKU-018",
+                "SKU-002",
+                "SKU-011",
+                "SKU-017",
+                "SKU-020",
+                "SKU-022",
+                "SKU-028",
+                "SKU-016",
+                "SKU-006",
+                "SKU-008",
+                "SKU-001"
+              ],
+              "excluded_skus": [],
+              "low_confidence_skus": [
+                "SKU-002",
+                "SKU-003",
+                "SKU-004",
+                "SKU-007",
+                "SKU-008",
+                "SKU-012",
+                "SKU-014",
+                "SKU-015",
+                "SKU-016",
+                "SKU-018",
+                "SKU-019",
+                "SKU-020",
+                "SKU-021",
+                "SKU-022",
+                "SKU-023",
+                "SKU-024",
+                "SKU-027",
+                "SKU-030"
+              ],
+              "stockout_skus": [
+                "SKU-003",
+                "SKU-007",
+                "SKU-009",
+                "SKU-010",
+                "SKU-012",
+                "SKU-013",
+                "SKU-015",
+                "SKU-017",
+                "SKU-018",
+                "SKU-025",
+                "SKU-026",
+                "SKU-029"
+              ],
+              "unmet_total_qty": 10130
+            },
+            "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+            "reused": false,
+            "candidate_only": true
+          }
+        },
+        "created_at": "2026-11-04 19:22:57"
+      },
+      {
+        "seq": 12,
+        "kind": "business_tool",
+        "payload": {
+          "operation_id": "6046ddee5f494ff59f7a8b34b4ef0289",
+          "stage": "executor",
+          "tool": "get_execution_result",
+          "version": 2,
+          "dataset_id": null,
+          "arguments": {
+            "task_id": "aa9912538dd6"
+          },
+          "result": {
+            "records": [
+              {
+                "id": 1,
+                "plan_id": "aa9912538dd6",
+                "version": 2,
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "status": "created",
+                "created_at": "2026-11-04 19:23:45",
+                "receipt": {
+                  "attempt_log": [
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-02",
+                      "step": "duplicate_check"
+                    },
+                    {
+                      "found": false,
+                      "step": "duplicate_check_result"
+                    },
+                    {
+                      "lines": 1,
+                      "step": "submit"
+                    },
+                    {
+                      "order_id": "PO-8A397CEEF5B1",
+                      "step": "readback"
+                    }
+                  ],
+                  "error": null,
+                  "external_ref": "aa9912538dd6-v2-SUP-02",
+                  "ledger_seq": 6,
+                  "order_id": "PO-8A397CEEF5B1",
+                  "problems": [],
+                  "receipt": {
+                    "external_ref": "aa9912538dd6-v2-SUP-02",
+                    "lines": [
+                      {
+                        "name": "商品09",
+                        "order_qty": 37,
+                        "sku": "SKU-009",
+                        "unit_cost_cents": 7932
+                      }
+                    ],
+                    "order_id": "PO-8A397CEEF5B1",
+                    "status": "SUBMITTED",
+                    "supplier_id": "SUP-02",
+                    "total_cost_cents": 293484
+                  },
+                  "status": "created",
+                  "supplier_id": "SUP-02"
+                }
+              },
+              {
+                "id": 2,
+                "plan_id": "aa9912538dd6",
+                "version": 2,
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "status": "created",
+                "created_at": "2026-11-04 19:23:45",
+                "receipt": {
+                  "attempt_log": [
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-06",
+                      "step": "duplicate_check"
+                    },
+                    {
+                      "found": false,
+                      "step": "duplicate_check_result"
+                    },
+                    {
+                      "lines": 1,
+                      "step": "submit"
+                    },
+                    {
+                      "order_id": "PO-E774D380F304",
+                      "step": "readback"
+                    }
+                  ],
+                  "error": null,
+                  "external_ref": "aa9912538dd6-v2-SUP-06",
+                  "ledger_seq": 11,
+                  "order_id": "PO-E774D380F304",
+                  "problems": [],
+                  "receipt": {
+                    "external_ref": "aa9912538dd6-v2-SUP-06",
+                    "lines": [
+                      {
+                        "name": "商品07",
+                        "order_qty": 1,
+                        "sku": "SKU-007",
+                        "unit_cost_cents": 6427
+                      }
+                    ],
+                    "order_id": "PO-E774D380F304",
+                    "status": "SUBMITTED",
+                    "supplier_id": "SUP-06",
+                    "total_cost_cents": 6427
+                  },
+                  "status": "created",
+                  "supplier_id": "SUP-06"
+                }
+              }
+            ],
+            "events": [
+              {
+                "seq": 1,
+                "event_type": "execution_started",
+                "external_ref": null,
+                "created_at": "2026-11-04 19:23:44",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "mode": "execute",
+                  "orders": [
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-02",
+                      "lines": 1,
+                      "supplier_id": "SUP-02",
+                      "total_cost_cents": 293484
+                    },
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-06",
+                      "lines": 1,
+                      "supplier_id": "SUP-06",
+                      "total_cost_cents": 6427
+                    }
+                  ],
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "protocol_version": 2,
+                  "recovered": false,
+                  "version": 2
+                }
+              },
+              {
+                "seq": 2,
+                "event_type": "lookup_started",
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 3,
+                "event_type": "lookup_finished",
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "found": false,
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 4,
+                "event_type": "submit_intent",
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "lines": 1,
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "supplier_id": "SUP-02",
+                  "total_cost_cents": 293484,
+                  "version": 2
+                }
+              },
+              {
+                "seq": 5,
+                "event_type": "readback_completed",
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "order_id": "PO-8A397CEEF5B1",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 6,
+                "event_type": "order_result",
+                "external_ref": "aa9912538dd6-v2-SUP-02",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "attempt_log": [
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-02",
+                      "step": "duplicate_check"
+                    },
+                    {
+                      "found": false,
+                      "step": "duplicate_check_result"
+                    },
+                    {
+                      "lines": 1,
+                      "step": "submit"
+                    },
+                    {
+                      "order_id": "PO-8A397CEEF5B1",
+                      "step": "readback"
+                    }
+                  ],
+                  "error": null,
+                  "external_ref": "aa9912538dd6-v2-SUP-02",
+                  "order_id": "PO-8A397CEEF5B1",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "problems": [],
+                  "receipt": {
+                    "external_ref": "aa9912538dd6-v2-SUP-02",
+                    "lines": [
+                      {
+                        "name": "商品09",
+                        "order_qty": 37,
+                        "sku": "SKU-009",
+                        "unit_cost_cents": 7932
+                      }
+                    ],
+                    "order_id": "PO-8A397CEEF5B1",
+                    "status": "SUBMITTED",
+                    "supplier_id": "SUP-02",
+                    "total_cost_cents": 293484
+                  },
+                  "status": "created",
+                  "supplier_id": "SUP-02",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 7,
+                "event_type": "lookup_started",
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 8,
+                "event_type": "lookup_finished",
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "found": false,
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 9,
+                "event_type": "submit_intent",
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "lines": 1,
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "supplier_id": "SUP-06",
+                  "total_cost_cents": 6427,
+                  "version": 2
+                }
+              },
+              {
+                "seq": 10,
+                "event_type": "readback_completed",
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "order_id": "PO-E774D380F304",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 11,
+                "event_type": "order_result",
+                "external_ref": "aa9912538dd6-v2-SUP-06",
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "attempt_log": [
+                    {
+                      "external_ref": "aa9912538dd6-v2-SUP-06",
+                      "step": "duplicate_check"
+                    },
+                    {
+                      "found": false,
+                      "step": "duplicate_check_result"
+                    },
+                    {
+                      "lines": 1,
+                      "step": "submit"
+                    },
+                    {
+                      "order_id": "PO-E774D380F304",
+                      "step": "readback"
+                    }
+                  ],
+                  "error": null,
+                  "external_ref": "aa9912538dd6-v2-SUP-06",
+                  "order_id": "PO-E774D380F304",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "problems": [],
+                  "receipt": {
+                    "external_ref": "aa9912538dd6-v2-SUP-06",
+                    "lines": [
+                      {
+                        "name": "商品07",
+                        "order_qty": 1,
+                        "sku": "SKU-007",
+                        "unit_cost_cents": 6427
+                      }
+                    ],
+                    "order_id": "PO-E774D380F304",
+                    "status": "SUBMITTED",
+                    "supplier_id": "SUP-06",
+                    "total_cost_cents": 6427
+                  },
+                  "status": "created",
+                  "supplier_id": "SUP-06",
+                  "version": 2
+                }
+              },
+              {
+                "seq": 12,
+                "event_type": "execution_finished",
+                "external_ref": null,
+                "created_at": "2026-11-04 19:23:45",
+                "payload": {
+                  "attempt_id": "eda575c53d3a4f5ca2555c75b394760b",
+                  "final_task_state": "COMPLETED",
+                  "plan_hash": "5443ee40cd696c31d25d86383abf38e047dabe0085c86c63ab8bccfb1ed00bc9",
+                  "state": "COMPLETED",
+                  "succeeded": 2,
+                  "total": 2,
+                  "version": 2
+                }
+              }
+            ]
+          }
+        },
+        "created_at": "2026-11-04 19:23:58"
+      }
+    ],
+    "summaries": [
+      {
+        "version": 1,
+        "status": "ok",
+        "summary": "规则核对（程序生成）：全局预算 5000.00 元，方案金额 4997.16 元，余额 2.84 元。采购 1 种商品，预算跳过 21 种；低置信商品 18 种。预计到货前缺货风险 12 种，其中被预算跳过 11 种。金额为人民币，申请尚需人工批准。\n模型建议：建议重点人工复核低置信商品，并关注预计到货前存在缺货风险的商品。当前预算被个别品类大量占用，其余商品未获采购，建议调整预算或设置优先类别后重新计算。",
+        "duration_s": 131.4,
+        "error": "",
+        "model_advice": "\n\n建议重点人工复核低置信商品，并关注预计到货前存在缺货风险的商品。当前预算被个别品类大量占用，其余商品未获采购，建议调整预算或设置优先类别后重新计算。",
+        "model_original": ""
+      },
+      {
+        "version": 2,
+        "status": "ok",
+        "summary": "{\"policy\": {\"budget_cents\": 300000, \"cover_days\": 30, \"safety_days\": 7, \"priority_categories\": [], \"excluded_skus\": []}, \"explanation\": \"修订核对（程序生成）：方案 v2。预算：5000.00 元 → 3000.00 元。\\n全局预算 3000.00 元，方案金额 2999.11 元，余额 0.89 元。采购 38 件，涉及 2 种商品；逐商品未满足数量合计 10130 件。各商品的采购及未满足原因以方案表格的规则说明为准。金额为人民币；修改后须重新人工批准。\", \"unsupported_requests\": []}",
+        "duration_s": 112.4,
+        "error": "",
+        "model_advice": "",
+        "model_original": "\n\n{\"policy\":{\"budget_cents\":300000,\"cover_days\":30,\"safety_days\":7,\"priority_categories\":[],\"excluded_skus\":[]},\"explanation\":\"已将预算从 500000 分（5000 元）调整为 300000 分（3000 元），cover_days、safety_days、priority_categories、excluded_skus 均保持原值。规则引擎重新计算后总成本 299911 分，剩余 89 分，仅 SKU-007 与 SKU-009 入选采购清单，其余 20 个 SKU 因预算约束被跳过。\",\"unsupported_requests\":[]}"
+      },
+      {
+        "version": 2,
+        "status": "ok",
+        "summary": "\n\n## 执行结果摘要\n\n**任务 ID**：`aa9912538dd6`（版本 2）  \n**最终状态**：`COMPLETED`，成功 2 / 总计 2，无报错、无异常问题。\n\n---\n\n### 供应商 SUP-02\n| 项目 | 回执内容 |\n|---|---|\n| 外部单号（external_ref） | `aa9912538dd6-v2-SUP-02` |\n| 采购单号（order_id） | `PO-8A397CEEF5B1` |\n| 状态 | `SUBMITTED` |\n| 商品 | SKU-009 / 商品09，37 件，单价 7,932 分 |\n| 总金额 | 293,484 分（¥2,934.84） |\n| 流程轨迹 | duplicate_check → 未发现重复 → submit → readback 回写一致 |\n| 一致性问题 | **无** |\n\n### 供应商 SUP-06\n| 项目 | 回执内容 |\n|---|---|\n| 外部单号（external_ref） | `aa9912538dd6-v2-SUP-06` |\n| 采购单号（order_id） | `PO-E774D380F304` |\n| 状态 | `SUBMITTED` |\n| 商品 | SKU-007 / 商品07，1 件，单价 6,427 分 |\n| 总金额 | 6,427 分（¥64.27） |\n| 流程轨迹 | duplicate_check → 未发现重复 → submit → readback 回写一致 |\n| 一致性问题 | **无** |\n\n---\n\n### 汇总\n- 两单均通过重复检查（`found: false`），提交后 Playwright 详情页回读与系统记录一致，`problems` 为空。\n- 本次不存在超时恢复场景（事件记录 `recovered: false`），无需人工对账介入。\n- 合计采购金额：**299,911 分（¥2,999.11）**。\n\n> 以上仅依据真实回执汇总，未虚构任何单号或结果；本智能体无审批权，未提交或重试任何采购申请。",
+        "duration_s": 96.0,
+        "error": "",
+        "model_advice": "",
+        "model_original": ""
+      }
+    ],
+    "summary_review": "Actual supplier/order IDs, statuses, quantities, line totals and CNY units independently matched the executor summary. Raw model revision text preserved separately from deterministic facts.",
+    "evidence": "outputs/m5-queue-real/business.json",
+    "evidence_sha256": "924585bc88201beb9b7a178c9ea8abb3d4febb0555de5d07b40f88deb76485b5"
+  },
+  "faults": {
+    "partial": {
+      "first": [
+        {
+          "order_id": "PO-407525945759",
+          "external_ref": "92e996ff5418-v1-S",
+          "supplier_id": "S",
+          "status": "SUBMITTED",
+          "lines": [
+            {
+              "sku": "A",
+              "name": "商品",
+              "order_qty": 48,
+              "unit_cost_cents": 100,
+              "line_total_cents": 4800
+            }
+          ],
+          "total_cost_cents": 4800
+        }
+      ],
+      "final": [
+        {
+          "order_id": "PO-E3567C7538AF",
+          "external_ref": "92e996ff5418-v1-T",
+          "supplier_id": "T",
+          "status": "SUBMITTED",
+          "lines": [
+            {
+              "sku": "B",
+              "name": "商品B",
+              "order_qty": 48,
+              "unit_cost_cents": 100,
+              "line_total_cents": 4800
+            }
+          ],
+          "total_cost_cents": 4800
+        },
+        {
+          "order_id": "PO-407525945759",
+          "external_ref": "92e996ff5418-v1-S",
+          "supplier_id": "S",
+          "status": "SUBMITTED",
+          "lines": [
+            {
+              "sku": "A",
+              "name": "商品",
+              "order_qty": 48,
+              "unit_cost_cents": 100,
+              "line_total_cents": 4800
+            }
+          ],
+          "total_cost_cents": 4800
+        }
+      ],
+      "post_count": 2
+    },
+    "crash": {
+      "restored": "NEEDS_RECONCILIATION",
+      "orders": [
+        {
+          "order_id": "PO-A7991D4E3611",
+          "external_ref": "dd43d743978b-v1-S",
+          "supplier_id": "S",
+          "status": "SUBMITTED",
+          "lines": [
+            {
+              "sku": "A",
+              "name": "商品",
+              "order_qty": 48,
+              "unit_cost_cents": 100,
+              "line_total_cents": 4800
+            }
+          ],
+          "total_cost_cents": 4800
+        }
+      ],
+      "post_count": 1,
+      "audit_issues": [
+        "前一次尝试尚未结束"
+      ]
+    }
+  },
+  "original_failures": [
+    {
+      "path": "outputs/m5-queue-red.xml",
+      "sha256": "d8e376aa969b42e6092c4011c444deff5872a420ca29d0fa61578adf9db76417"
+    },
+    {
+      "path": "outputs/m5-queue-orphan-red.xml",
+      "sha256": "965221e7f4ec6b93d4b0b78d6a3957349da5883ccdb26238873fcaa9774ea243"
+    },
+    {
+      "path": "outputs/m5-queue-orphan-api-red.xml",
+      "sha256": "195c2b364a8c461ed9b4e1bbb1b35b0d799fced245ed4d7bef8b7b4eead21543"
+    },
+    {
+      "path": "outputs/m5-queue-oracle-red.xml",
+      "sha256": "3c3742e82a5753c28b8f2e3bfb4b140435f61501abf6d34aa1992ac03ed8da8b"
+    },
+    {
+      "path": "outputs/m5-queue-final.xml",
+      "sha256": "169e2787128ac036a0ee9f54d41c5bd16cbc2814697e06e848a9c8e43385d76a"
+    },
+    {
+      "path": "outputs/m5-queue-final2.xml",
+      "sha256": "0f65ae343e8558079d390e1a0c8c8808e448fcaa6517509bf53974f726196991"
+    }
+  ],
+  "failure_explanations": [
+    "Initial seven missing endpoint/outbox cases failed before implementation.",
+    "Orphan submit evidence lacking execution_started incorrectly authorized a replay: fixed consumer/restart and standalone execute guards; original rejections retained.",
+    "Continuous approval can already be EXECUTING at the first UI poll: comparator now requires persisted human approval and exact task/version/hash/dataset, zero separate execute clicks; wrong/missing proof controls still reject.",
+    "A recorded owned process briefly survived Supervisor.stop after root termination: capture identities before stopping and require all recorded descendants to exit before return. Original assertion preserved.",
+    "One startup test selected a non-pinned CLI: runtime correctly rejected it. Same entry rerun with project CLI 0.166.0-alpha.5.1 passed; no protection disabled."
+  ],
+  "isolation": "Temporary SQLite databases, independent loopback ports, synthetic business data and local test portal; real provider key supplied only in process environment. Existing user database and .env not reset.",
+  "closing_review": "Same Agent performed separate closing review, saved additional orphan/replay failures, and ran concurrent consumers after the frozen real-model run. No independent-person review claim.",
+  "issues": {
+    "M5-3-01": "closed within independent technical scope",
+    "M5-3-02": "closed within independent technical scope",
+    "M5-3-03": "closed within independent technical scope",
+    "M5-3-04": "closed within independent technical scope",
+    "M5-3-05": "closed within independent technical scope"
+  },
+  "reproduce": {
+    "interfaces": "python -m pytest tests/test_approval_queue.py tests/test_m4_acceptance_tools.py tests/test_collection.py tests/test_m3_acceptance.py tests/test_recover_api.py -q",
+    "browser": "RUN_PLAYWRIGHT_E2E=1 RUN_WORKBENCH_E2E=1; python -m pytest tests/test_approval_queue_live.py -k \"not required\" -q",
+    "startup": "RESTOCK_CODEX_BIN=<project pinned CLI>; RUN_STARTUP_E2E=1; python -m pytest tests/test_startup.py tests/test_desktop_lifecycle.py -q",
+    "real": "RESTOCK_CODEX_BIN=<project pinned CLI>; RUN_REAL_MODEL_E2E=1; python -m pytest tests/test_approval_queue_live.py::test_required_model_workbench_one_approval -q"
+  },
+  "remaining": [
+    "M5-2 immutable purchase context, period budgets, automatic scheduling/deduplication/update and in-app inbox.",
+    "M5-4 combined automatic collection/publication/planning/one-approval end-to-end test.",
+    "M5-0B and M5-4 real authorized merchant source, two actual batches and independent reconciliation.",
+    "No physical other-machine or ten-run real-model stability claim."
+  ],
+  "goal_status": "active",
+  "publication": "No commit or push."
+}

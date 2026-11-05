@@ -21,7 +21,7 @@ def require(condition, code):
 def port():
     with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
 
-def run_workbench_flow(tmp_path, mode, output):
+def run_workbench_flow(tmp_path, mode, output, continuous=False):
     required = mode == 'required'
     OUT=Path(output);OUT.mkdir(parents=True,exist_ok=True)
     if required:
@@ -37,7 +37,7 @@ def run_workbench_flow(tmp_path, mode, output):
         cmd=list(spec.command);flag='--server.port' if spec.name=='ui' else '--port'
         cmd[cmd.index(flag)+1]=str(ports[spec.name])
         specs.append(Service(spec.name,ports[spec.name],cmd,spec.health_path))
-    evidence={'mode':mode,'model':'intern-s2' if required else None,'sample_skus':30,'passed':False,'phase':'start','phase_seconds':{},'task_id':None,'failure_kind':'blocking','safety_failures':[],
+    evidence={'continuous_execution':continuous,'mode':mode,'model':'intern-s2' if required else None,'sample_skus':30,'passed':False,'phase':'start','phase_seconds':{},'task_id':None,'failure_kind':'blocking','safety_failures':[],
               'dataset_files':{n:hashlib.sha256((ROOT/'data'/(n+'.csv')).read_bytes()).hexdigest() for n in ('sales','inventory','suppliers')}}
     supervisor=Supervisor(specs,env,tmp_path/'logs',timeout=60)
     page=None;browser=None
@@ -99,6 +99,11 @@ def run_workbench_flow(tmp_path, mode, output):
                     if state['operation']['busy'] or state['latest_plan']['version']==2:break
                     time.sleep(.2)
                 revised=wait_operation(client,'reviser')
+                revision_result=revised['operation']['result']['agent']
+                explanation=json.loads(revision_result['summary'])['explanation']
+                amount=revised['latest_plan']['total_cost_cents']
+                exact=f'{amount//100}.{amount%100:02d} 元'
+                assert '程序生成' in explanation and exact in explanation and '3000.00 元' in explanation
                 assert revised['latest_plan']['version']==2
                 assert revised['latest_plan']['policy']=={**first['latest_plan']['policy'],'budget_cents':300000}
                 assert revised['approved_plan_hash'] is None
@@ -109,11 +114,21 @@ def run_workbench_flow(tmp_path, mode, output):
                 evidence['orders_after_revision']=httpx.get(urls['portal']+'/api/purchase-orders',trust_env=False).json()
                 require(evidence['stale_execute_http']==409 and evidence['orders_after_revision']==[], 'stale_approval')
                 page.get_by_text('我已核对 v2 的数量、金额和风险提示',exact=True).click()
-                page.get_by_role('button',name='批准当前方案').click()
-                expect(page.get_by_role('button',name='创建采购申请')).to_be_visible()
-                evidence['approval_v2']=client.get('/tasks/'+evidence['task_id']).json()
+                if continuous:
+                    page.get_by_role('button',name='批准并执行',exact=True).click()
+                    for _ in range(60):
+                        approved=client.get('/tasks/'+evidence['task_id']).json()
+                        if approved.get('execution_intent'):break
+                        time.sleep(.2)
+                    evidence['approval_v2']=approved
+                    require(approved.get('execution_intent',{}).get('plan_hash')==revised['latest_plan_hash'],'durable_approval_binding')
+                    evidence['execution_clicks']=0
+                else:
+                    page.get_by_role('button',name='批准当前方案').click()
+                    expect(page.get_by_role('button',name='创建采购申请')).to_be_visible()
+                    evidence['approval_v2']=client.get('/tasks/'+evidence['task_id']).json()
+                    page.get_by_role('button',name='创建采购申请').click()
                 require(evidence['approval_v2']['approved_plan_hash']==revised['latest_plan_hash'], 'approval_binding')
-                page.get_by_role('button',name='创建采购申请').click()
                 evidence['phase']='executor'
                 for _ in range(60):
                     state=client.get('/tasks/'+evidence['task_id']).json()
@@ -187,5 +202,27 @@ def run_workbench_flow(tmp_path, mode, output):
                 evidence['final_state']=httpx.get(urls['api']+'/tasks/'+evidence['task_id'],trust_env=False,timeout=5).json()
                 evidence['activity']=httpx.get(urls['api']+'/tasks/'+evidence['task_id']+'/activity',trust_env=False,timeout=5).json()['events']
             except httpx.HTTPError:pass
+        import psutil
+        owned={}
+        for _,proc,owner,_ in supervisor.children:
+            try:
+                for process in [owner]+owner.children(recursive=True):owned[process.pid]=process.create_time()
+            except psutil.Error:pass
         supervisor.stop()
+        remaining=[]
+        for pid,created in owned.items():
+            try:
+                process=psutil.Process(pid)
+                if process.is_running() and abs(process.create_time()-created)<.01:remaining.append(pid)
+            except psutil.Error:pass
+        open_ports=[]
+        for number in ports.values():
+            with socket.socket() as probe:
+                probe.settimeout(.3)
+                if probe.connect_ex(('127.0.0.1',number))==0:open_ports.append(number)
+        evidence['shutdown']={'recorded_processes':len(owned),'remaining_owned':remaining,'open_service_ports':open_ports}
+        if remaining or open_ports:
+            evidence['passed']=False;evidence['safety_failures'].append('shutdown_residue')
         (OUT/'business.json').write_text(json.dumps(redact_value(evidence,env),ensure_ascii=False,indent=2),encoding='utf-8')
+
+        assert not remaining and not open_ports, 'Owned service residue after shutdown'

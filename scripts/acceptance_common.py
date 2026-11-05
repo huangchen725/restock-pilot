@@ -46,7 +46,7 @@ def fingerprint(root=ROOT):
             if path.is_file() and path.suffix in ('.py','.ps1','.cmd','.csv','.toml','.yaml','.yml','.json') and not any(
                     p in ('__pycache__', 'node_modules', '.venv', '.codex', 'sessions', 'outputs') for p in path.parts):
                 files[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ('start.py','setup.cmd','start.cmd','bootstrap-lock.json','runtime-lock.json','requirements.txt','requirements.lock','.python-version','pytest.ini'):
+    for name in ('desktop.py','launcher_control.py','RestockPilot.vbs','安装或修复 RestockPilot.vbs','关闭 RestockPilot.vbs','.streamlit/config.toml','start.py','setup.cmd','start.cmd','bootstrap-lock.json','runtime-lock.json','requirements.txt','requirements.lock','.python-version','pytest.ini'):
         path = root/name
         if path.exists():
             files[name] = hashlib.sha256(path.read_bytes()).hexdigest()

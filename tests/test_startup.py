@@ -173,7 +173,8 @@ def test_real_entrypoint_health_status_and_ctrl_c(tmp_path, monkeypatch, offline
     # Never use a real upstream key or the user's database for readiness checks.
     monkeypatch.setenv("INTERN_API_KEY", "sk-local-startup-test-not-real")
     monkeypatch.setenv("RESTOCK_AGENT_MODE", "off" if offline else "required")
-    monkeypatch.setenv("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200")
+    for name,key in [("api","RESTOCK_API_URL"),("portal","PROCUREMENT_PORTAL_URL"),("proxy","RESTOCK_LITELLM_URL")]:
+        if name in port_map:monkeypatch.setenv(key,f"http://127.0.0.1:{port_map[name]}")
     monkeypatch.setenv("PROCUREMENT_DB_PATH", str(tmp_path / "portal.db"))
     monkeypatch.setenv("RESTOCK_DB_PATH", str(tmp_path / "main.db"))
     observed = []
@@ -190,3 +191,9 @@ def test_real_entrypoint_health_status_and_ctrl_c(tmp_path, monkeypatch, offline
     assert all(proc.poll() is not None for proc in observed)
     for spec in start.services(offline):
         check_port(spec.port)
+
+
+@pytest.fixture(autouse=True)
+def isolated_launcher_control(tmp_path,monkeypatch):
+    monkeypatch.setenv('RESTOCK_INSTANCE_FILE',str(tmp_path/'instance.json'))
+    monkeypatch.setenv('RESTOCK_LIFECYCLE_LOCK',str(tmp_path/'lifecycle.lock'))

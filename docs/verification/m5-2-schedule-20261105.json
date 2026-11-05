@@ -1,0 +1,1017 @@
+{
+  "schema": 1,
+  "date": "2026-11-05",
+  "baseline": "e875405e177b9e76edee0d67ba41251e0d3361b4",
+  "branch": "temporary",
+  "scope": "M5-2 durable scheduler, shared store-period budget, candidate/approval/execution gates, workbench, interrupted process recovery, and original-source controlled recovery. Synthetic source observations and local demonstration procurement; actual CLI fault-injector tests are separate from real model acceptance.",
+  "status": "technical subitems verified; entire M5 remains active",
+  "source_sha256": {
+    "app/__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/approval_queue.py": "b5bd5b71b0d31f42c34faa8eb5105ee1becb472b437c4f21bc1b5f2df0c8db71",
+    "app/browser_collection.py": "47a294d164a00068dec37f238a0a6ac375dbcb85eae781f791b59f26458a05aa",
+    "app/business_tools.py": "ff06b36b097c15ff302b6d109ef2e1b6c32dcf37131679bcee108ca712231775",
+    "app/collection.py": "a1d6d4e59739b32b638df431cb6aef72563a3577e4fc5ebeb3029a69af6dc49a",
+    "app/collection_api.py": "c3fae04b7a104c1c26d50093c45a120c2caa672e2e21acbb8ab87121ff5de9ad",
+    "app/collector.py": "792ede254e18df978a4eddd0beb9757a8a7ef0c5210b67acb087f04803e6e044",
+    "app/config.py": "98915136472b021f5150c7130350ae871cdd5d4ba525b0c625fa82dcd67f452c",
+    "app/datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app/db.py": "16b4e36ba6f16ea31db29d47ff6ee50e6cf2b1b360fee45dfa580fbb246900c0",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app/jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app/ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app/main.py": "1f86c9730879cb6e0e0490a522449b6b9b7acaa110c528a0eaa51d724434bf6c",
+    "app/mcp_server.py": "9f754c0d9cd73095d7a30bdcf2db5e2f7323e00cfeba1efbf8a4e33957c1b8de",
+    "app/merchant_test_portal.py": "4e5210bdda2b1cf843e9d3233b8de5229ab2e6abe938c2caaaa40422c1e9dd1c",
+    "app/models.py": "dca6d526c75245b9259601bb5b1ff475afbec37a6536d62b5a98ea799e7e2ab1",
+    "app/period_coverage.py": "dee6213f213a0298667bee2079a1745b418469d5464fb623f4a1f3ff64e110fb",
+    "app/processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app/procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app/prompts.py": "942382b363845591bd5b86953599bb61d3e5cea36c6a855edd9e497c5944d289",
+    "app/purchase_context.py": "e09e6f93cbd13d3bd2bd5aaed31d2742e2773adbb6caa67324b9286eca7156f8",
+    "app/redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app/replenishment.py": "9af08cc922d7b96542223e3e6103849119b3fdc3efc535c4c53351adbd475597",
+    "app/reports.py": "c78e4992add6c1823e151b9a1a6f03a8300fc85184dd9d44c95d0f0d4c4f1c13",
+    "app/rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app/runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app/runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app/state_machine.py": "5e7e577d9025f91dd13d7122c9a248c4286cf28cd4047bcb8b244f7e0e681d89",
+    "app/user_messages.py": "543c4d28a16c7750d39a86c75f618348fe76b52925f26f1bc32dfde6426bf6ee",
+    "app/validation.py": "0ad9efa7b89178fd4980bcf19913127edb3f1aa8eda5cb4e2ea3099e38fa41f3",
+    "ui/app.py": "5656b72be12b98057e07f7fdf355086a51b57a6da32faa4d59b7b365ad393e89",
+    "ui/collection_panel.py": "d0e9c67b394523bb50e5c84728c1f49a807d3cbc9dd8e2ffaabf44313cd0242e",
+    "ui/replenishment_panel.py": "7fa20225d6eb5a89b373b3306309cabb3e20689b271591b0061357dde734bcab",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/acceptance_plugin.py": "5b0295795839658939224bb5886eb8edf97843f0b196228e608093009c72affd",
+    "tests/native_entry_checks.py": "fa8c848a40f260d1779a8fb48406260c181f338a48c92ce302820cf9dbdd0a98",
+    "tests/scenario_catalog.py": "e2040656a293559c1aeb6bf5c549355b925ba93cf81502cb4ba5f112e635325c",
+    "tests/scheduler_probe_server.py": "cc5c565e59ff06e789a66fd43d525e2d6dbef5b0a72203c21e05ed6c00d7472d",
+    "tests/summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests/support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests/test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests/test_approval_queue.py": "53d4945001212789b8ea7c046aacbb839e73741cee610b4415ff0977aef4f8b6",
+    "tests/test_approval_queue_live.py": "c8df7e55e2f8449e0dc8de2ee0933bb1808df8b02f33589d1eef363bdda56e27",
+    "tests/test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests/test_browser_collection.py": "9f59670503701846bf8d1472829926b81532e8abd67502fc5a8703f406c970d7",
+    "tests/test_collection.py": "2e7d3767078dfe7cf65d9886fbf169ce695a0f1575d2441b4dd12764cebf5990",
+    "tests/test_collection_workbench.py": "980e8fcbd5b412d7db5b0606c5fa28022305a32eca2c35f332137b369f3578f6",
+    "tests/test_collector_cli.py": "798bceff0b151a68160b187ae9e9804dc1d92693742d39d228671960a2018eb4",
+    "tests/test_collector_state.py": "be83e33fd3344959277850858dd12b1777c40d4d372de9b4cc0d2e1e32eb3f84",
+    "tests/test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests/test_desktop_lifecycle.py": "3d0bf763509ce3fb343914c2028a4c870883d1665f1b86488a9a5da3fbfa2bc2",
+    "tests/test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests/test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests/test_fixed_scenarios.py": "fc7a62eb80ecd82544da4929be6968013e0230133c6c31428fe9c883ff911dc4",
+    "tests/test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests/test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests/test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests/test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests/test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests/test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests/test_m4_acceptance_tools.py": "41b88c11ecf94c4ff9ed2316398e1ec26f39232eb8bf76c0d2b5d326b8aa4b0a",
+    "tests/test_m4_delivery.py": "b32285ea57de54539f08f5dbdcca13ca7ea384cd1e66557420db80031d49bd0b",
+    "tests/test_m4_workbench.py": "c642d8f7f37f38cad268cfbf57b271dadc9c585f4e84c792f6aa29972aa8a5fb",
+    "tests/test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests/test_merchant_test_portal.py": "6c76ba21ab9152a768b63b300efbda4da3f4f14c6d65faf80d3ccc9c51cee805",
+    "tests/test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests/test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests/test_period_coverage.py": "fc7ca0b85c7af28c98a21862c148ed8feaf0ba7e6da598bb1e1b1fd64938fecc",
+    "tests/test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests/test_purchase_context.py": "df673192a1520faa4f1f92cd3faa178f12c2db2f95a036e18f8accd87aedf640",
+    "tests/test_real_collection.py": "5b23e346455043d45f61147710d2990632a046fb7dd741136fe59c7c237576c5",
+    "tests/test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests/test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests/test_replenishment_live.py": "135c0de9ccef26a30d83ceef55fc8b086956a4d6bf30d68c9b374aa6a3b52a45",
+    "tests/test_replenishment_schedule.py": "32f06e168944f28f839f4d1196bd58f1046d6ad3c9b3ae2c258f5d4f39be581a",
+    "tests/test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests/test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests/test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests/test_runtime_versions.py": "815c9a2cad923535d994b48c7c5a58901d6cb5a0d021332c3e051f40fddc4687",
+    "tests/test_setup.py": "592fce110dcac75ef924f921e083c8cfc090ccc72afd81e083d7309fd8923fab",
+    "tests/test_setup_e2e.py": "fa938ab5535b1067bcee3c2b5fea9d1a42133c207ee10021d615e74315804a38",
+    "tests/test_startup.py": "824b4da906b5e4897660d9fd61bba389dea952f181a57119f93a920c4c324e59",
+    "tests/test_step3_api.py": "c22aa9e5024fbc93584a44b9ed2342c56efc35051b21d310a10c60a1456cfb84",
+    "tests/test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests/test_usability_core.py": "91ed9c71f13f9a1ba221d18535a9b4c8702b31d670fc452311ac475532b21eb8",
+    "tests/test_usability_ui.py": "7be53159758f299b965910147d38c873e66de71984fb3b46f9e7c8579596d0a8",
+    "tests/test_workbench_e2e.py": "034c45ca1add7905c5880675e7f2462b7755b077b32d3b516594a3fd7c58024b",
+    "tests/workbench_flow.py": "946626b7cc5f30bb72fe59aa68b0cc031ed6735b7c4de55cac1ce638ccfe4267",
+    "scripts/acceptance_common.py": "c7d71af9ae0536bfd9bbbbb37e23c765517fd5fb644dd2eb4771dff733a07113",
+    "scripts/business_evidence.py": "6bff2be33c094aafd60e0899af4d04a850f5e869ba9b41fa68230564d42a7832",
+    "scripts/check_delivery.py": "9fea5c0f005c5687f4f87dfbbc0acae520989409589ef4abaebd35429d9f1b4c",
+    "scripts/generate_data.py": "1821207b7014a911c6dbea6ea872d6d4eba6059d0a031c06ba33a7ef68bacaa1",
+    "scripts/install_environment.py": "c8d2255b5cfb3718f453263fccd665af71d76daf8a9a7bb8b2ef252c68142c62",
+    "scripts/install_window.ps1": "1e5ccd7b8e79d579b77fb9f3fac55937976ddb86a560d752503679fbb7d8157b",
+    "scripts/launch.ps1": "879cd84e310986b7d026e770f1c2a160f0d391f1ece6cc6303f5faafa2e1b7b3",
+    "scripts/owned_process.ps1": "ad7f85399f54fd4cf3caf586add2c47501d81ba8dee8e79b154e4f6aba628d15",
+    "scripts/run_acceptance.py": "07ea2e39369e4a51b759f677f96f74efacdaa5b1f7265e1581599d98c8606c9b",
+    "scripts/run_smoke_e2e.py": "ad1398c19846c6dc5f75b82ba5316f2fbb638ccee3b9e8947e5c3ae676d9d976",
+    "scripts/run_stability.py": "6510433777f0c7d5e5dd879f229519b4d1e25784857f5d1cdd8cf9b1c450a872",
+    "scripts/setup.ps1": "a363704b5e70ef2c9e4b9b009a5e7aeea164101423ada53aa2562857fabff608",
+    "data/contract.json": "c393a6458c83b501f7894f38591a2a7ee3b489c97590f114341dcc48c4daf599",
+    "data/inventory.csv": "64423f216b619a2d59859b4e63397ccd09e677edfc181a7765cb43ec79d8886a",
+    "data/sales.csv": "2b705cfc3054ae189ac5ca5124867e4ec056d0fde0c0ce3ca5fe14e5f689f23d",
+    "data/suppliers.csv": "3d88e9642a898733072f13db3b1cc30e4fe09e67f3bae1ef5996c1ed26cbe015",
+    "agent-integration/codex-config.toml": "9d441a60dacdd5bafcf2bb4aa3e753ad6afbb7c4e6032ee5a8db3f545f10e398",
+    "agent-integration/config.toml": "ea1c12bad8cad498390e6c75b9c64d89b188575b60b8e9a69dfbbf3cebbcabdf",
+    "agent-integration/litellm-config.yaml": "c0c4fad9e239c5adf9564e690b47c3b408b815651c1876f00b047b76be60e861",
+    "desktop.py": "0f6072172ea91dce5c2339ec81b5e43cddfcf640a3b96f129000ee1b8a799134",
+    "launcher_control.py": "0c0c7ece448e5d845a6918e0b959bd5e80cc0bfa7183b3c33b356d51707f2f10",
+    "RestockPilot.vbs": "be6e4399cff53d3fadb89a6a084c2b39e890abbdd19d17c589ca634d2c8aa2e2",
+    "安装或修复 RestockPilot.vbs": "8764b7a963ae475f43a0b23c04d6c8a71552d1b20da221388e85760463b2597b",
+    "关闭 RestockPilot.vbs": "5d909aea528326c012cb114c94e66d482fa439c53af38feceef545a9b71e2a13",
+    ".streamlit/config.toml": "c6bdace88610b3a82d69d6964ae979ae6a61bcbdb235b841f1f33da425800396",
+    "start.py": "62e0fad98cac4ded7b9067896ed3370be2fe99705a1f0e2c8f1b4e43014e118a",
+    "setup.cmd": "1d6f64f699433ead6d14dc284d4f00c765049741ed411baa84eb86c9c5c027ea",
+    "start.cmd": "ac30207d175d8e8e7cf998d4094044098464a66c3f136f0f642183db0b427b14",
+    "bootstrap-lock.json": "2091626fac1cb30783f2ec5fb3c3891ddc3a79d4244b20b87d83ef32d916faab",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "requirements.txt": "eea2dcd02dd1c2b3b358f0152b4a3fbb970be320e8a0143edb3ff1b75dca11c4",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    ".python-version": "9bccfb61c57081accd6a0a9bbc2909a77ee387cfe0168a97c8f1592f3d9d6b92",
+    "pytest.ini": "ddfcf6e0017476e9b9e8e55559c80e166c21f4f1ac242c7468dc85ad9dc69e52"
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "executable": "D:\\书生智能体比赛temp\\.venv\\Scripts\\python.exe",
+    "packages": [
+      [
+        "aiohappyeyeballs",
+        "2.7.1"
+      ],
+      [
+        "aiohttp",
+        "3.14.5"
+      ],
+      [
+        "aiosignal",
+        "1.4.0"
+      ],
+      [
+        "altair",
+        "6.3.0"
+      ],
+      [
+        "annotated-doc",
+        "0.0.5"
+      ],
+      [
+        "annotated-types",
+        "0.8.0"
+      ],
+      [
+        "anyio",
+        "4.16.0"
+      ],
+      [
+        "apscheduler",
+        "3.11.3"
+      ],
+      [
+        "attrs",
+        "26.1.0"
+      ],
+      [
+        "azure-core",
+        "1.41.0"
+      ],
+      [
+        "azure-identity",
+        "1.27.0"
+      ],
+      [
+        "azure-storage-blob",
+        "12.31.1"
+      ],
+      [
+        "backoff",
+        "2.2.1"
+      ],
+      [
+        "boto3",
+        "1.43.123"
+      ],
+      [
+        "botocore",
+        "1.43.123"
+      ],
+      [
+        "certifi",
+        "2026.10.23"
+      ],
+      [
+        "cffi",
+        "2.1.1"
+      ],
+      [
+        "charset-normalizer",
+        "3.5.2"
+      ],
+      [
+        "click",
+        "8.5.0"
+      ],
+      [
+        "colorama",
+        "0.4.6"
+      ],
+      [
+        "croniter",
+        "6.2.4"
+      ],
+      [
+        "cryptography",
+        "50.0.2"
+      ],
+      [
+        "distro",
+        "1.9.0"
+      ],
+      [
+        "dnspython",
+        "2.9.1"
+      ],
+      [
+        "email-validator",
+        "2.3.0"
+      ],
+      [
+        "expression",
+        "5.8.0"
+      ],
+      [
+        "fastapi",
+        "0.162.0"
+      ],
+      [
+        "fastapi-sso",
+        "0.23.0"
+      ],
+      [
+        "fastuuid",
+        "0.14.0"
+      ],
+      [
+        "filelock",
+        "3.32.7"
+      ],
+      [
+        "frozenlist",
+        "1.8.0"
+      ],
+      [
+        "fsspec",
+        "2026.9.0"
+      ],
+      [
+        "granian",
+        "2.8.7"
+      ],
+      [
+        "greenlet",
+        "3.5.6"
+      ],
+      [
+        "gunicorn",
+        "23.0.0"
+      ],
+      [
+        "h11",
+        "0.16.0"
+      ],
+      [
+        "h2",
+        "4.4.1"
+      ],
+      [
+        "hf-xet",
+        "1.8.0"
+      ],
+      [
+        "hiredis",
+        "3.5.0"
+      ],
+      [
+        "hpack",
+        "4.2.0"
+      ],
+      [
+        "httpcore",
+        "1.0.9"
+      ],
+      [
+        "httpcore2",
+        "2.16.0"
+      ],
+      [
+        "httpx",
+        "0.28.1"
+      ],
+      [
+        "httpx2",
+        "2.16.0"
+      ],
+      [
+        "huggingface_hub",
+        "1.33.0"
+      ],
+      [
+        "hyperframe",
+        "6.1.0"
+      ],
+      [
+        "idna",
+        "3.20"
+      ],
+      [
+        "importlib_metadata",
+        "8.9.0"
+      ],
+      [
+        "iniconfig",
+        "2.3.1"
+      ],
+      [
+        "inquirerpy",
+        "0.3.4"
+      ],
+      [
+        "isodate",
+        "0.7.2"
+      ],
+      [
+        "itsdangerous",
+        "2.2.0"
+      ],
+      [
+        "jinja2",
+        "3.1.6"
+      ],
+      [
+        "jiter",
+        "0.18.0"
+      ],
+      [
+        "jmespath",
+        "1.1.0"
+      ],
+      [
+        "jsonschema",
+        "4.26.0"
+      ],
+      [
+        "jsonschema-specifications",
+        "2025.9.1"
+      ],
+      [
+        "litellm",
+        "1.106.5"
+      ],
+      [
+        "litellm-enterprise",
+        "0.1.76.post1"
+      ],
+      [
+        "litellm-proxy-extras",
+        "0.4.108"
+      ],
+      [
+        "markdown-it-py",
+        "4.2.0"
+      ],
+      [
+        "markupsafe",
+        "3.0.4"
+      ],
+      [
+        "mcp",
+        "2.3.0"
+      ],
+      [
+        "mcp-types",
+        "2.3.0"
+      ],
+      [
+        "mdurl",
+        "0.1.2"
+      ],
+      [
+        "msal",
+        "1.39.0"
+      ],
+      [
+        "msal-extensions",
+        "1.3.1"
+      ],
+      [
+        "multidict",
+        "7.2.1"
+      ],
+      [
+        "narwhals",
+        "2.28.0"
+      ],
+      [
+        "numpy",
+        "2.5.4"
+      ],
+      [
+        "oauthlib",
+        "4.0.1"
+      ],
+      [
+        "openai",
+        "2.54.0"
+      ],
+      [
+        "opentelemetry-api",
+        "1.45.2"
+      ],
+      [
+        "orjson",
+        "3.13.0"
+      ],
+      [
+        "packaging",
+        "26.3"
+      ],
+      [
+        "pandas",
+        "3.1.0"
+      ],
+      [
+        "pfzy",
+        "0.3.4"
+      ],
+      [
+        "pillow",
+        "13.0.0"
+      ],
+      [
+        "pip",
+        "25.0.1"
+      ],
+      [
+        "playwright",
+        "1.64.1"
+      ],
+      [
+        "pluggy",
+        "1.7.0"
+      ],
+      [
+        "polars",
+        "1.44.2"
+      ],
+      [
+        "polars-runtime-32",
+        "1.44.2"
+      ],
+      [
+        "prompt_toolkit",
+        "3.0.53"
+      ],
+      [
+        "propcache",
+        "0.5.4"
+      ],
+      [
+        "protobuf",
+        "7.36.2"
+      ],
+      [
+        "psutil",
+        "7.2.2"
+      ],
+      [
+        "psycopg",
+        "3.3.6"
+      ],
+      [
+        "psycopg-binary",
+        "3.3.6"
+      ],
+      [
+        "pyarrow",
+        "26.0.0"
+      ],
+      [
+        "pycparser",
+        "3.12"
+      ],
+      [
+        "pydantic",
+        "2.14.2"
+      ],
+      [
+        "pydantic-settings",
+        "2.16.2"
+      ],
+      [
+        "pydantic_core",
+        "2.50.2"
+      ],
+      [
+        "pydeck",
+        "0.9.3"
+      ],
+      [
+        "pyee",
+        "14.0.0"
+      ],
+      [
+        "pygments",
+        "2.21.0"
+      ],
+      [
+        "pyjwt",
+        "2.15.1"
+      ],
+      [
+        "pynacl",
+        "1.6.2"
+      ],
+      [
+        "pytest",
+        "9.2.0"
+      ],
+      [
+        "python-dateutil",
+        "2.9.0.post0"
+      ],
+      [
+        "python-dotenv",
+        "1.2.4"
+      ],
+      [
+        "python-multipart",
+        "0.0.33"
+      ],
+      [
+        "pywin32",
+        "312"
+      ],
+      [
+        "pyyaml",
+        "6.0.3"
+      ],
+      [
+        "redis",
+        "8.1.0"
+      ],
+      [
+        "referencing",
+        "0.37.0"
+      ],
+      [
+        "regex",
+        "2026.9.29"
+      ],
+      [
+        "requests",
+        "2.34.2"
+      ],
+      [
+        "restrictedpython",
+        "8.5"
+      ],
+      [
+        "rich",
+        "13.9.4"
+      ],
+      [
+        "rpds-py",
+        "2026.9.1"
+      ],
+      [
+        "rq",
+        "2.12.0"
+      ],
+      [
+        "s3transfer",
+        "0.19.3"
+      ],
+      [
+        "six",
+        "1.17.0"
+      ],
+      [
+        "sniffio",
+        "1.3.1"
+      ],
+      [
+        "soundfile",
+        "0.14.0"
+      ],
+      [
+        "sse-starlette",
+        "3.6.0"
+      ],
+      [
+        "starlette",
+        "1.10.0"
+      ],
+      [
+        "streamlit",
+        "1.66.1"
+      ],
+      [
+        "tiktoken",
+        "0.14.0"
+      ],
+      [
+        "tokenizers",
+        "0.23.3"
+      ],
+      [
+        "tomlkit",
+        "0.15.2"
+      ],
+      [
+        "tqdm",
+        "4.70.1"
+      ],
+      [
+        "truststore",
+        "0.10.5"
+      ],
+      [
+        "typing-inspection",
+        "0.4.4"
+      ],
+      [
+        "typing_extensions",
+        "4.16.0"
+      ],
+      [
+        "tzdata",
+        "2026.6"
+      ],
+      [
+        "tzlocal",
+        "5.4.5"
+      ],
+      [
+        "urllib3",
+        "2.8.0"
+      ],
+      [
+        "uvicorn",
+        "0.54.0"
+      ],
+      [
+        "watchdog",
+        "6.0.0"
+      ],
+      [
+        "wcwidth",
+        "0.9.4"
+      ],
+      [
+        "websockets",
+        "15.0.1"
+      ],
+      [
+        "yarl",
+        "1.25.1"
+      ],
+      [
+        "zipp",
+        "4.1.2"
+      ]
+    ],
+    "platform": "Windows-11-10.0.26200-SP0",
+    "runtime_config": {
+      "RESTOCK_CODEX_BIN": "D:\\书生智能体比赛temp\\.venv\\codex\\node_modules\\.bin\\codex.cmd",
+      "PLAYWRIGHT_BROWSERS_PATH": null
+    }
+  },
+  "passed": 215,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 243.309,
+  "layers": {
+    "1": 172,
+    "2": 17,
+    "3": 8,
+    "4": 18
+  },
+  "fingerprint_unchanged": true,
+  "targets": [
+    "D:\\书生智能体比赛temp\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "tests/test_replenishment_schedule.py",
+    "tests/test_replenishment_live.py",
+    "tests/test_period_coverage.py",
+    "tests/test_purchase_context.py",
+    "tests/test_collection.py",
+    "tests/test_collector_state.py",
+    "tests/test_browser_collection.py",
+    "tests/test_collector_cli.py",
+    "tests/test_agent_runtime.py",
+    "tests/test_approval_queue.py",
+    "tests/test_recover_api.py",
+    "tests/test_m3_safety.py",
+    "tests/test_m1_api.py",
+    "tests/test_m0_api.py",
+    "tests/test_usability_core.py",
+    "tests/test_workbench_e2e.py",
+    "tests/test_usability_ui.py",
+    "tests/test_approval_queue_live.py::test_workbench_one_approval_executes_and_exports_30_sku",
+    "tests/test_approval_queue_live.py::test_queue_partial_result_stops_and_controlled_recovery_does_not_rebuy",
+    "tests/test_approval_queue_live.py::test_queued_execution_crash_keeps_unknown_and_never_reposts",
+    "-q",
+    "--tb=short",
+    "-p",
+    "tests.acceptance_plugin",
+    "--basetemp=D:\\书生智能体比赛temp\\outputs\\m5-schedule-final\\run\\pytest-temp",
+    "--junitxml=D:\\书生智能体比赛temp\\outputs\\m5-schedule-final\\run\\result.xml"
+  ],
+  "nodes": [
+    "tests/test_replenishment_schedule.py::test_observe_then_review_and_replays_keep_one_task",
+    "tests/test_replenishment_schedule.py::test_pause_period_and_unauthorized_settings_block_new_execution",
+    "tests/test_replenishment_schedule.py::test_no_demand_checks_do_not_create_empty_tasks",
+    "tests/test_replenishment_schedule.py::test_source_updates_same_unexecuted_task_and_invalidates_approval",
+    "tests/test_replenishment_schedule.py::test_all_tasks_share_period_budget_and_pending_order_coverage",
+    "tests/test_replenishment_schedule.py::test_alias_source_and_unbound_new_task_cannot_reissue_budget",
+    "tests/test_replenishment_schedule.py::test_policy_edits_do_not_reset_current_period_and_next_period_rejects_old_approval",
+    "tests/test_replenishment_schedule.py::test_model_failure_retries_same_task_but_never_publishes_before_success",
+    "tests/test_replenishment_schedule.py::test_pause_during_model_call_cannot_publish_candidate",
+    "tests/test_replenishment_schedule.py::test_same_failed_input_has_bounded_provider_attempts",
+    "tests/test_replenishment_schedule.py::test_changed_budget_facts_during_generation_cannot_publish_stale_plan",
+    "tests/test_replenishment_schedule.py::test_live_readback_disagreement_blocks_new_task_until_controlled_recovery",
+    "tests/test_replenishment_schedule.py::test_review_requires_actual_observation_even_before_first_data",
+    "tests/test_replenishment_schedule.py::test_concurrent_checks_claim_one_durable_task",
+    "tests/test_replenishment_schedule.py::test_check_frequency_update_reschedules_without_resetting_period",
+    "tests/test_replenishment_schedule.py::test_cycle_report_explains_other_task_occupancy_and_escapes_source",
+    "tests/test_replenishment_schedule.py::test_source_status_and_model_context_describe_active_cycle",
+    "tests/test_replenishment_schedule.py::test_identical_fresh_observation_clears_stale_block_without_new_version",
+    "tests/test_replenishment_schedule.py::test_controlled_recovery_keeps_original_cycle_after_new_data_and_pause",
+    "tests/test_replenishment_schedule.py::test_adopted_legacy_recovery_rejects_changed_target",
+    "tests/test_replenishment_schedule.py::test_two_approved_tasks_cannot_execute_concurrently_against_one_budget",
+    "tests/test_replenishment_live.py::test_workbench_observe_auto_update_one_approval_and_actual_order",
+    "tests/test_replenishment_live.py::test_scheduler_process_crash_reuses_task_and_committed_version[before]",
+    "tests/test_replenishment_live.py::test_scheduler_process_crash_reuses_task_and_committed_version[after]",
+    "tests/test_replenishment_live.py::test_changed_source_and_paused_scheduler_allow_original_order_recovery",
+    "tests/test_period_coverage.py::test_period_budget_is_cumulative_and_old_open_request_covers_demand",
+    "tests/test_period_coverage.py::test_duplicate_local_readbacks_do_not_double_budget_or_quantity",
+    "tests/test_period_coverage.py::test_same_order_mapped_to_inbound_is_not_deducted_twice",
+    "tests/test_period_coverage.py::test_received_matched_order_is_already_in_stock",
+    "tests/test_period_coverage.py::test_external_current_period_requires_original_amount_not_current_price",
+    "tests/test_period_coverage.py::test_prior_period_local_request_still_covers_but_does_not_reissue_old_budget",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[unknown_relation]",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[missing_mapping]",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[quantity_mismatch]",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[supplier_mismatch]",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[amount_mismatch]",
+    "tests/test_period_coverage.py::test_uncertain_overlap_or_inconsistent_receipts_blocks[unknown_receipt]",
+    "tests/test_period_coverage.py::test_partial_day_budget_boundary_is_not_guessed",
+    "tests/test_period_coverage.py::test_missing_purchase_context_is_not_zero_external_orders",
+    "tests/test_purchase_context.py::test_purchase_identity_and_changes_are_part_of_snapshot",
+    "tests/test_purchase_context.py::test_purchase_rows_reordered_are_semantically_same",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[duplicate]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[unknown_sku]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[unknown_status]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[wrong_total]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[incomplete]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[wrong_inbound]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[wrong_date]",
+    "tests/test_purchase_context.py::test_invalid_purchase_context_never_publishes[future_order]",
+    "tests/test_purchase_context.py::test_purchase_namespace_cannot_change_to_hide_existing_orders",
+    "tests/test_purchase_context.py::test_legacy_snapshot_and_schema2_plan_hash_unchanged",
+    "tests/test_purchase_context.py::test_purchase_namespace_and_mapping_identifiers_are_exact",
+    "tests/test_purchase_context.py::test_manifest_context_schema_cannot_be_falsified",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[reject-None]",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[reject-004]",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[reject-4.0]",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[zero-None]",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[zero-004]",
+    "tests/test_purchase_context.py::test_reuploading_only_csv_cannot_strip_source_binding[zero-4.0]",
+    "tests/test_purchase_context.py::test_implicit_local_dataset_cannot_strip_source_binding",
+    "tests/test_purchase_context.py::test_admitted_manual_task_keeps_provenance_when_source_appears[False]",
+    "tests/test_purchase_context.py::test_admitted_manual_task_keeps_provenance_when_source_appears[True]",
+    "tests/test_purchase_context.py::test_publication_after_admission_does_not_retroactively_rebind_generation",
+    "tests/test_collection.py::test_sources_accept_confirmed_config",
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[save_every_seconds-0]",
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[collect_every_seconds-True]",
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[check_every_seconds--1]",
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[max_age_seconds-1.5]",
+    "tests/test_collection.py::test_stage_then_publish_complete_csv_and_independent_values",
+    "tests/test_collection.py::test_changes_coalesce_and_equivalent_data_does_not_republish",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[incomplete]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[row_count]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[foreign]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[missing_day]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[extra_field]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[future]",
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[old]",
+    "tests/test_collection.py::test_pending_state_survives_db_reopen_and_settings_are_independent",
+    "tests/test_collection.py::test_published_files_recover_after_database_failure",
+    "tests/test_collection.py::test_source_change_blocks_old_approval_before_csv_save",
+    "tests/test_collection.py::test_stale_or_corrupted_source_blocks_new_task_and_approval",
+    "tests/test_collection.py::test_omitting_source_cannot_bypass_freshness_guard",
+    "tests/test_collection.py::test_failed_disk_write_keeps_old_version_and_pending_data",
+    "tests/test_collection.py::test_concurrent_publishing_has_one_formal_version",
+    "tests/test_collection.py::test_background_worker_saves_without_creating_task",
+    "tests/test_collection.py::test_source_identity_and_settings_cannot_be_overwritten",
+    "tests/test_collection.py::test_data_reversion_reuses_immutable_formal_files",
+    "tests/test_collection.py::test_normalizing_decimal_preserves_all_digits_without_context_rounding",
+    "tests/test_collection.py::test_extreme_timezone_is_rejected_without_server_error",
+    "tests/test_collection.py::test_background_corruption_is_visible_and_retries_are_scheduled",
+    "tests/test_collection.py::test_preexisting_manual_task_is_not_retroactively_bound_by_identical_source_data",
+    "tests/test_collection.py::test_source_calendar_day_uses_declared_offset_not_utc_date",
+    "tests/test_collection.py::test_successful_unchanged_save_clears_previous_publish_error",
+    "tests/test_collector_state.py::test_late_session_audit_preserves_run_identity_past_recent_twenty",
+    "tests/test_collector_state.py::test_late_failure_does_not_overwrite_user_interruption",
+    "tests/test_browser_collection.py::test_browser_config_rejects_external_and_secret_urls",
+    "tests/test_browser_collection.py::test_browser_two_batches_dedup_publish_and_independent_values",
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope0-\\u6210\\u672c\\u7f3a\\u5931]",
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope1-\\u542b\\u7a0e\\u542b\\u8fd0]",
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope2-missing days]",
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope3-\\u4e0d\\u5b58\\u5728\\u6216\\u5df2\\u505c\\u7528]",
+    "tests/test_browser_collection.py::test_reader_network_guard_and_session_expiry",
+    "tests/test_browser_collection.py::test_partial_version_change_and_schema_change_fail_closed",
+    "tests/test_browser_collection.py::test_claim_recovery_and_model_refusal_leave_no_observation",
+    "tests/test_browser_collection.py::test_visible_header_drift_and_cross_store_identity_rejected",
+    "tests/test_browser_collection.py::test_missing_sales_cannot_be_relabelled_zero",
+    "tests/test_browser_collection.py::test_periodic_collect_and_publish_restart_pause_and_stale_session",
+    "tests/test_browser_collection.py::test_inbound_status_unit_and_distinct_eta_contract",
+    "tests/test_browser_collection.py::test_unknown_inbound_status_is_not_silently_ignored",
+    "tests/test_browser_collection.py::test_warehouse_identifier_requires_exact_match",
+    "tests/test_collector_cli.py::test_cli_browser_allowed_and_hostile_output[None]",
+    "tests/test_collector_cli.py::test_cli_browser_allowed_and_hostile_output[foreign_tool]",
+    "tests/test_collector_cli.py::test_cli_browser_allowed_and_hostile_output[after_finish]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-exec_command]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[custom_tool_call-apply_patch]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__other__read]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[computer_call-]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_file]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_mcp_resource]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-view_image]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[web_search_call-]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__approve]",
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__build_plan]",
+    "tests/test_agent_runtime.py::test_request_and_child_environment_expose_only_capabilities",
+    "tests/test_agent_runtime.py::test_namespace_alias_cannot_smuggle_a_different_executor",
+    "tests/test_agent_runtime.py::test_broker_rejects_uncredentialed_calls_and_unknown_routes",
+    "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[False]",
+    "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[True]",
+    "tests/test_approval_queue.py::test_approval_and_intent_are_atomic_and_idempotent",
+    "tests/test_approval_queue.py::test_unauthorized_and_stale_approval_create_no_intent",
+    "tests/test_approval_queue.py::test_queue_commit_failure_rolls_back_approval",
+    "tests/test_approval_queue.py::test_dispatch_replay_executes_once_and_preserves_report",
+    "tests/test_approval_queue.py::test_expired_and_revoked_intents_never_execute",
+    "tests/test_approval_queue.py::test_changed_source_invalidates_queued_execution",
+    "tests/test_approval_queue.py::test_restart_claim_without_attempt_requeues_but_attempt_requires_check",
+    "tests/test_approval_queue.py::test_task_claim_collision_requeues_without_losing_approval",
+    "tests/test_approval_queue.py::test_repeated_approval_different_id_and_post_start_revoke_refused",
+    "tests/test_approval_queue.py::test_partial_failure_is_not_automatically_retried",
+    "tests/test_approval_queue.py::test_orphan_submit_intent_is_not_treated_as_unstarted",
+    "tests/test_approval_queue.py::test_pending_intent_survives_database_reopen",
+    "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[None]",
+    "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[missing_approval]",
+    "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_hash]",
+    "tests/test_approval_queue.py::test_continuous_evidence_uses_persisted_approval_not_poll_timing[wrong_intent_version]",
+    "tests/test_approval_queue.py::test_concurrent_consumers_claim_one_execution",
+    "tests/test_recover_api.py::test_recover_rejects_mismatched_approved_hash",
+    "tests/test_recover_api.py::test_recover_rejects_unapproved_state",
+    "tests/test_recover_api.py::test_recover_full_flow_with_audit_and_state",
+    "tests/test_m3_safety.py::test_P0_1_historical_unknown_cannot_be_revised_after_one_empty_lookup",
+    "tests/test_m3_safety.py::test_P0_3_history_unknown_is_not_resubmitted_by_recover",
+    "tests/test_m3_safety.py::test_P1_3_resolved_unknown_can_complete",
+    "tests/test_m3_safety.py::test_P1_3_4_successful_recover_reaches_completed[PARTIAL]",
+    "tests/test_m3_safety.py::test_P1_3_4_successful_recover_reaches_completed[NEEDS_RECONCILIATION]",
+    "tests/test_m3_safety.py::test_P1_3_4_successful_recover_reaches_completed[FAILED]",
+    "tests/test_m3_safety.py::test_P0_4_recovery_alternative_success_status_can_complete[recovered_after_error]",
+    "tests/test_m3_safety.py::test_P0_4_recovery_alternative_success_status_can_complete[already_exists]",
+    "tests/test_m3_safety.py::test_P0_2_4_covered_and_dedup_and_cumulative_budget[created]",
+    "tests/test_m3_safety.py::test_P0_2_4_covered_and_dedup_and_cumulative_budget[recovered_after_error]",
+    "tests/test_m3_safety.py::test_P0_2_4_covered_and_dedup_and_cumulative_budget[already_exists]",
+    "tests/test_m3_safety.py::test_P0_2_reconcile_persists_actual_order_for_revision",
+    "tests/test_m3_safety.py::test_P1_5_cancelled_receipt_is_not_valid_coverage",
+    "tests/test_m3_safety.py::test_P1_10_dataset_change_after_purchase_rejected",
+    "tests/test_m3_safety.py::test_P1_11_failed_noop_revision_keeps_published_old_version",
+    "tests/test_m3_safety.py::test_P1_11_result_persistence_failure_cannot_leave_approvable_new_plan",
+    "tests/test_m3_safety.py::test_P1_6_finish_only_is_incomplete",
+    "tests/test_m3_safety.py::test_P1_6_7_incomplete_event_chain_is_rejected[missing_hash]",
+    "tests/test_m3_safety.py::test_P1_6_7_incomplete_event_chain_is_rejected[wrong_finish_hash]",
+    "tests/test_m3_safety.py::test_P1_6_7_incomplete_event_chain_is_rejected[extra_finish]",
+    "tests/test_m3_safety.py::test_P1_6_7_incomplete_event_chain_is_rejected[orphan_result]",
+    "tests/test_m3_safety.py::test_P1_6_7_incomplete_event_chain_is_rejected[forged_plan_hash]",
+    "tests/test_m3_safety.py::test_P1_2_recovery_restart_preserves_approval_and_requires_reconciliation",
+    "tests/test_m3_safety.py::test_P1_9_summary_drops_resolved_historical_pending",
+    "tests/test_m3_safety.py::test_P1_8_order_result_persistence_error_is_propagated",
+    "tests/test_m1_api.py::test_upload_validation_repair_and_immutable_storage",
+    "tests/test_m1_api.py::test_upload_size_is_bounded",
+    "tests/test_m1_api.py::test_full_workbench_api_flow_diff_approval_execution_exports",
+    "tests/test_m1_api.py::test_background_request_returns_before_model_and_blocks_conflicts",
+    "tests/test_m1_api.py::test_reupload_to_current_task_invalidates_approval",
+    "tests/test_m1_api.py::test_background_execution_rejects_overlapping_writes",
+    "tests/test_m1_api.py::test_natural_request_is_parsed_and_persisted",
+    "tests/test_m1_api.py::test_needs_input_can_continue_with_new_data",
+    "tests/test_m1_api.py::test_reports_escape_untrusted_text_and_csv_formulas",
+    "tests/test_m1_api.py::test_migration_preserves_existing_rows_and_restart_marks_unknown",
+    "tests/test_m0_api.py::test_api_exposes_snapshot_and_calculation_contract",
+    "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[missing_file]",
+    "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[bad_stock]",
+    "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[missing_day]",
+    "tests/test_m0_api.py::test_data_errors_stop_before_model_or_plan[unconfirmed]",
+    "tests/test_m0_api.py::test_request_can_explicitly_confirm_contract",
+    "tests/test_m0_api.py::test_revision_uses_persisted_snapshot_after_file_changes_and_reload",
+    "tests/test_m0_api.py::test_unsupported_or_incomplete_decision_cannot_create_revision[decision0]",
+    "tests/test_m0_api.py::test_unsupported_or_incomplete_decision_cannot_create_revision[decision1]",
+    "tests/test_m0_api.py::test_unsupported_or_incomplete_decision_cannot_create_revision[decision2]",
+    "tests/test_m0_api.py::test_policy_rejects_unsupported_fields_and_coercion[policy0]",
+    "tests/test_m0_api.py::test_policy_rejects_unsupported_fields_and_coercion[policy1]",
+    "tests/test_m0_api.py::test_policy_rejects_unsupported_fields_and_coercion[policy2]",
+    "tests/test_m0_api.py::test_policy_rejects_unsupported_fields_and_coercion[policy3]",
+    "tests/test_m0_api.py::test_unknown_sku_or_category_is_not_silently_ignored",
+    "tests/test_m0_api.py::test_legacy_json_hash_and_approved_execution_remain_compatible",
+    "tests/test_m0_api.py::test_v2_hash_covers_snapshot_and_evidence",
+    "tests/test_m0_api.py::test_legacy_revision_requires_new_task_without_calling_model",
+    "tests/test_m0_api.py::test_snapshot_corruption_is_rejected_before_revision_model",
+    "tests/test_usability_core.py::test_native_entries_use_existing_installation_core",
+    "tests/test_usability_core.py::test_csv_template_is_a_valid_explained_download",
+    "tests/test_usability_core.py::test_failed_generation_can_retry_but_purchase_cannot",
+    "tests/test_usability_core.py::test_revision_facts_override_misleading_prose_without_changing_policy",
+    "tests/test_usability_core.py::test_successful_later_attempt_cannot_hide_interrupted_history",
+    "tests/test_usability_core.py::test_retry_keeps_source_binding_and_rejects_pending_new_data",
+    "tests/test_usability_core.py::test_revision_explanation_failure_cannot_publish_partial_candidate",
+    "tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download",
+    "tests/test_usability_ui.py::test_rejected_replacement_blocks_generation_until_corrected",
+    "tests/test_usability_ui.py::test_idle_form_keeps_user_edit_while_background_watcher_polls",
+    "tests/test_approval_queue_live.py::test_workbench_one_approval_executes_and_exports_30_sku",
+    "tests/test_approval_queue_live.py::test_queue_partial_result_stops_and_controlled_recovery_does_not_rebuy",
+    "tests/test_approval_queue_live.py::test_queued_execution_crash_keeps_unknown_and_never_reposts"
+  ],
+  "isolation": "Per-test temporary SQLite databases, dynamic localhost ports, synthetic data, isolated TEMP/TMP. Test services use owned-process Supervisor and ProcessScope cleanup; no user database reset.",
+  "run": "outputs/m5-schedule-final/run",
+  "business_evidence": {
+    "business/business.json": {
+      "sha256": "7e050e7f68aae04901a75203031c0f852169c07236d2232ab0af36a5a84ea9d6",
+      "bytes": 12229
+    },
+    "business/changed-source-recovery.json": {
+      "sha256": "a3df7104a74c4ac762be1d731930b0b383687a7627f345864d37d6ee621a3d0b",
+      "bytes": 1062
+    },
+    "business/restart-after.json": {
+      "sha256": "0a09db5f53397b445bef81abff01a377d28dfbd574a8b15607205302b197ca0e",
+      "bytes": 451
+    },
+    "business/restart-before.json": {
+      "sha256": "b4f6445f11911a3749fb65e5102d64d2225502cf361f33d2d185529fa7c9bf86",
+      "bytes": 451
+    },
+    "queue/business.json": {
+      "sha256": "e86b263cb2bc5cb1172bebe5460ff4791bba09d207ab8f6d9bb0eda9b9936a06",
+      "bytes": 1617458
+    },
+    "queue/crash.json": {
+      "sha256": "31a247d4f5f3ae20a3e89bcdaa1aadfa78f5e37fd482c1005556c8c68e81fb6e",
+      "bytes": 531
+    },
+    "queue/partial.json": {
+      "sha256": "6a1df7b0487c5e9e3697dcc555ffa2cac4e4d81c1c4d5fe154ae680eea5365e0",
+      "bytes": 1223
+    }
+  },
+  "closed": [
+    "M5-2-02 (technical scope)",
+    "M5-2-03 (technical scope)",
+    "M5-2-05 (admission scope)",
+    "M5-2-06",
+    "M5-2-07",
+    "M5-2-08",
+    "M5-2-09",
+    "M5-2-10",
+    "M5-2-11"
+  ],
+  "remaining": [
+    "M5-2-12 current-period invalid initial policy correction (static finding; API counterexample and implementation pending)",
+    "M5-4-01 combined browser collection -> published CSV -> automatic task -> one final approval -> actual orders/export, including real InternLM",
+    "M5-0B/M5-4-02 actual authorized shop and two real source batches not provided"
+  ],
+  "not_run": [
+    "Full regression",
+    "Real InternLM in this scheduler run",
+    "Fresh-machine installation",
+    "Public deployment or actual merchant writes"
+  ],
+  "failure_evidence": [
+    "outputs/m5-schedule-live.xml",
+    "outputs/m5-schedule-live2.xml",
+    "outputs/m5-schedule-extras-red.xml",
+    "outputs/m5-schedule-extras-red2.xml",
+    "outputs/m5-schedule-context-red.xml",
+    "outputs/m5-schedule-unblock-red.xml",
+    "outputs/m5-schedule-recovery-red.xml",
+    "outputs/m5-schedule-legacy-red.xml",
+    "outputs/m5-schedule-recovery-live.xml",
+    "outputs/m5-schedule-recovery-live2.xml",
+    "outputs/m5-schedule-recovery-live3.xml"
+  ],
+  "review": "Separate post-implementation review by the same agent, not independent-agent approval. Preserved original failures, corrected test entrance/expected arithmetic/readback counting/fault setup without weakening product conditions. Final frozen run includes all retained test contracts."
+}

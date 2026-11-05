@@ -17,8 +17,8 @@ def cadence_fields(prefix, schedule=None):
 
 def render(call):
     with st.expander('数据来源与定期保存', expanded=False):
-        st.caption('读取结果先整理暂存，到保存周期才形成正式 CSV；保存不会自动生成补货任务。频率单位为秒：1800 秒为半小时，3600 秒为一小时。')
-        st.info('可连接模拟商户网页，后台自动采集并定期保存。自动触发补货属于下一阶段，当前保存不会创建任务。')
+        st.caption('读取结果先整理暂存，到保存周期才形成正式 CSV；补货检查按另设频率进行。频率单位为秒：1800 秒为半小时，3600 秒为一小时。')
+        st.info('可连接模拟商户网页，后台自动采集并定期保存。在“自动补货与周期预算”另行启用检查后，会生成或更新待审方案，采购仍须人工批准。')
         with st.form('new-data-source'):
             name = st.text_input('来源名称', key='source-name')
             a, b = st.columns(2)

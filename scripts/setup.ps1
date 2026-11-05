@@ -44,7 +44,8 @@ try {
     }
     $null = Assert-LocalPath $managed
     $null = New-Item -ItemType Directory -Path $managed -Force
-    $guard = [IO.File]::Open((Join-Path $managed 'setup.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    try { $guard = [IO.File]::Open((Join-Path $managed 'setup.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
+    catch { Stop-Setup 'The project is running or another setup is active. Stop this project and retry; stale PID records do not block setup.' }
     $run = Assert-LocalPath (Join-Path $root ('outputs\setup\' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff') + '-' + $PID))
     $null = New-Item -ItemType Directory -Path $run -Force
     $lock = Get-Content -LiteralPath (Join-Path $root 'bootstrap-lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json

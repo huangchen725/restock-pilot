@@ -78,6 +78,18 @@ def export_html(plan, task_state, events, records, plan_hash, task_summary=None,
                 parts.append(f"<li>{e(p['external_ref'])} · {e(p.get('supplier_id',''))} · {e(p['status'])} · {e(p['problems'])}</li>")
             parts.append('</ul>')
         cross_summary = ''.join(parts)
+    cycle_section = ''
+    ctx = plan.automation_context
+    if ctx:
+        facts = ctx['coverage']
+        cycle_section = (f"<h2>预算周期与已有采购</h2><p>{e(ctx['period_start'])} 至 {e(ctx['period_end'])}（不含终点）。"
+                         f"周期额度 {e(ctx['budget_cents'])} 分；已有采购占用 {e(facts['occupied_cents'])} 分；"
+                         f"本方案新增 {plan.total_cost_cents} 分；周期剩余 {e(plan.budget_remaining_cents)} 分。</p>"
+                         '<p>这是生成本版本时核验的记录。批准及执行前会重新核对；恢复原申请仍计入原批准周期。'
+                         '已计入库存或在途的数量不会再次抵扣。</p>')
+        cycle_section += '<ul>'+''.join(
+            '<li>'+e(' / '.join(f['identity']))+f" · 周期占用 {e(f['charged_cents'])} 分 · 额外覆盖 {e(f['extra_covered_qty'])} 件</li>"
+            for f in facts['orders'])+'</ul>'
     audit_note = ('<p>执行记录尚不完整：'+e('；'.join(audit_summary.get('issues',[])))+'</p>') if audit_summary and not audit_summary['replay_complete'] else ''
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>RestockPilot 补货报告</title>
 <style>body{{font:16px/1.65 sans-serif;max-width:1100px;margin:40px auto;color:#183332;padding:20px}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ccd8d6;padding:8px;text-align:left}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f6f5;padding:14px}}</style>
@@ -89,6 +101,6 @@ def export_html(plan, task_state, events, records, plan_hash, task_summary=None,
 <p>主动排除：{e(', '.join(plan.excluded_skus) or '无')}；预算跳过：{e(', '.join(plan.skipped) or '无')}</p>
 <h2>批准与阶段记录</h2><p>{approval_text}。历史批准记录不代表当前仍有执行权限。</p>
 <details><summary>查看需求、修改与阶段记录</summary>{blocks(relevant)}</details>
-{cross_summary}{audit_note}
+{cycle_section}{cross_summary}{audit_note}
 <h2>采购申请与回读核对</h2>{'<ul>'+''.join(summary)+'</ul>' if summary else '<p>本版本暂无申请回执，不能据此认定执行成功。</p>'}
 <details><summary>查看申请明细与核对证据</summary>{blocks(receipts)}</details></html>'''

@@ -77,7 +77,7 @@ def client(tmp_path, monkeypatch):
             result = active_session().call('build_plan', {'task_id':ctx['task_id'], 'dataset_id':ctx['dataset_id'], 'policy':ctx['policy']})
             if "error" in result:
                 raise RuntimeError(f"MCP build_plan failed: {result}")
-            return {"status": "ok", "summary": "planner summary",
+            return {"status": "ok", "summary": json.dumps({'advice_codes':['review_parameters']}) if result['plan'].get('budget_cycle') else 'planner summary',
                     "tool_calls": ["mcp__restock__build_plan"], "duration_s": 0.1}
         if stage == "reviser":
             ctx = json.loads(context)

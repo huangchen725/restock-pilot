@@ -287,7 +287,15 @@ class MerchantBrowser:
                                       (r[0],r[1],r[2],str(int(r[6])*factor),r[7],eta))))
         if problems:
             raise PageError('；'.join(problems))
-        return {'batch_id':batch_id,'merchant_id':self.source['merchant_id'],'warehouse_id':self.source['warehouse_id'],
+        statuses={'已申请':'requested','已订货':'ordered','在途':'in_transit','已到货':'received'}
+        purchases=[{'order_id':p[0],'sku':p[3],'supplier_id':p[2],'quantity':int(p[6]),
+                    'status':statuses[p[7]],'created_date':p[1],'expected_date':p[8] or None,
+                    'amount_cents':None} for p in self.tables['inbound']
+                    if p[3] in selected and p[5]==self.warehouse_name]
+        offset=self.as_of.strftime('%z');offset=offset[:3]+':'+offset[3:]
+        purchase_context={'system_id':self.source.get('purchase_system_id') or 'merchant-test-v1:'+self.source['merchant_id'],
+                          'timezone_offset':offset,'complete':True,'row_count':len(purchases),'orders':purchases}
+        return {'purchase_context':purchase_context,'batch_id':batch_id,'merchant_id':self.source['merchant_id'],'warehouse_id':self.source['warehouse_id'],
                 'observed_at':datetime.now(timezone.utc).isoformat(),'source_as_of':self.as_of.isoformat(),
                 'complete':True,'row_counts':{'sales':len(sales),'inventory':len(inventory),'suppliers':len(suppliers)},
                 'sales':sales,'inventory':inventory,'suppliers':suppliers}

@@ -66,6 +66,14 @@ def due(conn,sid):
 
 def assert_snapshot_matches_portal(snapshot, portal, scope):
     assert len(snapshot.inventory)==len(scope)
+    context=snapshot.purchase_context
+    assert context and context.complete
+    assert context.row_count==len(context.orders)
+    expected=[r for r in portal.data.inbound if r['warehouse_id']=='W01' and r['sku'] in scope]
+    states={'已申请':'requested','已订货':'ordered','在途':'in_transit','已到货':'received'}
+    assert sorted((r.order_id,r.sku,r.quantity,r.status,r.created_date,r.expected_date,r.amount_cents) for r in context.orders)==sorted(
+        (r['po_no'],r['sku'],r['qty'],states[r['status']],r['created'],r['eta'],None) for r in expected)
+
     end=portal.data.window_end
     expected_sales={(r['date'].isoformat(),r['sku']):r['qty']-r['refund_qty'] for r in portal.data.sales
                     if r['store_id']=='S01' and r['sku'] in scope and end-timedelta(days=27)<=r['date']<=end}

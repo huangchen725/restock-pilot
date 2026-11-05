@@ -35,16 +35,17 @@ def run_owned(cmd,cwd,env,log,timeout=1200):
 
 
 @pytest.mark.skipif(os.getenv('RUN_SETUP_E2E')!='1',reason='explicit opt-in downloads and installs standalone runtimes')
-def test_blank_path_install_repeat_failure_recovery_and_product_flow():
+@pytest.mark.parametrize('entry',['cmd','window'])
+def test_blank_path_install_repeat_failure_recovery_and_product_flow(entry):
     out=Path(os.getenv('RESTOCK_SETUP_E2E_OUTPUT',str(ROOT/'outputs'/('setup-e2e-'+uuid.uuid4().hex[:8])))).resolve()
     out.mkdir(parents=True,exist_ok=False)
     project=out/'项目 A';project.mkdir()
-    for name in ('app','ui','scripts','tests','data'):
+    for name in ('app','ui','scripts','tests','data','.streamlit'):
         shutil.copytree(ROOT/name,project/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','.pytest_cache'))
     (project/'agent-integration').mkdir()
     for name in ('config.toml','codex-config.toml','litellm-config.yaml'):
         shutil.copyfile(ROOT/'agent-integration'/name,project/'agent-integration'/name)
-    for name in ('setup.cmd','start.cmd','start.py','bootstrap-lock.json','runtime-lock.json','requirements.txt','requirements.lock','.env.example','.python-version','pytest.ini'):
+    for name in ('setup.cmd','start.cmd','start.py','desktop.py','launcher_control.py','RestockPilot.vbs','安装或修复 RestockPilot.vbs','关闭 RestockPilot.vbs','bootstrap-lock.json','runtime-lock.json','requirements.txt','requirements.lock','.env.example','.python-version','pytest.ini'):
         shutil.copyfile(ROOT/name,project/name)
     files={str(p.relative_to(project)):sha(p) for p in project.rglob('*') if p.is_file()}
     env={k:v for k,v in os.environ.items() if not k.startswith(('RESTOCK_','INTERN_','CODEX_','RUN_','OPENAI_','PYTHON'))}
@@ -54,6 +55,7 @@ def test_blank_path_install_repeat_failure_recovery_and_product_flow():
     assert shutil.which('python',path=env['PATH']) is None and shutil.which('node',path=env['PATH']) is None
     cache=Path(os.getenv('RESTOCK_SETUP_TEST_CACHE',str(project/'.restock/cache'))).resolve()
     command=[project/'setup.cmd','-NoPause','-CacheDirectory',cache]
+    if entry=='window':command=[Path(os.environ['SystemRoot'])/'System32/WindowsPowerShell/v1.0/powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',project/'scripts/install_window.ps1','-Unattended','-CacheDirectory',cache]
     history=[]
     def setup(name,expected=0,offline=False):
         before=set((project/'outputs/setup').glob('*/installation.json')) if (project/'outputs/setup').exists() else set()
@@ -98,7 +100,7 @@ def test_blank_path_install_repeat_failure_recovery_and_product_flow():
     assert cases and not any(c.find('failure') is not None or c.find('error') is not None or c.find('skipped') is not None for c in cases)
     assert (project/'.env').read_bytes()==original
     assert all(sha(project/name)==value for name,value in files.items())
-    report={'passed':True,'scope':'same-machine, blank PATH and fresh project; not physical other-machine acceptance',
+    report={'entry':entry,'passed':True,'scope':'same-machine, blank PATH and fresh project; not physical other-machine acceptance',
             'product_passed':len(cases),'product_failed':0,'product_skipped':0,'config_preserved':True,'source_sha256':files,
             'runs':[{'name':r['name'],'exit':r['exit'],'status':r['record']['status']} for r in history]}
     (out/'summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')

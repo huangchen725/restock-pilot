@@ -79,6 +79,25 @@ CREATE TABLE IF NOT EXISTS collection_publications (
     source_id TEXT NOT NULL, dataset_id TEXT NOT NULL, batch_id TEXT NOT NULL,
     manifest_json TEXT NOT NULL, PRIMARY KEY(source_id, dataset_id)
 );
+CREATE TABLE IF NOT EXISTS replenishment_groups (
+ group_id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, warehouse_id TEXT NOT NULL,
+ record_json TEXT NOT NULL, UNIQUE(merchant_id,warehouse_id)
+);
+CREATE TABLE IF NOT EXISTS replenishment_periods (
+ group_id TEXT NOT NULL, period_start TEXT NOT NULL, record_json TEXT NOT NULL,
+ PRIMARY KEY(group_id,period_start)
+);
+CREATE TABLE IF NOT EXISTS replenishment_tasks (
+ task_id TEXT PRIMARY KEY, group_id TEXT NOT NULL, period_start TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS replenishment_checks (
+ seq INTEGER PRIMARY KEY AUTOINCREMENT, group_id TEXT NOT NULL, record_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS execution_intents (
+    request_id TEXT PRIMARY KEY, task_id TEXT NOT NULL,
+    record_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intent_task ON execution_intents(task_id);
 CREATE TABLE IF NOT EXISTS task_sources (
     task_id TEXT PRIMARY KEY, source_id TEXT NOT NULL
 );
@@ -447,9 +466,24 @@ def invalidate_source_approvals(conn, source_id):
 
 
 def sources_for_dataset(conn, dataset_id):
+    # Re-uploading three CSVs omits the purchase context. Match the immutable
+    # business projection too, so discarding metadata cannot unbind a source.
+    from app.validation import csv_projection_hash
     with _LOCK:
-        return [row[0] for row in conn.execute(
-            'SELECT source_id FROM collection_publications WHERE dataset_id=?', (dataset_id,))]
+        rows=conn.execute('SELECT source_id,dataset_id FROM collection_publications').fetchall()
+        if not rows:return []
+        matches={r[0] for r in rows if r[1]==dataset_id}
+        snapshot=get_dataset(conn,dataset_id)
+        if snapshot is not None:
+            base=csv_projection_hash(snapshot)
+            seen={}
+            for source_id,published_id in rows:
+                if published_id not in seen:
+                    published=get_dataset(conn,published_id)
+                    if published is None:raise ValueError('已发布来源的数据快照缺失，不能判断来源归属')
+                    seen[published_id]=csv_projection_hash(published)
+                if seen[published_id]==base:matches.add(source_id)
+        return sorted(matches)
 
 
 def save_collection_run(conn, run_id, source_id, record):
@@ -466,3 +500,81 @@ def get_collection_run(conn,run_id):
     with _LOCK:
         row=conn.execute('SELECT record_json FROM collection_runs WHERE run_id=?',(run_id,)).fetchone()
     return json.loads(row[0]) if row else None
+
+
+# Durable human approval outbox; business order authority stays in the execution ledger.
+def execution_intents(conn, task_id=None):
+    with _LOCK:
+        sql='SELECT record_json FROM execution_intents'
+        rows=conn.execute(sql+' WHERE task_id=? ORDER BY rowid' if task_id else sql+' ORDER BY rowid',
+                          (task_id,) if task_id else ()).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
+def get_execution_intent(conn, request_id):
+    with _LOCK:
+        row=conn.execute('SELECT record_json FROM execution_intents WHERE request_id=?',(request_id,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def save_execution_intent(conn, record):
+    with transaction(conn):
+        conn.execute('INSERT INTO execution_intents(request_id,task_id,record_json) VALUES (?,?,?) '
+                     'ON CONFLICT(request_id) DO UPDATE SET record_json=excluded.record_json',
+                     (record['request_id'],record['task_id'],json.dumps(record,ensure_ascii=False)))
+
+
+# M5-2: scheduling metadata, never a second authority for purchase receipts.
+def replenishment_groups(conn):
+    with _LOCK:return [json.loads(r[0]) for r in conn.execute('SELECT record_json FROM replenishment_groups ORDER BY rowid')]
+
+
+def replenishment_group(conn,gid):
+    with _LOCK:row=conn.execute('SELECT record_json FROM replenishment_groups WHERE group_id=?',(gid,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def save_replenishment_group(conn,record):
+    with transaction(conn):
+        conn.execute('INSERT INTO replenishment_groups VALUES (?,?,?,?) ON CONFLICT(group_id) DO UPDATE SET record_json=excluded.record_json',
+            (record['group_id'],record['merchant_id'],record['warehouse_id'],json.dumps(record,ensure_ascii=False)))
+
+
+def replenishment_period(conn,gid,start):
+    with _LOCK:row=conn.execute('SELECT record_json FROM replenishment_periods WHERE group_id=? AND period_start=?',(gid,start)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def save_replenishment_period(conn,record):
+    with transaction(conn):
+        conn.execute('INSERT INTO replenishment_periods VALUES (?,?,?) ON CONFLICT(group_id,period_start) DO UPDATE SET record_json=excluded.record_json',
+            (record['group_id'],record['start'],json.dumps(record,ensure_ascii=False)))
+
+
+def bind_replenishment_task(conn,tid,gid,start):
+    with transaction(conn):
+        row=replenishment_task(conn,tid)
+        if row and (row['group_id']!=gid or row['period_start']!=start):raise ValueError('不能改写任务的店仓周期身份')
+        conn.execute('INSERT OR IGNORE INTO replenishment_tasks VALUES (?,?,?)',(tid,gid,start))
+
+
+def replenishment_task(conn,tid):
+    with _LOCK:row=conn.execute('SELECT * FROM replenishment_tasks WHERE task_id=?',(tid,)).fetchone()
+    return dict(row) if row else None
+
+
+def replenishment_task_ids(conn,gid):
+    with _LOCK:return [r[0] for r in conn.execute('SELECT task_id FROM replenishment_tasks WHERE group_id=? ORDER BY rowid',(gid,))]
+
+
+def source_task_ids(conn,sids):
+    if not sids:return []
+    with _LOCK:return [r[0] for r in conn.execute('SELECT task_id FROM task_sources WHERE source_id IN ('+','.join('?' for _ in sids)+')',sids)]
+
+
+def record_replenishment_check(conn,gid,record):
+    with transaction(conn):conn.execute('INSERT INTO replenishment_checks(group_id,record_json) VALUES (?,?)',(gid,json.dumps(record,ensure_ascii=False)))
+
+
+def replenishment_checks(conn,gid):
+    with _LOCK:return [json.loads(r[0]) for r in conn.execute('SELECT record_json FROM replenishment_checks WHERE group_id=? ORDER BY seq DESC LIMIT 30',(gid,))]

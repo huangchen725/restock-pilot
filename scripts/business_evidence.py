@@ -40,7 +40,19 @@ def check_complete(business, output, mode):
     assert business['reviser']['approved_plan_hash'] is None
     for version,phase in ((1,'planner'),(2,'reviser')):
         approved=business['approval_v'+str(version)]
-        assert approved['state']=='APPROVED' and approved['approved_version']==version
+        assert approved['approved_version']==version
+        if business.get('continuous_execution') and version==2:
+            assert approved['state'] in ('APPROVED','EXECUTING','COMPLETED')
+            intent=approved['execution_intent']
+            assert intent['task_id']==task and intent['version']==version
+            assert intent['plan_hash']==business[phase]['latest_plan_hash'] and intent['dataset_id']==plan['dataset_id']
+            assert business['execution_clicks']==0
+            assert any(e['kind']=='approved' and e['payload'].get('source')=='human_workbench'
+                       and e['payload'].get('request_id')==intent['request_id']
+                       and e['payload'].get('version')==version and e['payload'].get('plan_hash')==intent['plan_hash']
+                       for e in business['activity'])
+        else:
+            assert approved['state']=='APPROVED'
         assert approved['approved_plan_hash']==business[phase]['latest_plan_hash']
     assert business['final_state']['state']=='COMPLETED'
     assert business['final_state']['latest_plan_hash']==business['reviser']['latest_plan_hash']

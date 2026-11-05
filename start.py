@@ -66,16 +66,17 @@ def check_port(port: int) -> None:
             raise StartupError(f"端口 {port} 已被占用或无法监听；请先停止已有服务。") from exc
 
 
-def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
+def preflight(specs: list[Service], env: dict[str, str], offline: bool, stopping=None) -> None:
     if not offline:
         key = env.get("INTERN_API_KEY", "").strip()
         if not key or key in {"在这里填端砚key", "你的端砚API密钥", "端砚key"}:
             raise StartupError("请在项目根目录 .env 中填写 INTERN_API_KEY，再重新启动。")
-    from app.runtime_versions import check_runtime
-    try:
-        check_runtime(env, include_cli=not offline)
-    except (ValueError, OSError, subprocess.SubprocessError) as exc:
-        raise StartupError(str(exc)) from exc
+    ports={spec.name:spec.port for spec in specs}
+    for name,port in (('RESTOCK_API_URL',ports.get('api',8100)),('RESTOCK_LITELLM_URL',ports.get('proxy',4000)),('PROCUREMENT_PORTAL_URL',ports.get('portal',8200))):
+        expected=f'http://127.0.0.1:{port}'
+        if env.get(name,expected).rstrip('/')!=expected:
+            raise StartupError(name+' 与统一入口不一致，请在启动窗口恢复本地连接设置。')
+    check_runtime_probe(env,not offline,stopping)
     missing = [name for name in ("uvicorn", "fastapi", "httpx", "psutil", "playwright", "streamlit")
                if importlib.util.find_spec(name) is None]
     if missing:
@@ -93,11 +94,68 @@ def preflight(specs: list[Service], env: dict[str, str], offline: bool) -> None:
             resolve_codex_bin(str(ROOT))
         except OSError as exc:
             raise StartupError(str(exc)) from exc
-    portal_url = env.get("PROCUREMENT_PORTAL_URL", "http://127.0.0.1:8200").rstrip("/")
-    if portal_url != "http://127.0.0.1:8200":
-        raise StartupError("统一入口管理本地演示后台，PROCUREMENT_PORTAL_URL 必须为 http://127.0.0.1:8200。")
     for spec in specs:
         check_port(spec.port)
+
+
+def wait_probe(proc,timeout,stopping=None):
+    deadline=time.monotonic()+timeout
+    while True:
+        if stopping is not None and stopping.is_set(): raise StartupError('启动已取消，正在释放检查进程。')
+        remaining=deadline-time.monotonic()
+        if remaining<=0: raise subprocess.TimeoutExpired(proc.args,timeout)
+        try: return proc.communicate(timeout=min(.2,remaining))
+        except subprocess.TimeoutExpired: pass
+
+
+def finish_probe(owner,proc):
+    owner.stop(); owner.close()
+    if proc:
+        if proc.poll() is None: proc.kill()
+        proc.wait(timeout=5)
+        if proc.stdout: proc.stdout.close()
+        if proc.stderr: proc.stderr.close()
+
+
+def check_workbench(spec,env,stopping):
+    """Read-only page probe: health endpoints alone do not prove a usable UI."""
+    from app.processes import ProcessScope
+    probe='''import sys
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    browser=p.chromium.launch(headless=True,args=['--no-proxy-server'])
+    try:
+        page=browser.new_page()
+        page.goto(sys.argv[1],timeout=30000)
+        page.get_by_role('button',name='检查并保存数据',exact=True).wait_for(timeout=30000)
+        assert page.locator('[data-testid="stException"]').count()==0
+    finally: browser.close()
+'''
+    owner=ProcessScope(); proc=None
+    try:
+        proc=owner.spawn([sys.executable,'-c',probe,f'http://127.0.0.1:{spec.port}'],cwd=ROOT,env=env,
+                         stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        wait_probe(proc,40,stopping)
+        if proc.returncode: raise StartupError('工作台页面未能完成准备。请查看诊断日志，或使用“安装 / 修复环境”。')
+    except subprocess.TimeoutExpired as exc:
+        raise StartupError('工作台页面准备超时，已取消本次启动。请安装或修复环境后重试。') from exc
+    finally: finish_probe(owner,proc)
+
+
+def check_runtime_probe(env,include_cli=True,stopping=None):
+    from app.processes import ProcessScope
+    scope=ProcessScope();proc=None
+    script="import os,sys;from app.runtime_versions import check_runtime;check_runtime(dict(os.environ),include_cli=sys.argv[1]=='1')"
+    try:
+        proc=scope.spawn([sys.executable,'-c',script,'1' if include_cli else '0'],cwd=ROOT,env=env,
+                         stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        output,error=wait_probe(proc,60,stopping)
+        if proc.returncode:
+            detail=redact(error.decode('utf-8',errors='replace'),env)[-1500:]
+            raise StartupError('运行环境检查失败，请安装/修复环境或恢复本地连接设置。\n'+detail)
+    except subprocess.TimeoutExpired as exc:
+        raise StartupError('运行环境检查超时，已停止本次检查进程。') from exc
+    finally: finish_probe(scope,proc)
 
 
 def is_healthy(spec: Service, env: dict[str, str]) -> bool:
@@ -125,6 +183,7 @@ class Supervisor:
                  timeout: float = 90):
         self.specs, self.env, self.log_dir, self.timeout = specs, env, log_dir, timeout
         self.children = []
+        self.scopes = []
         self.stopping = threading.Event()
 
     def _log(self, pipe, path):
@@ -143,10 +202,10 @@ class Supervisor:
                 raise StartupError("启动已取消。")
             # Recheck immediately before launch; never adopt or stop an existing server.
             check_port(spec.port)
-            options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
-            proc = subprocess.Popen(spec.command, cwd=ROOT, env=self.env,
-                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                **options)
+            from app.processes import ProcessScope
+            scope=ProcessScope();self.scopes.append(scope)
+            proc=scope.spawn(spec.command,cwd=ROOT,env=self.env,stdin=subprocess.DEVNULL,
+                             stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             try:
                 owner = psutil.Process(proc.pid)
                 owner.create_time()  # Cache identity so later PID reuse is detectable.
@@ -179,6 +238,20 @@ class Supervisor:
     def stop(self):
         import psutil
         self.stopping.set()
+        # Record identities while the roots still exist. After Job termination,
+        # a console helper can briefly outlive its root and no longer be found
+        # through owner.children(). Stop is complete only when these exit too.
+        owned={}
+        for _,proc,owner,_ in self.children:
+            try:
+                for process in [owner]+owner.children(recursive=True):
+                    owned[(process.pid,process.create_time())]=process
+            except psutil.NoSuchProcess:
+                pass
+        for scope in reversed(self.scopes):
+            try: scope.stop()
+            finally: scope.close()
+        self.scopes.clear()
         for _, proc, owner, reader in reversed(self.children):
             # Only this run's process identities and their descendants are eligible.
             try:
@@ -204,14 +277,29 @@ class Supervisor:
                 except subprocess.TimeoutExpired:
                     pass
                 reader.join(timeout=2)
+        _,alive=psutil.wait_procs(list(owned.values()),timeout=5)
+        if alive:
+            raise StartupError('本次后台进程尚未全部退出，请查看启动诊断。')
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="RestockPilot 统一启动；Ctrl+C 停止本次启动的服务。")
-    parser.add_argument("action", nargs="?", choices=("start", "status"), default="start")
+    parser.add_argument("action", nargs="?", choices=("start", "status", "stop"), default="start")
     parser.add_argument("--offline", action="store_true", help="关闭模型，仅启动 API 和演示后台")
     parser.add_argument("--check", action="store_true", help="只检查配置、依赖和端口，不启动")
+    parser.add_argument('--open-browser',action='store_true')
     args = parser.parse_args(argv)
+    if args.action=='stop':
+        from launcher_control import request_control,read_instance
+        try:
+            print(request_control('stop')['message'],flush=True)
+            deadline=time.monotonic()+20
+            while read_instance() and time.monotonic()<deadline:time.sleep(.2)
+            if read_instance():raise StartupError('停止仍在进行，请查看启动窗口。')
+            return 0
+        except Exception:
+            print('停止未完成，请查看启动窗口。',file=sys.stderr);return 1
+
     try:
         from app.config import load_environment
         load_environment()
@@ -232,6 +320,7 @@ def main(argv=None) -> int:
     env["RESTOCK_APPROVAL_TOKEN"] = env.get("RESTOCK_APPROVAL_TOKEN") or secrets.token_urlsafe(32)
     specs = services(offline)
     supervisor = None
+    control = None
     previous_handlers = {}
     try:
         if args.action == "status":
@@ -239,15 +328,25 @@ def main(argv=None) -> int:
             for spec, ok in ready:
                 print(f"{spec.name}: {'就绪' if ok else '未就绪'}")
             return 0 if all(ok for _, ok in ready) else 1
-        preflight(specs, env, offline)
         if args.check:
+            preflight(specs, env, offline)
             print("配置、依赖与端口检查通过。此检查不验证模型密钥有效性或端到端任务。")
             return 0
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S") + f"-{os.getpid()}"
         supervisor = Supervisor(specs, env, ROOT / "outputs" / "launcher" / stamp)
+        from launcher_control import LocalControl
+        control=LocalControl(supervisor.stopping,mode)
+        env.update(RESTOCK_CONTROL_URL=control.url,RESTOCK_CONTROL_TOKEN=control.token)
         for sig in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[sig] = signal.signal(sig, lambda *_: supervisor.stopping.set())
+        preflight(specs,env,offline,supervisor.stopping)
         supervisor.start()
+        for spec in specs:
+            if spec.name=='ui':check_workbench(spec,env,supervisor.stopping)
+        control.state='ready';control.message='工作台已就绪'
+        if args.open_browser:
+            import webbrowser
+            webbrowser.open('http://127.0.0.1:8501')
         print("服务已启动。模式：" + ("离线，未启用模型" if offline else "真实模型（密钥与推理尚未验收）"), flush=True)
         print("工作台：http://127.0.0.1:8501；采购演示：http://127.0.0.1:8200", flush=True)
         print(f"日志：{supervisor.log_dir}\n保持本窗口运行，按 Ctrl+C 统一停止。", flush=True)
@@ -261,6 +360,7 @@ def main(argv=None) -> int:
     finally:
         if supervisor:
             supervisor.stop()
+        if control: control.close()
         for sig, handler in previous_handlers.items():
             signal.signal(sig, handler)
 

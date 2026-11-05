@@ -14,13 +14,13 @@ from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import db, runner, jobs, datasets, reports, ledger, collection
+from app import db, runner, jobs, datasets, reports, ledger, collection, approval_queue, replenishment
 from app.execution import PlaywrightProcurementAdapter, build_supplier_orders, summarize_execution
 from app.models import Policy, TaskState, canonical_json, DataContract, RevisionDecision
 from app.prompts import build_stage_prompt
 from app.state_machine import TaskRecord, TransitionError
 from app.validation import load_snapshot, snapshot_hash, validate_policy
-from app.business_tools import ToolSession, active_session, planner_review
+from app.business_tools import ToolSession, active_session, planner_review, revision_review
 from app.agent_runtime import AgentRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,9 +36,16 @@ async def lifespan(app):
     collector_worker = CollectorWorker(get_conn, lambda: COLLECTION_DIR)
     collector_worker.start()
     publisher.start()
+    import sys
+    approved_worker = approval_queue.ApprovalWorker(sys.modules[__name__])
+    approved_worker.start()
+    replenishment_worker=replenishment.Worker(sys.modules[__name__])
+    replenishment_worker.start()
     try:
         yield
     finally:
+        replenishment_worker.stop()
+        approved_worker.stop()
         collector_worker.stop()
         publisher.stop()
         jobs.shutdown()
@@ -72,6 +79,79 @@ def _task_source_ready(task_id, dataset_id):
 def health():
     return {"status": "ok", "service": "restock-pilot", "version":"0.7.0-m3",
             "agent_mode":os.getenv("RESTOCK_AGENT_MODE","required")}
+
+
+def _human(token):
+    if not secrets.compare_digest(token,APPROVAL_TOKEN):
+        raise HTTPException(403,'此操作只能从人工工作台提交。')
+
+
+@app.get('/system/status')
+def system_status():
+    conn=get_conn()
+    with db._LOCK:
+        busy=conn.execute('SELECT COUNT(*) FROM task_context WHERE busy=1').fetchone()[0]
+    collecting=sum(r['state'].get('collection_job',{}).get('status') in ('queued','running') for r in db.list_sources(conn))
+    return {'busy_tasks':busy,'collecting_sources':collecting,'can_stop':bool(os.getenv('RESTOCK_CONTROL_URL'))}
+
+
+@app.post('/system/stop')
+def stop_system(x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    import httpx
+    from urllib.parse import urlsplit
+    url=os.getenv('RESTOCK_CONTROL_URL','');parsed=urlsplit(url)
+    if parsed.scheme!='http' or parsed.hostname!='127.0.0.1' or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
+        raise HTTPException(409,'此服务未通过统一入口启动，请使用原启动入口停止。')
+    try:
+        response=httpx.post(url+'/stop',headers={'X-Restock-Control':os.getenv('RESTOCK_CONTROL_TOKEN','')},trust_env=False,timeout=3)
+        response.raise_for_status()
+    except httpx.HTTPError:
+        raise HTTPException(503,'无法连接启动窗口，请使用“关闭 RestockPilot”入口。')
+    return {'message':'正在停止本次服务。已保存资料保留；中断的采集下次完整重读，采购须先核对再恢复。'}
+
+
+@app.post('/replenishment-policies')
+def configure_replenishment(request:replenishment.Settings,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    try:return replenishment.configure(get_conn(),request)
+    except ValueError as exc:raise HTTPException(409,str(exc))
+
+
+@app.put('/replenishment-policies/{group_id}')
+def update_replenishment(group_id:str,request:replenishment.Settings,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    try:return replenishment.configure(get_conn(),request,group_id)
+    except ValueError as exc:raise HTTPException(409,str(exc))
+
+
+@app.get('/replenishment-policies')
+def list_replenishment():
+    return {'policies':[replenishment.info(get_conn(),g['group_id']) for g in db.replenishment_groups(get_conn())]}
+
+
+@app.get('/replenishment-policies/{group_id}')
+def get_replenishment(group_id:str):
+    try:return replenishment.info(get_conn(),group_id)
+    except ValueError as exc:raise HTTPException(404,str(exc))
+
+
+@app.post('/replenishment-policies/{group_id}/correct-current-policy')
+def correct_replenishment_policy(group_id:str,request:replenishment.PolicyCorrection,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    try:return replenishment.correct_current_policy(get_conn(),COLLECTION_DIR,group_id,request)
+    except (ValueError,collection.CollectionError) as exc:raise HTTPException(409,str(exc))
+
+
+@app.post('/replenishment-policies/{group_id}/check')
+def check_replenishment(group_id:str,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    with db.transaction(get_conn()):
+        try:g=replenishment.get_group(get_conn(),group_id)
+        except ValueError as exc:raise HTTPException(404,str(exc))
+        g['state']['next_check_at']=collection.stamp(collection.utcnow())
+        db.save_replenishment_group(get_conn(),g)
+    return {'accepted':True,'group_id':group_id}
 
 
 class AgentStageError(RuntimeError):
@@ -118,6 +198,80 @@ class ApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     version: int = Field(gt=0)
     plan_hash: str = Field(min_length=64, max_length=64)
+
+
+class ApproveAndExecuteRequest(ApprovalRequest):
+    request_id: str = Field(pattern=r'^[A-Za-z0-9_-]{16,100}$')
+    expires_in_seconds: int = Field(ge=1, le=86400)
+
+
+@app.post('/tasks/{task_id}/approve-and-execute', status_code=202)
+def approve_and_execute(task_id:str,req:ApproveAndExecuteRequest,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    existing=db.get_execution_intent(get_conn(),req.request_id)
+    if existing:
+        if any(existing[k]!=v for k,v in {'task_id':task_id,'version':req.version,'plan_hash':req.plan_hash,
+                                          'expires_in_seconds':req.expires_in_seconds}.items()):
+            raise HTTPException(409,'同一批准请求标识不能对应不同任务、版本或有效期。')
+        return {'task_id':task_id,'request_id':req.request_id,'accepted':True}
+    import sys
+    try:replenishment.refresh_task(sys.modules[__name__],task_id)
+    except ValueError as exc:raise HTTPException(409,str(exc))
+    from datetime import timedelta
+    conn=get_conn()
+    with db.transaction(conn):
+        existing=db.get_execution_intent(conn,req.request_id)
+        if existing:
+            if any(existing[k]!=v for k,v in {'task_id':task_id,'version':req.version,
+                    'plan_hash':req.plan_hash,'expires_in_seconds':req.expires_in_seconds}.items()):
+                raise HTTPException(409,'同一批准请求标识不能对应不同任务、版本或有效期。')
+            return {'task_id':task_id,'request_id':req.request_id,'accepted':True}
+        if db.get_context(conn,task_id)['busy']:
+            raise HTTPException(409,'任务正在处理，请等待完成后批准。')
+        rec=get_record(task_id)
+        plan,h=db.get_plan(conn,task_id,_latest_version(task_id))
+        if plan is None or req.version!=plan.version or req.plan_hash!=h:
+            raise HTTPException(409,'页面方案已过期，请刷新后重新确认。')
+        if approval_queue.active(conn,task_id):
+            raise HTTPException(409,'该任务已有待执行批准，请查看其进度。')
+        _task_source_ready(task_id,plan.dataset_id)
+        try:replenishment.assert_plan(conn,task_id,plan,approve=True)
+        except ValueError as exc:raise HTTPException(409,str(exc))
+        try:rec.approve(h,plan.version)
+        except TransitionError as exc:raise HTTPException(409,str(exc))
+        now=collection.utcnow()
+        record={**req.model_dump(),'task_id':task_id,'dataset_id':plan.dataset_id,
+                'created_at':collection.stamp(now),'updated_at':collection.stamp(now),
+                'expires_at':collection.stamp(now+timedelta(seconds=req.expires_in_seconds)),
+                'status':'queued','error':None}
+        db.upsert_task(conn,task_id,rec.state,h,plan.version)
+        db.save_execution_intent(conn,record)
+        db.activity(conn,task_id,'approved',{'version':plan.version,'plan_hash':h,
+                    'source':'human_workbench','request_id':req.request_id,'expires_at':record['expires_at']})
+        db.update_context(conn,task_id,phase='已批准，排队连续执行',error=None)
+    return {'task_id':task_id,'request_id':req.request_id,'accepted':True}
+
+
+@app.get('/tasks/{task_id}/execution-intents')
+def execution_intents(task_id:str):
+    get_record(task_id)
+    return {'intents':db.execution_intents(get_conn(),task_id)}
+
+
+@app.post('/tasks/{task_id}/revoke-approval')
+def revoke_approval(task_id:str,x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval);conn=get_conn()
+    with db.transaction(conn):
+        rec=get_record(task_id)
+        if db.get_context(conn,task_id)['busy'] or rec.state!=TaskState.APPROVED:
+            raise HTTPException(409,'只可撤销尚未开始执行且空闲的批准；已经提交的申请须按实际结果核对。')
+        if ledger.has_execution(conn,task_id,rec.approved_version):
+            raise HTTPException(409,'此版本已开始执行，请先核对申请。')
+        intent=approval_queue.active(conn,task_id)
+        if intent:approval_queue.cancel(conn,intent,reason='用户撤销尚未执行的批准。')
+        else:db.upsert_task(conn,task_id,TaskState.NEEDS_REVIEW)
+        db.activity(conn,task_id,'approval_revoked',{'version':rec.approved_version})
+    return {'task_id':task_id,'state':'NEEDS_REVIEW'}
 
 
 def _run_agent_stage(stage: str, context: str, user_input: str) -> dict:
@@ -235,6 +389,7 @@ def _agent_event(task_id, stage, version, agent):
         "version":version,"status":agent.get("status"),"summary":_public(agent.get("summary", "")),
         "duration_s":agent.get("duration_s"),"error":_public(agent.get("error", "")),
         "model_advice":_public(agent.get('model_advice','')),
+        "model_original":_public(agent.get('raw_summary','')),
         "tool_calls":_sanitized(agent.get('tool_calls', []))})
 
 
@@ -249,6 +404,10 @@ def _publish_candidate(session, policy, stage, agent):
     with db.transaction(get_conn()):
         _task_source_ready(session.task_id, session.dataset_id)
         plan, h = session.commit(policy)
+        if stage=='reviser':
+            if agent.get('status')=='ok':agent['raw_summary']=agent.get('summary','')
+            agent['summary']=json.dumps({'policy':plan.policy.model_dump(),'explanation':revision_review(session.current,plan),
+                                         'unsupported_requests':[]},ensure_ascii=False)
         _agent_event(session.task_id, stage, plan.version, agent)
         result = {"task_id": session.task_id, "state": TaskState.NEEDS_REVIEW.value,
                   "plan": plan.model_dump(), "plan_hash": h, "agent": agent}
@@ -328,6 +487,17 @@ def example_dataset():
     return {"state":"READY",**datasets.summary(snap)}
 
 
+@app.get('/dataset-templates')
+def dataset_templates():
+    import io,zipfile
+    output=io.BytesIO()
+    with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as bundle:
+        for name in ('sales','inventory','suppliers'):
+            bundle.writestr(name+'.csv',(ROOT/'data'/(name+'.csv')).read_bytes())
+        bundle.writestr('填写说明.txt','这是演示数据模板，请替换为本店数据后上传。保留英文表头；销售覆盖28个自然日。\n数量统一为件；可用库存已扣预占；采购成本为含税含运的整数分；在途时间按天；缺记录不等于零。')
+    return Response(output.getvalue(),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="restock-templates.zip"'})
+
+
 @app.get("/datasets/{dataset_id}")
 def dataset_info(dataset_id:str):
     return datasets.summary(_snapshot(dataset_id))
@@ -350,6 +520,8 @@ def create_task(req:AnalyzeRequest,prefer:str=Header(default="")):
         elif req.dataset_id and db.sources_for_dataset(get_conn(), req.dataset_id):
             raise HTTPException(422, "来源发布的数据必须明确绑定 source_id。")
         db.upsert_task(get_conn(),task_id,TaskState.NEW)
+        try:replenishment.bind_task(get_conn(),task_id,req.source_id)
+        except ValueError as exc:raise HTTPException(422,str(exc))
         if req.source_id:
             db.bind_task_source(get_conn(), task_id, req.source_id)
         db.update_context(get_conn(),task_id,request_json=req.model_dump_json())
@@ -359,7 +531,8 @@ def create_task(req:AnalyzeRequest,prefer:str=Header(default="")):
 
 def _create_work(task_id,req,snapshot):
     rec=get_record(task_id)
-    rec.transition(TaskState.ANALYZING)
+    if rec.state==TaskState.FAILED:rec.retry_generation()
+    else:rec.transition(TaskState.ANALYZING)
     db.upsert_task(get_conn(),task_id,rec.state)
     problems=[]
     if snapshot is None:
@@ -387,6 +560,9 @@ def _create_work(task_id,req,snapshot):
     plan=None
     # 统一数据源：将当前 snapshot 保存为 dataset，Planner 通过 MCP 以同一 dataset_id 生成方案。
     dataset_id=db.save_dataset(get_conn(),snapshot)
+    if req.dataset_id is None and not db.task_source(get_conn(),task_id) and db.sources_for_dataset(get_conn(),dataset_id):
+        raise HTTPException(422,'数据来自已发布来源，请选择保留完整采购上下文的正式版本并明确绑定 source_id。')
+    db.update_context(get_conn(),task_id,request_json=req.model_copy(update={"dataset_id":dataset_id,"policy":policy,"data_contract":None}).model_dump_json())
     _phase(task_id,"生成方案与复核摘要")
     planner_input=(
         f"为任务 {task_id} 生成补货方案："
@@ -394,6 +570,9 @@ def _create_work(task_id,req,snapshot):
         f"2) 用 build_plan(task_id=\"{task_id}\", dataset_id=\"{dataset_id}\", policy={policy.model_dump_json()}) 生成方案；"
         f"3) 根据工具返回的方案给出简短非数值复核建议。不要复述任何金额、数量统计或商品编号。"
     )
+    if db.replenishment_task(get_conn(),task_id):
+        planner_input+='本任务采用周期预算：最后只输出 {"advice_codes":[建议代码]}；代码从 build_plan 返回的 budget_cycle.allowed_advice 中选择，不写自由建议正文，不提出预算结转。'
+    agent=None
     try:
         with ToolSession(get_conn(), task_id, 'planner', snapshot, fixed_policy=policy).activate() as session:
             agent=_run_agent_stage("planner",canonical_json({"task_id":task_id,"dataset_id":dataset_id,"policy":policy.model_dump()}),planner_input)
@@ -406,15 +585,45 @@ def _create_work(task_id,req,snapshot):
                 agent['summary'] = planner_review(session.draft, agent['model_advice'])
             return _publish_candidate(session,policy,"planner",agent)
     except (AgentStageError, ValueError) as exc:
+        if agent and agent.get('status')=='ok':
+            _agent_event(task_id,'planner_rejected',1,{'status':'error','error':str(exc),
+                'raw_summary':agent.get('model_advice',agent.get('summary','')),'duration_s':agent.get('duration_s')})
         rec.transition(TaskState.FAILED)
         db.upsert_task(get_conn(),task_id,rec.state)
         raise HTTPException(503,str(exc))
+
+
+@app.post('/tasks/{task_id}/retry')
+def retry_generation(task_id:str,req:AnalyzeRequest,prefer:str=Header(default=''),x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    def checked():
+        rec=get_record(task_id);conn=get_conn()
+        if (rec.state!=TaskState.FAILED or db.list_plan_versions(conn,task_id) or ledger.has_execution(conn,task_id)
+                or rec.approved_plan_hash or rec.approved_version):
+            raise HTTPException(409,'只有尚未生成方案、从未采购的失败任务可以重新生成。')
+        sid=db.task_source(conn,task_id)
+        if req.source_id!=sid:
+            raise HTTPException(409,'重试不能替换来源绑定，请按原来源选择数据。')
+        if sid:_source_ready(sid,req.dataset_id)
+        elif db.sources_for_dataset(conn,req.dataset_id):
+            raise HTTPException(409,'来源发布的数据须新建来源绑定任务，不能绕过来源检查。')
+    if not req.dataset_id or req.data_contract is not None:
+        raise HTTPException(422,'请先选择完整有效的数据版本。')
+    checked();snapshot=_snapshot(req.dataset_id)
+    def work():
+        checked()
+        db.update_context(get_conn(),task_id,request_json=req.model_dump_json())
+        return _create_work(task_id,req,snapshot)
+    return _dispatch(task_id,'重新生成方案',work,prefer,publishes_plan=True)
 
 
 @app.post("/tasks/{task_id}/approve")
 def approve(task_id:str,req:ApprovalRequest,x_restock_approval:str=Header(default="")):
     if not secrets.compare_digest(x_restock_approval,APPROVAL_TOKEN):
         raise HTTPException(403,"批准只能从已配置的人工工作台提交。")
+    import sys
+    try:replenishment.refresh_task(sys.modules[__name__],task_id)
+    except ValueError as exc:raise HTTPException(409,str(exc))
     rec=get_record(task_id)
     if not db.claim_task(get_conn(),task_id,"确认方案"):
         raise HTTPException(409,"任务正在处理，请稍后确认。")
@@ -432,6 +641,8 @@ def approve(task_id:str,req:ApprovalRequest,x_restock_approval:str=Header(defaul
             raise HTTPException(409,str(exc))
         with db.transaction(get_conn()):
             _task_source_ready(task_id, plan.dataset_id)
+            try:replenishment.assert_plan(get_conn(),task_id,plan,approve=True)
+            except ValueError as exc:raise HTTPException(409,str(exc))
             db.upsert_task(get_conn(),task_id,rec.state,h,plan.version)
             db.activity(get_conn(),task_id,"approved",{"version":plan.version,"plan_hash":h,"source":"human_workbench"})
         return {"task_id":task_id,"state":rec.state.value,"approved_plan_hash":h,"approved_version":plan.version}
@@ -554,7 +765,12 @@ def _begin_attempt(task_id, recovering):
         if rec.state not in allowed:
             raise HTTPException(409, "当前状态不允许此执行操作。")
         plan, h = _approved_plan(rec)
-        _task_source_ready(task_id, plan.dataset_id)
+        if not (recovering and ledger.has_execution(get_conn(),task_id)):
+            _task_source_ready(task_id, plan.dataset_id)
+        try:replenishment.assert_plan(get_conn(),task_id,plan,approve=True,recovering=recovering)
+        except ValueError as exc:raise HTTPException(409,str(exc))
+        try:approval_queue.validate_start(get_conn(),task_id,plan)
+        except ValueError as exc:raise HTTPException(409,str(exc))
         if not recovering and ledger.has_execution(get_conn(),task_id):
             if ledger.has_execution(get_conn(),task_id,plan.version):
                 raise HTTPException(409,'此版本已有执行尝试，请使用受控核对与恢复。')
@@ -564,8 +780,11 @@ def _begin_attempt(task_id, recovering):
                     raise ValueError('跨版本执行缺少固定数据快照')
                 from app.rules import build_plan
                 from app.validation import merged_rows
+                if plan.automation_context:
+                    covered=plan.automation_context['coverage']['covered'];amount=plan.automation_context['coverage']['occupied_cents']
                 recomputed = build_plan(task_id,plan.version,plan.dataset_hash,plan.policy,
                     merged_rows(plan.dataset_snapshot),plan.dataset_snapshot,covered=covered,covered_amount=amount)
+                if plan.automation_context:recomputed=recomputed.model_copy(update={'schema_version':3,'automation_context':plan.automation_context})
                 from app.models import plan_hash
                 if plan_hash(recomputed) != h:
                     raise ValueError('已批准方案未准确扣除当前有效申请，请重新复核修订')
@@ -591,17 +810,24 @@ def _finish_attempt(task_id, plan, meta, results):
         db.upsert_task(get_conn(),task_id,rec.state,meta['plan_hash'],plan.version)
         db.append_execution_event(get_conn(),task_id,"execution_finished",None,
             {**meta, **summary, "final_task_state": rec.state.value})
+        intent=approval_queue.latest(get_conn(),task_id)
+        if intent and intent['version']==plan.version and intent['plan_hash']==meta['plan_hash']:
+            approval_queue.save(get_conn(),intent,'succeeded' if rec.state==TaskState.COMPLETED else 'needs_reconciliation')
     return {"results": results, **summary}
 
 
 def _run_execution(task_id, recovering=False):
+    if not recovering:
+        import sys
+        try:replenishment.refresh_task(sys.modules[__name__],task_id,owned=True)
+        except ValueError as exc:raise HTTPException(409,str(exc))
     plan, meta = _begin_attempt(task_id, recovering)
     adapter = _adapter()
     def record(result):
         ledger.record_observation(get_conn(),task_id,plan,result,'order_result',meta)
     def intent(order):
         db.append_execution_event(get_conn(),task_id,'submit_intent',order['external_ref'],
-            {**meta,'supplier_id':order['supplier_id'],'lines':len(order['lines']),
+            {**meta,'submitted_at':collection.stamp(collection.utcnow()),'supplier_id':order['supplier_id'],'lines':len(order['lines']),
              'total_cost_cents':order['total_cost_cents']})
     def progress(order, kind, payload):
         db.append_execution_event(get_conn(),task_id,kind,order['external_ref'],{**payload,**meta})
@@ -684,7 +910,9 @@ def get_status(task_id: str):
                 "approved_version": rec.approved_version,
                 "latest_plan": plan.model_dump() if plan else None,
                 "latest_plan_hash": h, "operation":db.get_context(conn,task_id),
-                "data_status":collection.task_data_status(conn, COLLECTION_DIR, task_id, plan.dataset_id if plan else None)}
+                "data_status":collection.task_data_status(conn, COLLECTION_DIR, task_id, plan.dataset_id if plan else None),
+                "execution_intent":approval_queue.latest(conn,task_id),
+                "automation":replenishment.task_info(conn,task_id,plan)}
 
 
 @app.get("/tasks/{task_id}/executions")

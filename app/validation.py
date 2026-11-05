@@ -215,3 +215,38 @@ def validate_policy(policy, snapshot):
     if set(policy.priority_categories) - categories:
         problems.append("priority_categories contains unknown category")
     return problems
+
+
+NUMBERS = {'sales': ['sold_qty'], 'inventory': ['available_qty', 'inbound_qty', 'inbound_eta'],
+           'suppliers': ['unit_cost_cents', 'lead_days', 'pack_size', 'min_order_qty']}
+
+def normalize_snapshot_numbers(snapshot):
+    # Canonical numeric spelling avoids new versions for 004 vs 4 or 4.0 vs 4.
+    for name in NUMBERS:
+        for row in getattr(snapshot, name):
+            for key in NUMBERS[name]:
+                if row[key] != '':
+                    value = Decimal(row[key])
+                    if name != 'sales':
+                        row[key] = str(int(value))
+                    elif value == 0:
+                        row[key] = '0'
+                    else:
+                        # Decimal.normalize() would round long input to the current
+                        # decimal context. Strip zeros from the exact tuple instead.
+                        sign, digits, exponent = value.as_tuple()
+                        digits = list(digits)
+                        while digits[-1] == 0:
+                            digits.pop(); exponent += 1
+                        exact = Decimal((sign, tuple(digits), exponent))
+                        row[key] = format(exact, 'f') if exponent >= -30 else str(exact)
+    return snapshot
+
+
+def csv_projection_hash(snapshot):
+    projected=snapshot.model_copy(deep=True,update={"purchase_context":None})
+    normalize_snapshot_numbers(projected)
+    # Provenance is about the three CSV tables, independent of replacement
+    # confirmations/window interpretation that must not unbind their source.
+    tables={name:getattr(projected,name) for name in NUMBERS}
+    return hashlib.sha256(canonical_json(tables).encode("utf-8")).hexdigest()

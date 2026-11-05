@@ -1,5 +1,6 @@
 """RestockPilot single-user workbench. All business changes go through the API."""
 import json
+import uuid
 import os
 import sys
 from decimal import Decimal
@@ -9,6 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import load_environment
 import httpx
 import streamlit as st
+import pandas
+import pyarrow
+from app.user_messages import friendly_error
 
 load_environment()
 BASE = os.getenv("RESTOCK_API_URL", "http://127.0.0.1:8100").rstrip("/")
@@ -20,7 +24,7 @@ STATES = {"NEW":"等待处理","ANALYZING":"正在生成方案","NEEDS_INPUT":"�
 
 def call(method, path, **kwargs):
     headers = kwargs.pop("headers", {})
-    if path.endswith("/approve") or (path.startswith("/data-sources") and method in ("POST", "PUT")):
+    if path.rsplit("/",1)[-1] in ("approve","approve-and-execute","revoke-approval","retry","stop") or (path.startswith(("/data-sources","/replenishment-policies")) and method in ("POST", "PUT")):
         headers["X-Restock-Approval"] = os.getenv("RESTOCK_APPROVAL_TOKEN", "")
     try:
         with httpx.Client(base_url=BASE, timeout=15, trust_env=False) as client:
@@ -30,9 +34,9 @@ def call(method, path, **kwargs):
                 detail = response.json().get("detail", "操作失败")
             except ValueError:
                 detail = "服务返回了无法识别的结果"
-            st.error(str(detail))
+            show_error(detail)
             return None
-        if "/artifacts/" in path or "/publications/" in path:
+        if "/artifacts/" in path or "/publications/" in path or path=="/dataset-templates":
             return response.content
         return response.json()
     except httpx.HTTPError:
@@ -42,6 +46,13 @@ def call(method, path, **kwargs):
 
 def money(cents):
     return f"¥{cents / 100:,.2f}"
+
+
+def show_error(detail):
+    message=friendly_error(detail)
+    st.error(message)
+    if message!=str(detail):
+        with st.expander('查看诊断详情'): st.code(str(detail),language=None)
 
 
 def show_problem(problem):
@@ -54,7 +65,8 @@ def show_problem(problem):
         'sales dates exceed confirmed window_end':'销售记录包含截止日之后的日期，请核对截止日或修正资料。',
         'excluded_skus contains unknown SKU':'排除商品中有资料里不存在的 SKU，请重新选择。',
         'priority_categories contains unknown category':'优先类别中有资料里不存在的类别，请重新选择。'}
-    st.error(confirmations.get(problem, '资料需要修正：'+problem))
+    if problem in confirmations:st.error(confirmations[problem])
+    else:show_error(problem)
 
 
 def policy_fields(prefix, default, categories, skus):
@@ -82,6 +94,7 @@ if st.session_state.get('_select_source_dataset'):
     source_id, dataset_id = st.session_state.pop('_select_source_dataset')
     st.query_params['source'] = source_id
     st.query_params['dataset'] = dataset_id
+    st.session_state.pop('upload_rejected',None)
     st.rerun()
 
 # P1-13：在脚本顶部（form 外）处理任务跳转，确保 query_params 设置生效。
@@ -105,11 +118,43 @@ if offline:
     st.info("离线演示模式：规则计算与浏览器录单可用，未启用模型。请用参数表单修改方案。")
 st.caption("上传资料  →  生成方案  →  修改与复核  →  人工批准  →  申请与交付")
 
-with st.sidebar:
+active_id=st.query_params.get('task')
+active_state=call('GET','/tasks/'+active_id) if active_id else None
+polling=bool(active_state and active_state['operation']['busy'])
+
+def background_identity(state):
+    if not state:return None
+    operation=state.get('operation') or {}
+    return json.dumps({'state':state['state'],'plan':state.get('latest_plan_hash'),
+                       'approval':state.get('approved_plan_hash'),'data':state.get('data_status'),'intent':state.get('execution_intent'),'automation':state.get('automation'),
+                       'busy':operation.get('busy'),'error':operation.get('error')},sort_keys=True)
+
+
+@st.fragment(run_every=2 if active_id and not polling else None)
+def watch_background_changes():
+    if not active_id or polling:return
+    # Poll only this small watcher; do not rebuild idle forms on every timer tick.
+    latest=call('GET','/tasks/'+active_id)
+    if latest and background_identity(latest)!=background_identity(active_state):st.rerun()
+
+
+watch_background_changes()
+
+from ui.replenishment_panel import render as replenishment_controls, inbox as replenishment_inbox
+replenishment_controls(call)
+replenishment_inbox(call)
+
+
+@st.fragment
+def sidebar_content():
     st.header("任务记录")
     history=call("GET","/tasks") or {"tasks":[]}
     tasks=history['tasks']
-    labels={t['task_id']:f"{t['task_id']} · {STATES.get(t['state'],t['state'])}" for t in tasks}
+    from datetime import datetime,timezone
+    def when(value):
+        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).astimezone().strftime('%m-%d %H:%M')
+    labels={t['task_id']:f"{when(t['created_at'])} · {t['task_id'][:6]} · "+
+            ('正在处理' if t['task_id']==active_id and polling else STATES.get(t['state'],t['state'])) for t in tasks}
     options=[""]+list(labels)
     current=st.query_params.get("task", "")
     picked=st.selectbox("选择任务",options,index=options.index(current) if current in options else 0,
@@ -118,16 +163,42 @@ with st.sidebar:
         open_task(picked)
     if st.button("新建补货任务",use_container_width=True):
         st.query_params.pop("task",None); st.rerun()
+    if st.button('刷新任务记录',use_container_width=True): st.rerun()
     st.divider()
     st.caption("仅创建采购申请，不表示付款或到货。演示后台不会联系真实供应商。")
+    st.caption('关闭浏览器标签不会停止服务；任务会继续处理。')
+    system=call('GET','/system/status') or {}
+    if system.get('can_stop'):
+        stop_ok=st.checkbox('确认停止服务（进行中的处理会中断）',key='confirm-stop')
+        if st.button('停止所有服务',disabled=not stop_ok,use_container_width=True):
+            result=call('POST','/system/stop')
+            if result:
+                st.session_state['stopped']=True
+                st.success(result['message'])
+                st.stop()
+
+with st.sidebar: sidebar_content()
+if st.session_state.get('stopped'):
+    st.success('已请求停止服务。请等待启动窗口显示关闭完成后，再关闭页面。')
+    st.stop()
+
 
 from ui.collection_panel import render as render_collection_panel
 render_collection_panel(call)
 
 with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("task")):
+    template=call('GET','/dataset-templates')
+    if template is not None:
+        st.download_button('下载三份 CSV 模板',template,file_name='restock-templates.zip',mime='application/zip')
+    st.caption('模板包含演示数据，请替换为本店资料并保留英文表头。每份文件最多 5 MB。')
+    with st.expander('查看必填字段和填写方法'):
+        st.markdown('销售：`date` 日期、`sku` 商品编码、`sold_qty` 销量，覆盖 28 个自然日。\n\n'
+            '库存：`sku`、`name` 名称、`category` 类别、`available_qty` 可用库存、`inbound_qty` 在途数量、`inbound_eta` 距到货天数。\n\n'
+            '供应商：`sku`、`supplier_id` 供应商编码、`unit_cost_cents` 单价（分）、`lead_days` 交货天数、`pack_size` 每包件数、`min_order_qty` 最低采购件数。')
     if st.button("使用示例数据"):
         result=call("POST","/datasets/example")
         if result:
+            st.session_state.pop('upload_rejected',None)
             st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
     with st.form("upload"):
         columns=st.columns(3)
@@ -142,6 +213,8 @@ with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("
         missing=st.checkbox("确认缺失销售日期代表零销量，允许补零",value=False)
         end=st.text_input("销售窗口截止日（可留空使用最新销售日）",placeholder="YYYY-MM-DD")
         if st.form_submit_button("检查并保存数据",type="primary"):
+            st.query_params.pop("dataset",None);st.query_params.pop("source",None)
+            st.session_state["upload_rejected"]=True
             if not all([sales,inventory,suppliers]):
                 st.error("请上传完整的三份 CSV。")
             else:
@@ -152,10 +225,16 @@ with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("
                        (("sales",sales),("inventory",inventory),("suppliers",suppliers))}
                 result=call("POST","/datasets",files=files,data={"contract":json.dumps(contract)})
                 if result and result.get("dataset_id"):
+                    st.session_state.pop("upload_rejected",None)
                     st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
                 elif result:
                     for issue in result.get("data_problems",[]): show_problem(issue)
     st.caption("修正 CSV 或确认项后可以重新上传。上传不会自动覆盖当前任务；需要在任务中明确应用新数据。")
+
+if st.session_state.get('upload_rejected'):
+    st.warning('本次上传未通过检查，尚未选用。请修正后重新检查。已有任务的原方案保留，但需明确选择后才能继续批准。')
+    if st.query_params.get('task') and st.button('继续查看并使用原方案'):
+        st.session_state.pop('upload_rejected',None); st.rerun()
 
 dataset=None
 if st.query_params.get('dataset'):
@@ -179,18 +258,21 @@ if not st.query_params.get('task'):
     st.stop()
 
 
-@st.fragment(run_every=2)
+@st.fragment(run_every=2 if polling else None)
 def task_panel():
     task_id=st.query_params['task']
     state=call('GET',f'/tasks/{task_id}')
     if not state: return
     operation=state['operation']; busy=bool(operation['busy'])
+    automation=state.get('automation')
+    if automation and automation.get('reason'):st.info('自动补货：'+automation['reason'])
+    if polling and not busy:st.rerun()
     summary=call('GET',f'/tasks/{task_id}/summary') or {}
     blocked=any(r['status'] in ('unknown','mismatch') for r in summary.get('pending_items',[]))
     st.subheader(f"任务 {task_id}")
     st.write("**"+STATES.get(state['state'],state['state'])+"**")
     if busy: st.info(operation['phase']+"，页面会自动更新，可稍后通过任务记录返回。")
-    if operation.get('error'): st.error(operation['error'])
+    if operation.get('error'): show_error(operation['error'])
     data_status = state.get('data_status')
     data_ready = not data_status or data_status['ready']
     if data_status and not data_status['ready']: st.warning('来源数据需复核：' + data_status['reason'])
@@ -209,6 +291,17 @@ def task_panel():
             result=call('POST',f'/tasks/{task_id}/revise',json={'dataset_id':dataset['dataset_id']})
             if result: st.rerun()
     if not plan:
+        if state['state']=='FAILED' and not busy:
+            original=operation.get('request') or {}
+            retry_dataset=dataset or (call('GET','/datasets/'+original['dataset_id']) if original.get('dataset_id') else None)
+            st.info('本次没有生成可批准方案，也没有创建采购申请。可修正参数或资料后重新生成。')
+            if retry_dataset and not st.session_state.get('upload_rejected'):
+                with st.form('retry-generation'):
+                    fixed=policy_fields('retry-',original.get('policy') or DEFAULT,retry_dataset['categories'],retry_dataset['skus'])
+                    retry_text=st.text_area('补充要求（可选）',value=original.get('user_request',''),disabled=offline)
+                    if st.form_submit_button('重新生成方案'):
+                        if call('POST',f'/tasks/{task_id}/retry',json={'dataset_id':retry_dataset['dataset_id'],'policy':fixed,
+                                'source_id':original.get('source_id'),'user_request':'' if offline else retry_text}): st.rerun()
         if dataset and editable:
             with st.form('repair-input'):
                 fixed=policy_fields('repair-',(operation.get('request') or {}).get('policy') or DEFAULT,
@@ -229,6 +322,17 @@ def task_panel():
     cols[2].metric("采购商品数",sum(i['order_qty']>0 for i in shown['items']))
     cols[3].metric("低置信商品",sum(i['confidence']=='low' for i in shown['items']))
     st.caption(f"方案 v{selected} · 预算 {money(shown['policy']['budget_cents'])} · 覆盖 {shown['policy']['cover_days']} 天 · 安全 {shown['policy']['safety_days']} 天")
+    cycle=shown.get('automation_context')
+    if cycle:
+        st.write('预算周期与已有采购')
+        st.caption(cycle['period_start']+' 至 '+cycle['period_end']+'（不含终点）')
+        st.write('已有采购占用 '+money(cycle['coverage']['occupied_cents'])+'；本方案新增 '+money(shown['total_cost_cents'])+'。')
+        st.caption('显示生成本版本时的核验结果；批准和执行前重新核验。恢复原申请仍占用原批准周期额度。')
+        if cycle['coverage']['orders']:
+            with st.expander('已有采购与需求抵扣明细'):
+                st.dataframe([{'采购系统':f['identity'][0],'单号':f['identity'][1],'SKU':f['identity'][2],
+                               '周期占用（元）':f['charged_cents']/100,'额外抵扣数量':f['extra_covered_qty']}
+                              for f in cycle['coverage']['orders']],hide_index=True)
     st.caption("优先类别："+(', '.join(shown['policy']['priority_categories']) or '无'))
     if shown.get('dataset_snapshot'):
         source=shown['dataset_snapshot']
@@ -270,12 +374,27 @@ def task_panel():
     if state['state']=='NEEDS_REVIEW' and not busy and is_latest:
         st.subheader("人工确认")
         confirmed=st.checkbox(f"我已核对 v{selected} 的数量、金额和风险提示",key='approve-'+view['plan_hash'])
-        if st.button("批准当前方案",type='primary',disabled=not confirmed or not data_ready):
+        st.caption('批准并执行只针对当前版本；系统随后自动录入、回读并生成报告。排队超过所选有效期将重新待审，已开始的采购按实际结果核对。')
+        approval_minutes=st.number_input('开始执行的批准有效期（分钟）',min_value=1,max_value=1440,value=30,step=1)
+        request_key=f'approval-request-{task_id}-{view["plan_hash"]}-{approval_minutes}'
+        if request_key not in st.session_state:st.session_state[request_key]=uuid.uuid4().hex
+        if st.button('批准并执行',type='primary',disabled=not confirmed or not data_ready or bool(automation and not automation['ready'])):
+            result=call('POST',f'/tasks/{task_id}/approve-and-execute',json={'version':selected,'plan_hash':view['plan_hash'],
+                        'request_id':st.session_state[request_key],'expires_in_seconds':int(approval_minutes)*60})
+            if result:st.session_state.pop(request_key,None);st.rerun()
+        if st.button("批准当前方案",disabled=not confirmed or not data_ready or bool(automation and not automation['ready'])):
             result=call('POST',f'/tasks/{task_id}/approve',json={'version':selected,'plan_hash':view['plan_hash']})
             if result: st.rerun()
+    intent=state.get('execution_intent')
+    if intent:
+        st.caption('连续执行：'+{'queued':'已排队','running':'正在执行','succeeded':'已完成',
+                   'needs_reconciliation':'需要核对','cancelled':'已撤销或失效','expired':'批准已过期'}.get(intent['status'],intent['status']))
+        if intent.get('error'):st.warning(intent['error'])
     if state['state']=='APPROVED' and not busy and is_latest:
         st.success("已批准此版本，可以创建演示采购申请。")
-        if st.button("创建采购申请",type='primary',disabled=not data_ready):
+        if st.button('撤销尚未执行的批准'):
+            if call('POST',f'/tasks/{task_id}/revoke-approval'):st.rerun()
+        if st.button("创建采购申请",type='primary',disabled=not data_ready or bool(automation and not automation['ready'])):
             if call('POST',f'/tasks/{task_id}/execute'): st.rerun()
     current=[r for r in summary.get('valid_orders',[]) if r['version']==selected]
     if current:
@@ -325,8 +444,11 @@ def task_panel():
                     try: summary=json.loads(summary).get('explanation',summary)
                     except (ValueError,AttributeError): pass
                 st.text(summary)
+                if payload.get("model_original"):
+                    with st.expander("模型原始说明（仅供诊断）"):
+                        st.text(payload["model_original"])
             elif event['kind']=='approved': st.write(f"v{payload['version']} 已人工批准 · {event['created_at']} UTC")
-    if not busy:
+    if not busy or state['state'] in ('COMPLETED','PARTIAL','FAILED','NEEDS_RECONCILIATION'):
         st.subheader("下载交付物")
         a,b=st.columns(2)
         csv_data=call('GET',f'/tasks/{task_id}/artifacts/{selected}/csv')

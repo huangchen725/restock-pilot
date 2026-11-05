@@ -8,11 +8,12 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 import threading
+import json
 import os
 from app.redaction import audit_call, redact_value
 import uuid
 
-from app import db, ledger
+from app import db, ledger, replenishment
 from app.models import Policy, TaskState, canonical_json, plan_hash
 from app.rules import build_plan
 from app.validation import merged_rows, snapshot_hash, validate_policy
@@ -24,10 +25,46 @@ def active_session():
     return _current.get()
 
 
+def cycle_advice_options(plan):
+    options={
+        'review_parameters':'可在原周期额度内复核覆盖天数、安全天数及优先类别，调整后重新计算并人工批准',
+        'review_future_budget':'后续周期按单独配置的额度处理，余额不会自动结转',
+    }
+    if any(i.confidence=='low' for i in plan.items):
+        options['review_low_confidence']='建议人工复核销量波动较大的低置信商品'
+    if any(i.stockout_before_arrival for i in plan.items):
+        options['review_arrival_risk']='建议核对预计到货前缺货的商品及到货安排'
+    return options
+
+
+def validated_cycle_advice(plan,raw):
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError('周期建议包含重复字段')
+            result[key]=value
+        return result
+    try:decision=json.loads(raw,object_pairs_hook=unique)
+    except (ValueError,TypeError):raise ValueError('周期任务必须返回有效的建议代码 JSON，不接受额外策略正文') from None
+    options=cycle_advice_options(plan)
+    if not isinstance(decision,dict) or set(decision)!={'advice_codes'}:
+        raise ValueError('周期建议只能包含 advice_codes')
+    codes=decision['advice_codes']
+    if (not isinstance(codes,list) or not 1<=len(codes)<=3 or any(not isinstance(c,str) or c not in options for c in codes)
+            or len(codes)!=len(set(codes))):raise ValueError('周期建议包含未知、重复或不适用于本方案的选项')
+    return '；'.join(options[code] for code in codes)+'。'
+
+
 def compact_plan(plan):
     return {
         'currency': 'CNY', 'amount_unit': '人民币分；100 分 = 1 元，非美元或美分',
         'plan_id': plan.plan_id, 'version': plan.version, 'dataset_id': plan.dataset_id,
+        **({'budget_cycle': {'period_start':plan.automation_context['period_start'],
+            'period_end':plan.automation_context['period_end'],'budget_cents':plan.policy.budget_cents,
+            'occupied_cents':plan.automation_context['coverage']['occupied_cents'],
+            'allowed_advice':cycle_advice_options(plan),
+            'advice_output':{'advice_codes':['choose 1-3 applicable keys from allowed_advice; no other fields']},
+            'note':'周期额度扣除已核验采购后分配本方案；不得重新发放预算。'}} if plan.automation_context else {}),
         'policy': plan.policy.model_dump(), 'total_cost_cents': plan.total_cost_cents,
         'budget_remaining_cents': plan.budget_remaining_cents, 'sku_count': len(plan.items),
         'ordered': [{'sku': i.sku, 'order_qty': i.order_qty, 'unit_cost_cents': i.unit_cost_cents,
@@ -40,10 +77,37 @@ def compact_plan(plan):
     }
 
 
+def revision_review(previous, plan):
+    """User-visible revision facts come only from the committed deterministic plan."""
+    def money(cents):
+        sign='-' if cents<0 else '';whole,fraction=divmod(abs(cents),100)
+        return f'{sign}{whole}.{fraction:02d}'
+    labels={'budget_cents':'预算','cover_days':'覆盖天数','safety_days':'安全天数',
+            'priority_categories':'优先类别','excluded_skus':'排除商品'}
+    def display(field,value):
+        if field=='budget_cents': return f'{money(value)} 元'
+        if isinstance(value,list): return '、'.join(value) or '无'
+        return str(value)+' 天'
+    changes=[]
+    if previous:
+        before,after=previous.policy.model_dump(),plan.policy.model_dump()
+        changes=[f'{labels[k]}：{display(k,before[k])} → {display(k,after[k])}' for k in labels if before[k]!=after[k]]
+        if previous.dataset_hash!=plan.dataset_hash: changes.append('已应用新的数据版本')
+        if previous.automation_context!=plan.automation_context: changes.append('补货周期或已核验采购记录已更新')
+    changed='；'.join(changes) if changes else ('参数与数据未变化，复用当前方案' if previous else '已按确认参数生成方案')
+    cycle_text=(f"周期已有采购占用 {money(plan.automation_context['coverage']['occupied_cents'])} 元。" if plan.automation_context else '')
+    balance=plan.budget_remaining_cents if plan.budget_remaining_cents is not None else plan.policy.budget_cents-plan.total_cost_cents
+    return (f'修订核对（程序生成）：方案 v{plan.version}。{changed}。\n'
+            f'{cycle_text}全局预算 {money(plan.policy.budget_cents)} 元，方案金额 {money(plan.total_cost_cents)} 元，余额 {money(balance)} 元。'
+            f'采购 {sum(i.order_qty for i in plan.items)} 件，涉及 {sum(i.order_qty>0 for i in plan.items)} 种商品；'
+            f'逐商品未满足数量合计 {sum(i.unmet_qty for i in plan.items)} 件。'
+            '各商品的采购及未满足原因以方案表格的规则说明为准。金额为人民币；修改后须重新人工批准。')
+
+
 def planner_review(plan, advice):
     """Authoritative quantities are rendered by code; model supplies advice only."""
     import unicodedata
-    advice = advice.strip()
+    advice = validated_cycle_advice(plan,advice) if plan.automation_context else advice.strip()
     # Closed lexical exceptions are qualitative words, not quantities. Unknown
     # numeric-looking text still fails; these phrases do not authorize a number
     # elsewhere in the sentence. Keep the original advice unchanged in output.
@@ -63,8 +127,9 @@ def planner_review(plan, advice):
     skipped_risks = risks & set(plan.skipped)
     low = sum(i.confidence == 'low' for i in plan.items)
     ordered = sum(i.order_qty > 0 for i in plan.items)
+    cycle_text=(f"周期已有采购占用 {money(plan.automation_context['coverage']['occupied_cents'])}。" if plan.automation_context else '')
     return (f'规则核对（程序生成）：全局预算 {money(plan.policy.budget_cents)}，'
-        f'方案金额 {money(plan.total_cost_cents)}，余额 {money(plan.budget_remaining_cents or 0)}。'
+        f'{cycle_text}方案金额 {money(plan.total_cost_cents)}，余额 {money(plan.budget_remaining_cents or 0)}。'
         f'采购 {ordered} 种商品，预算跳过 {len(plan.skipped)} 种；低置信商品 {low} 种。'
         f'预计到货前缺货风险 {len(risks)} 种，其中被预算跳过 {len(skipped_risks)} 种。'
         '金额为人民币，申请尚需人工批准。\n模型建议：' + advice)
@@ -164,16 +229,21 @@ class ToolSession:
                     problems = validate_policy(policy, self.snapshot)
                     if problems:
                         raise ValueError('; '.join(problems))
-                    covered, covered_amount = ledger.coverage(self.conn, self.task_id, snapshot_hash(self.snapshot))
+                    automation=replenishment.context_for(self.conn,self.task_id,self.snapshot,policy)
+                    if automation:
+                        covered=automation['coverage']['covered'];covered_amount=automation['coverage']['occupied_cents']
+                    else:covered, covered_amount = ledger.coverage(self.conn, self.task_id, snapshot_hash(self.snapshot))
                     if policy.budget_cents < covered_amount:
                         raise ValueError('任务累计预算不能低于已创建申请的金额')
                     reuse = (self.current is not None and self.current.policy == policy
                              and self.current.dataset_hash == snapshot_hash(self.snapshot)
+                             and self.current.automation_context==automation
                              and not ledger.has_execution(self.conn, self.task_id, self.current.version))
                     self.draft = (self.current.model_copy(deep=True) if reuse else
                         build_plan(self.task_id, self.base_version + 1, snapshot_hash(self.snapshot), policy,
                                    merged_rows(self.snapshot), self.snapshot, covered=covered,
                                    covered_amount=covered_amount))
+                    if automation:self.draft=self.draft.model_copy(update={'schema_version':3,'automation_context':automation})
                     result = {'plan': compact_plan(self.draft), 'plan_hash': plan_hash(self.draft),
                               'reused': reuse, 'candidate_only': True}
                 self._audit(tool, arguments, result=result)
@@ -205,6 +275,7 @@ class ToolSession:
                 raise ValueError('最终决策与工具候选方案不一致')
             # One API process owns all commits. Keep the compare and insert atomic
             # across tool sessions; the CLI bridge has no SQLite access.
+            replenishment.assert_plan(self.conn,self.task_id,self.draft)
             h = db.commit_candidate(self.conn, self.draft, self.base_version, self.base_hash)
             self._committed = True
             return self.draft, h
