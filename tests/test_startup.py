@@ -145,6 +145,11 @@ def test_health_timeout_stops_unready_process(tmp_path):
 def test_entrypoint_rolls_back_partial_startup(tmp_path, monkeypatch):
     import start
     first = stub_service(tmp_path)
+    # Test the partial-start rollback, not unrelated user .env URL mismatches.
+    # Keep the real preflight and require the first child to actually launch.
+    monkeypatch.setenv('PROCUREMENT_PORTAL_URL',f'http://127.0.0.1:{first.port}')
+    monkeypatch.setenv('RESTOCK_API_URL','http://127.0.0.1:8100')
+    monkeypatch.setenv('RESTOCK_LITELLM_URL','http://127.0.0.1:4000')
     second = Service("broken", free_port(), [str(tmp_path / "missing-program")], "/health")
     supervisor = Supervisor([first, second], dict(os.environ), tmp_path / "logs", timeout=10)
     monkeypatch.setattr(start, "services", lambda _: [first, second])

@@ -30,6 +30,8 @@ COLLECTION_DIR = ROOT / os.getenv("RESTOCK_COLLECTION_DIR", "outputs/collections
 
 @asynccontextmanager
 async def lifespan(app):
+    from app.demo_site import DemoSite
+    app.state.demo_site=DemoSite()
     get_conn()
     publisher = collection.PublicationWorker(get_conn, lambda: COLLECTION_DIR)
     from app.collector import CollectorWorker
@@ -44,11 +46,14 @@ async def lifespan(app):
     try:
         yield
     finally:
-        replenishment_worker.stop()
-        approved_worker.stop()
-        collector_worker.stop()
-        publisher.stop()
-        jobs.shutdown()
+        try:
+            replenishment_worker.stop()
+            approved_worker.stop()
+            collector_worker.stop()
+            publisher.stop()
+            jobs.shutdown()
+        finally:
+            app.state.demo_site.stop()
 
 
 app = FastAPI(title="RestockPilot", version="0.7.0-m3", lifespan=lifespan)
@@ -84,6 +89,20 @@ def health():
 def _human(token):
     if not secrets.compare_digest(token,APPROVAL_TOKEN):
         raise HTTPException(403,'此操作只能从人工工作台提交。')
+
+
+@app.get('/demo-site')
+def demo_site_status():
+    return app.state.demo_site.status()
+
+
+@app.post('/demo-site/start')
+def start_demo_site(x_restock_approval:str=Header(default='')):
+    _human(x_restock_approval)
+    from start import StartupError
+    try:return app.state.demo_site.start()
+    except (StartupError,OSError,ValueError) as exc:
+        raise HTTPException(409,'测试页面未能启动：'+str(exc)) from None
 
 
 @app.get('/system/status')
@@ -494,7 +513,16 @@ def dataset_templates():
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as bundle:
         for name in ('sales','inventory','suppliers'):
             bundle.writestr(name+'.csv',(ROOT/'data'/(name+'.csv')).read_bytes())
-        bundle.writestr('填写说明.txt','这是演示数据模板，请替换为本店数据后上传。保留英文表头；销售覆盖28个自然日。\n数量统一为件；可用库存已扣预占；采购成本为含税含运的整数分；在途时间按天；缺记录不等于零。')
+        bundle.writestr('填写说明.txt', '''三份 CSV 是可用 Excel 打开的表格。这里有 30 种演示商品，请用本店资料替换示例行，保留英文列名。
+1. sales.csv 销售记录：date 日期（年-月-日）、sku 商品编号、sold_qty 当天净销量。每种商品需连续 28 天。
+2. inventory.csv 库存资料：sku 商品编号、name 名称、category 类别、available_qty 可用库存、inbound_qty 已订未到数量、inbound_eta 剩余到货天数。
+3. suppliers.csv 供应商资料：sku 商品编号、supplier_id 供应商编号、unit_cost_cents 含税含运采购价（分）、lead_days 交货天数、pack_size 每包商品数、min_order_qty 最低采购数。
+三份表格中的商品编号必须一一对应，每个商品一个默认供应商。
+例如一箱 12 瓶，所有数量按瓶填写：2 箱填 24，pack_size 填 12。
+仓库 100 瓶已有订单预留 20 瓶，可用库存填 80。采购价 12.50 元填 1250；交货/到货还需 3 天填 3。
+销量统计截止日期留空时使用文件最新日期，再往前统计 28 天。没有记录可能是漏记，不能直接当作没卖出；只有确认缺日等于零销量时才勾选相应选项。
+页面确认框不会自动换算、扣库存或补价格。网页自动采集已经负责整理资料，不需要下载再上传这些样例。
+这些数据和采购后台均为演示用途，不代表真实门店。''')
     return Response(output.getvalue(),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="restock-templates.zip"'})
 
 

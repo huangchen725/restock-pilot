@@ -3,6 +3,7 @@ import os,time,json
 from datetime import datetime,timezone
 from pathlib import Path
 import httpx,pytest
+from tests.ui_actions import auto_entry
 from playwright.sync_api import sync_playwright,expect
 from app.procurement_portal import create_portal_app
 from tests.test_fault_injection import FaultInjector,_start_portal
@@ -41,15 +42,15 @@ def test_workbench_observe_auto_update_one_approval_and_actual_order(tmp_path,mo
             try:
                 page=browser.new_page(viewport={'width':1440,'height':1200},accept_downloads=True);page.set_default_timeout(20000)
                 page.goto(ui)
-                page.get_by_text('自动补货与周期预算',exact=True).click()
+                auto_entry(page)
                 page.get_by_role('spinbutton',name='每周期额度（元）',exact=True).fill('100')
                 page.get_by_role('spinbutton',name='自动覆盖天数',exact=True).fill('7')
                 page.get_by_role('spinbutton',name='自动安全天数',exact=True).fill('2')
                 if invalid_initial:page.get_by_role('textbox',name='自动优先类别（逗号分隔）',exact=True).fill('不存在的类别')
                 page.get_by_role('button',name='保存并开始观察',exact=True).click()
-                expect(page.get_by_text('请先核对旧任务归属并勾选确认。',exact=True)).to_be_visible()
+                expect(page.get_by_text('请核对补货设置并勾选确认；如果存在旧任务，还需核对归属。',exact=True)).to_be_visible()
                 assert client.get('/replenishment-policies').json()['policies']==[]
-                page.get_by_text('我已核对旧任务归属，并确认恢复原申请仍占用原补货周期额度',exact=True).click()
+                page.get_by_text('我确认按以上周期和预算检查补货；采购前仍由我批准',exact=True).click()
                 page.get_by_role('button',name='保存并开始观察',exact=True).click()
                 if invalid_initial:
                     blocked=until(lambda:client.get('/replenishment-policies').json()['policies'],lambda x:len(x)==1 and x[0]['state']['status']=='blocked')[0]

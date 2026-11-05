@@ -24,7 +24,7 @@ STATES = {"NEW":"等待处理","ANALYZING":"正在生成方案","NEEDS_INPUT":"�
 
 def call(method, path, **kwargs):
     headers = kwargs.pop("headers", {})
-    if path.rsplit("/",1)[-1] in ("approve","approve-and-execute","revoke-approval","retry","stop") or (path.startswith(("/data-sources","/replenishment-policies")) and method in ("POST", "PUT")):
+    if path.rsplit("/",1)[-1] in ("approve","approve-and-execute","revoke-approval","retry","stop") or (path.startswith(("/data-sources","/replenishment-policies","/demo-site")) and method in ("POST", "PUT")):
         headers["X-Restock-Approval"] = os.getenv("RESTOCK_APPROVAL_TOKEN", "")
     try:
         with httpx.Client(base_url=BASE, timeout=15, trust_env=False) as client:
@@ -57,11 +57,11 @@ def show_error(detail):
 
 def show_problem(problem):
     confirmations={
-        'confirm quantity_unit=piece across sales, inventory and supplier packaging':'请确认三份数据的数量与包装单位都已统一为件。',
-        'confirm available_is_net=true':'请确认可用库存已经扣除预占。',
+        'confirm quantity_unit=piece across sales, inventory and supplier packaging':'请核实数量是否按单个商品填写，例如按瓶而不是按箱。',
+        'confirm available_is_net=true':'请核实库存是否已减去留给现有订单的数量。',
         'confirm cost_includes_tax_shipping=true':'请确认单价包含税费和运费，金额单位为分。',
-        'confirm inbound_eta_is_days=true':'请确认在途到货时间是距规划时点的天数。',
-        'invalid 28-day window_end':'销售窗口截止日无效，请使用 YYYY-MM-DD 格式。',
+        'confirm inbound_eta_is_days=true':'请核实到货时间是否填写了还需几天，例如 3 天填写 3。',
+        'invalid 28-day window_end':'销量统计截止日期无效，请按年-月-日填写，例如 2026-10-28。',
         'sales dates exceed confirmed window_end':'销售记录包含截止日之后的日期，请核对截止日或修正资料。',
         'excluded_skus contains unknown SKU':'排除商品中有资料里不存在的 SKU，请重新选择。',
         'priority_categories contains unknown category':'优先类别中有资料里不存在的类别，请重新选择。'}
@@ -69,14 +69,14 @@ def show_problem(problem):
     else:show_error(problem)
 
 
-def policy_fields(prefix, default, categories, skus):
+def policy_fields(prefix, default, categories, skus,ready=True):
     a,b,c = st.columns(3)
     budget=a.number_input("采购预算（元）",min_value=0.01,value=default["budget_cents"]/100,
-                          step=100.0,key=prefix+"budget")
-    cover=b.number_input("覆盖天数",min_value=7,max_value=90,value=default["cover_days"],key=prefix+"cover")
-    safety=c.number_input("安全天数",min_value=0,max_value=30,value=default["safety_days"],key=prefix+"safety")
-    priority=st.multiselect("优先类别",categories,default=[x for x in default["priority_categories"] if x in categories],key=prefix+"priority")
-    excluded=st.multiselect("排除商品",skus,default=[x for x in default["excluded_skus"] if x in skus],key=prefix+"excluded")
+                          step=100.0,key=prefix+"budget",help="这次采购最多可以花多少钱，含税费和运费。")
+    cover=b.number_input("覆盖天数",min_value=7,max_value=90,value=default["cover_days"],key=prefix+"cover",help="希望补货后能支撑多少天的销售。")
+    safety=c.number_input("安全天数",min_value=0,max_value=30,value=default["safety_days"],key=prefix+"safety",help="在预计需求外，再准备几天的备用库存。")
+    priority=st.multiselect("优先类别",categories,default=[x for x in default["priority_categories"] if x in categories],key=prefix+"priority",disabled=not ready,help='先读入资料，再选择优先补货的商品类别。')
+    excluded=st.multiselect("排除商品",skus,default=[x for x in default["excluded_skus"] if x in skus],key=prefix+"excluded",disabled=not ready,help='先读入资料，再选择本次不需要采购的商品。')
     return {"budget_cents":int(Decimal(str(budget))*100),"cover_days":int(cover),"safety_days":int(safety),
             "priority_categories":priority,"excluded_skus":excluded}
 
@@ -105,7 +105,7 @@ st.markdown("""<style>
 .stApp{background:#f5f7f6} h1,h2,h3{color:#163d36}
 [data-testid="stMetric"]{background:white;border:1px solid #dce6e2;border-radius:12px;padding:16px}
 [data-testid="stSidebar"]{background:#eaf1ee}
-[data-testid="stToolbar"]{display:none}
+[data-testid="stToolbarActions"],.stAppDeployButton{display:none}
 .block-container{padding-top:2.5rem;max-width:1400px}
 </style>""",unsafe_allow_html=True)
 st.title("RestockPilot")
@@ -116,7 +116,7 @@ if health is None:
 offline=health.get("agent_mode")=="off"
 if offline:
     st.info("离线演示模式：规则计算与浏览器录单可用，未启用模型。请用参数表单修改方案。")
-st.caption("上传资料  →  生成方案  →  修改与复核  →  人工批准  →  申请与交付")
+st.caption("选择取数方式  →  准备资料  →  设置补货要求  →  复核与批准  →  申请与交付")
 
 active_id=st.query_params.get('task')
 active_state=call('GET','/tasks/'+active_id) if active_id else None
@@ -141,8 +141,6 @@ def watch_background_changes():
 watch_background_changes()
 
 from ui.replenishment_panel import render as replenishment_controls, inbox as replenishment_inbox
-replenishment_controls(call)
-replenishment_inbox(call)
 
 
 @st.fragment
@@ -183,76 +181,31 @@ if st.session_state.get('stopped'):
     st.stop()
 
 
-from ui.collection_panel import render as render_collection_panel
-render_collection_panel(call)
-
-with st.expander("1 · 上传与检查资料",expanded=not st.query_params.get("task")):
-    template=call('GET','/dataset-templates')
-    if template is not None:
-        st.download_button('下载三份 CSV 模板',template,file_name='restock-templates.zip',mime='application/zip')
-    st.caption('模板包含演示数据，请替换为本店资料并保留英文表头。每份文件最多 5 MB。')
-    with st.expander('查看必填字段和填写方法'):
-        st.markdown('销售：`date` 日期、`sku` 商品编码、`sold_qty` 销量，覆盖 28 个自然日。\n\n'
-            '库存：`sku`、`name` 名称、`category` 类别、`available_qty` 可用库存、`inbound_qty` 在途数量、`inbound_eta` 距到货天数。\n\n'
-            '供应商：`sku`、`supplier_id` 供应商编码、`unit_cost_cents` 单价（分）、`lead_days` 交货天数、`pack_size` 每包件数、`min_order_qty` 最低采购件数。')
-    if st.button("使用示例数据"):
-        result=call("POST","/datasets/example")
-        if result:
-            st.session_state.pop('upload_rejected',None)
-            st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
-    with st.form("upload"):
-        columns=st.columns(3)
-        sales=columns[0].file_uploader("销售记录 sales.csv",type=['csv'],key="sales")
-        inventory=columns[1].file_uploader("库存资料 inventory.csv",type=['csv'],key="inventory")
-        suppliers=columns[2].file_uploader("供应商资料 suppliers.csv",type=['csv'],key="suppliers")
-        st.caption("请确认数据口径；有疑问时先修正资料，不要猜测单位或价格。")
-        units=st.checkbox("三份数据已统一为件")
-        net=st.checkbox("可用库存已扣除预占")
-        landed=st.checkbox("单价为含税含运的整数分")
-        eta=st.checkbox("在途到货时间填写的是距规划时点的天数")
-        missing=st.checkbox("确认缺失销售日期代表零销量，允许补零",value=False)
-        end=st.text_input("销售窗口截止日（可留空使用最新销售日）",placeholder="YYYY-MM-DD")
-        if st.form_submit_button("检查并保存数据",type="primary"):
-            st.query_params.pop("dataset",None);st.query_params.pop("source",None)
-            st.session_state["upload_rejected"]=True
-            if not all([sales,inventory,suppliers]):
-                st.error("请上传完整的三份 CSV。")
-            else:
-                contract={"quantity_unit":"piece" if units else None,"available_is_net":net,
-                    "cost_includes_tax_shipping":landed,"inbound_eta_is_days":eta,
-                    "missing_sales":"zero" if missing else "reject","window_end":end or None}
-                files={name:(name+'.csv',file.getvalue(),'text/csv') for name,file in
-                       (("sales",sales),("inventory",inventory),("suppliers",suppliers))}
-                result=call("POST","/datasets",files=files,data={"contract":json.dumps(contract)})
-                if result and result.get("dataset_id"):
-                    st.session_state.pop("upload_rejected",None)
-                    st.query_params.pop('source', None); st.query_params['dataset']=result['dataset_id']; st.rerun()
-                elif result:
-                    for issue in result.get("data_problems",[]): show_problem(issue)
-    st.caption("修正 CSV 或确认项后可以重新上传。上传不会自动覆盖当前任务；需要在任务中明确应用新数据。")
-
-if st.session_state.get('upload_rejected'):
-    st.warning('本次上传未通过检查，尚未选用。请修正后重新检查。已有任务的原方案保留，但需明确选择后才能继续批准。')
-    if st.query_params.get('task') and st.button('继续查看并使用原方案'):
-        st.session_state.pop('upload_rejected',None); st.rerun()
-
-dataset=None
-if st.query_params.get('dataset'):
-    dataset=call('GET','/datasets/'+st.query_params['dataset'])
-if dataset:
-    st.success(f"数据已就绪 · {dataset['sku_count']} 个商品 · {dataset['window_start']} 至 {dataset['window_end']}")
+from ui.data_entry import render as data_entry
+if st.query_params.get('task'):
+    with st.expander('更换资料或准备新任务',expanded=False):
+        entry,dataset=data_entry(call,show_problem,offline)
+else:
+    entry,dataset=data_entry(call,show_problem,offline)
+    if entry=='web':
+        st.subheader('2 · 设置补货方式')
+        auto=st.radio('取得资料后怎么补货',['定期检查补货','只生成这次方案'],horizontal=True,key='replenishment-choice')
+        if auto=='定期检查补货':
+            replenishment_controls(call)
+            replenishment_inbox(call)
+            st.stop()
+replenishment_inbox(call)
 
 DEFAULT={"budget_cents":500000,"cover_days":30,"safety_days":7,"priority_categories":[],"excluded_skus":[]}
 if not st.query_params.get('task'):
     st.subheader("2 · 本次补货要求")
     if not dataset:
-        st.info("先上传三份资料，或选择示例数据。")
-        st.stop()
+        st.info('可以先准备下面的要求。资料就绪后才能生成；商品类别和商品选择会随资料出现。')
     with st.form('create'):
-        policy=policy_fields('create-',DEFAULT,dataset['categories'],dataset['skus'])
+        policy=policy_fields('create-',DEFAULT,dataset['categories'] if dataset else [],dataset['skus'] if dataset else [],ready=bool(dataset))
         user_request=st.text_area("补充要求（可选）",disabled=offline,placeholder="例如：预算改为3000元，优先保障饮料。")
         st.caption("支持预算、覆盖天数、安全天数、优先类别和排除商品。")
-        if st.form_submit_button("生成补货方案",type="primary"):
+        if st.form_submit_button("生成补货方案",type="primary",disabled=not dataset):
             result=call('POST','/tasks',json={'dataset_id':dataset['dataset_id'],'source_id':st.query_params.get('source'), 'policy':policy,'user_request':user_request})
             if result: open_task(result['task_id'])
     st.stop()
@@ -260,6 +213,9 @@ if not st.query_params.get('task'):
 
 @st.fragment(run_every=2 if polling else None)
 def task_panel():
+    if st.session_state.get('upload_rejected'):
+        st.info('更换的表格未通过检查。请修正上传，或在上方明确选择继续使用原方案。')
+        return
     task_id=st.query_params['task']
     state=call('GET',f'/tasks/{task_id}')
     if not state: return

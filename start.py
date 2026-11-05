@@ -127,7 +127,7 @@ with sync_playwright() as p:
     try:
         page=browser.new_page()
         page.goto(sys.argv[1],timeout=30000)
-        page.get_by_role('button',name='检查并保存数据',exact=True).wait_for(timeout=30000)
+        page.get_by_role('radiogroup',name='资料获取方式',exact=True).wait_for(timeout=30000)
         assert page.locator('[data-testid="stException"]').count()==0
     finally: browser.close()
 '''
@@ -173,6 +173,9 @@ def is_healthy(spec: Service, env: dict[str, str]) -> bool:
             return any(item.get("id") == "intern-s2" for item in payload.get("data", []))
         if spec.name == "api":
             return payload.get("service") == "restock-pilot" and payload.get("status") == "ok"
+        if spec.name == 'merchant-demo':
+            return (payload.get('service')=='restock-merchant-demo' and payload.get('status')=='ok'
+                    and secrets.compare_digest(payload.get('instance',''),env.get('RESTOCK_DEMO_INSTANCE','')))
         return payload.get("status") == "ok"
     except (httpx.HTTPError, ValueError, AttributeError, TypeError):
         return False

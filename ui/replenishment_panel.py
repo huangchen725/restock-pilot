@@ -8,30 +8,41 @@ LABELS={'waiting':'等待检查','running':'正在生成/更新方案','observed
 
 
 def render(call):
-    with st.expander('自动补货与周期预算',expanded=False):
-        st.caption('采集、保存和补货检查各自按配置频率运行。先观察草案，确认后进入待审模式；系统不会自动批准。')
+    with st.expander('定期补货设置',expanded=True):
+        st.caption('网页资料保存后，按设定时间检查是否缺货。先观察建议，确认设置合适后再生成待审方案；每次采购仍需你批准。')
         sources=(call('GET','/data-sources') or {}).get('sources',[])
         if not sources:
-            st.info('先在“数据来源与定期保存”配置来源。');return
+            st.info('先完成上方的网页连接，等资料保存好后，点击“用这份资料继续”。');return
         policies=(call('GET','/replenishment-policies') or {}).get('policies',[])
         tasks=(call('GET','/tasks') or {}).get('tasks',[])
+        chosen=st.query_params.get('source')
+        ready=[s for s in sources if s['data_status']['ready']]
+        if not ready:
+            st.info('正在等待完整资料。读取并保存成功后，点击上方“用这份资料继续”，再设置定期补货。')
         with st.form('replenishment-config-create'):
             sid=st.selectbox('自动检查的数据来源',[s['source_id'] for s in sources],
+                index=next((i for i,s in enumerate(sources) if s['source_id']==chosen),0),
                 format_func=lambda k:next(s['config']['name'] for s in sources if s['source_id']==k),key='rp-source')
-            anchor=st.text_input('周期起点（包含时区）',value=datetime.now().astimezone().replace(hour=0,minute=0,second=0,microsecond=0).isoformat())
-            days=st.number_input('每个预算周期（天）',min_value=1,max_value=366,value=1,step=1)
-            amount=st.number_input('每周期额度（元）',min_value=.01,value=5000.0,step=100.0)
+            with st.expander('预算从哪天开始计算'):
+                anchor=st.text_input('周期起点（包含时区）',value=datetime.now().astimezone().replace(hour=0,minute=0,second=0,microsecond=0).isoformat(),help='默认从今天零点开始。例如每 7 天一个预算周期，就按这个起点每 7 天重新计算一次额度。保存后不能随意改起点重复领取额度。')
+            days=st.number_input('每个预算周期（天）',min_value=1,max_value=366,value=1,step=1,help='例如填写 7，表示每 7 天共用一笔采购预算。')
+            amount=st.number_input('每周期额度（元）',min_value=.01,value=5000.0,step=100.0,help='这段时间里所有采购申请合计不能超过此金额。')
             a,b=st.columns(2)
-            cover=a.number_input('自动覆盖天数',min_value=7,max_value=90,value=30)
-            safety=b.number_input('自动安全天数',min_value=0,max_value=30,value=7)
+            cover=a.number_input('自动覆盖天数',min_value=7,max_value=90,value=30,help='希望补货后能支撑多少天的销售。')
+            safety=b.number_input('自动安全天数',min_value=0,max_value=30,value=7,help='在预计需求外，多留几天的备用库存。')
             priority=st.text_input('自动优先类别（逗号分隔）')
             excluded=st.text_input('自动排除商品（SKU，逗号分隔）')
-            legacy=st.multiselect('明确属于此店仓的旧任务（其余保留原身份）',[t['task_id'] for t in tasks])
-            reviewed=st.checkbox('我已核对旧任务归属，并确认恢复原申请仍占用原补货周期额度')
+            legacy=[];reviewed=True
+            if tasks:
+                with st.expander('以前创建的任务是否属于这家店'):
+                    st.caption('只勾选确实属于这家店和这个仓库的任务，避免同一笔采购重复计费。拿不准的任务不要选。')
+                    legacy=st.multiselect('需要关联的旧任务',[t['task_id'] for t in tasks])
+                    reviewed=st.checkbox('我已核对旧任务；重新尝试申请仍计入原来的预算周期')
             st.caption('当前执行目标为独立的本机演示采购后台，不会写入商户网页。周期起点与长度保存后不可重置来重新领额度。')
-            if st.form_submit_button('保存并开始观察'):
-                if not reviewed:
-                    st.warning('请先核对旧任务归属并勾选确认。')
+            confirmed=st.checkbox('我确认按以上周期和预算检查补货；采购前仍由我批准')
+            if st.form_submit_button('保存并开始观察',disabled=not any(s['source_id']==sid and s['data_status']['ready'] for s in sources)):
+                if not reviewed or not confirmed:
+                    st.warning('请核对补货设置并勾选确认；如果存在旧任务，还需核对归属。')
                     return
                 def split(text):return [v.strip() for v in text.replace('，',',').split(',') if v.strip()]
                 from decimal import Decimal

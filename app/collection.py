@@ -47,6 +47,7 @@ class SourceConfig(BaseModel):
     contract: DataContract
     schedule: Schedule
     browser: BrowserConfig | None = None
+    publish_first_immediately: bool = False
     purchase_system_id: str | None = Field(default=None,min_length=1,max_length=160)
 
 
@@ -119,7 +120,7 @@ def create_source(conn, config):
              'observed_at': None, 'source_as_of': None, 'last_batch_id': None,
              'latest_observed_dataset_id': None, 'latest_dataset_id': None,
              'pending_snapshot': None, 'pending_batch_id': None,
-             'next_collect_at': stamp(now), 'next_save_at': stamp(now + timedelta(seconds=config.schedule.save_every_seconds)),
+             'next_collect_at': stamp(now), 'next_save_at': stamp(now if config.publish_first_immediately else now + timedelta(seconds=config.schedule.save_every_seconds)),
              'last_saved_at': None, 'last_problem': None, 'last_publish_error': None}
     db.create_source(conn, sid, c, state)
     return sid

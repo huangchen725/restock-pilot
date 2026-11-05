@@ -9,6 +9,7 @@ import time
 
 import httpx
 import pytest
+from tests.ui_actions import choose_entry
 from playwright.sync_api import sync_playwright, expect
 from tests.test_collection_workbench import click_button
 
@@ -63,17 +64,14 @@ def test_real_scheduled_browser_collection_two_batches(tmp_path,portal):
         page.goto(urls['ui'])
         with httpx.Client(base_url=urls['api'],trust_env=False,timeout=20) as client:
             auth={'X-Restock-Approval':env['RESTOCK_APPROVAL_TOKEN']}
-            page.get_by_text('数据来源与定期保存',exact=True).click()
-            for label,value in [('来源名称','真实书生页面采集验收'),('商户标识','S01'),('仓库标识','W01'),
-                                ('商户网页地址',merchant_url),('采集 SKU 范围（逗号分隔；留空为全部在售）',','.join(SCOPE))]:
+            choose_entry(page,'自动采集网页')
+            page.get_by_text('连接已运行的测试页面',exact=True).click()
+            for label,value in [('来源名称','真实书生页面采集验收'),('门店编号','S01'),('仓库编号','W01'),
+                                ('商户网页地址',merchant_url),('需要读取的商品编号（SKU）',','.join(SCOPE))]:
                 page.get_by_role('textbox',name=label,exact=True).fill(value)
-            for label in ['连接模拟商户网页（自动采集）','来源数量和包装已统一为件','来源可用库存已扣除预占',
-                          '来源采购成本是含税含运的整数分','来源在途时间是距规划时点的天数']:
-                page.get_by_text(label,exact=True).click()
-                expect(page.get_by_role('checkbox',name=label,exact=True)).to_be_checked()
             for label,value in [('保存间隔（秒）','1'),('数据有效时长（秒）','2678400')]:
                 page.get_by_role('spinbutton',name=label,exact=True).fill(value)
-            click_button(page,'保存数据来源')
+            click_button(page,'保存连接并开始读取')
             expect(page.get_by_role('button',name='立即采集网页',exact=True)).to_be_visible()
             sources=client.get('/data-sources').json()['sources'];assert len(sources)==1
             sid=sources[0]['source_id'];evidence['source_id']=sid

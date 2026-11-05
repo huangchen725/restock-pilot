@@ -8,13 +8,13 @@ def layer_for(node):
     file, _, name = node.partition('::')
     if file=='tests/test_setup_e2e.py':
         return 6
-    if file in ('tests/test_real_m2.py','tests/test_real_collection.py') or name.startswith('test_required_model_workbench'):
+    if file in ('tests/test_real_m2.py','tests/test_real_collection.py','tests/test_onboarding_real.py') or name.startswith('test_required_model_workbench'):
         return 5
-    if file in ('tests/test_agent_runtime.py','tests/test_startup.py','tests/test_collector_cli.py','tests/test_desktop_lifecycle.py'):
+    if file in ('tests/test_agent_runtime.py','tests/test_startup.py','tests/test_collector_cli.py','tests/test_desktop_lifecycle.py','tests/test_demo_site.py'):
         return 4
     if file in ('tests/test_m3_workbench.py','tests/test_approval_queue_live.py'):
         return 3 if name.startswith('test_workbench_') else 2
-    if file in ('tests/test_m5_source_failures.py','tests/test_m5_end_to_end.py','tests/test_replenishment_live.py','tests/test_workbench_e2e.py','tests/test_m4_workbench.py','tests/test_collection_workbench.py','tests/test_usability_ui.py'):
+    if file in ('tests/test_m5_source_failures.py','tests/test_m5_end_to_end.py','tests/test_replenishment_live.py','tests/test_workbench_e2e.py','tests/test_m4_workbench.py','tests/test_collection_workbench.py','tests/test_usability_ui.py','tests/test_onboarding_ui.py'):
         return 3
     if file in ('tests/test_playwright_e2e.py','tests/test_fault_injection.py','tests/test_m3_live.py','tests/test_browser_collection.py'):
         return 2

@@ -3,6 +3,7 @@ import os,json,time,socket,secrets,hashlib,traceback
 from app.redaction import redact, redact_value
 from pathlib import Path
 import httpx,pytest
+from tests.ui_actions import choose_entry,CHECKS
 from playwright.sync_api import sync_playwright,expect
 from start import Service,Supervisor,services
 from tests.summary_assertions import assert_planner_summaries
@@ -21,7 +22,7 @@ def require(condition, code):
 def port():
     with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
 
-def run_workbench_flow(tmp_path, mode, output, continuous=False):
+def run_workbench_flow(tmp_path, mode, output, continuous=False, entry='upload'):
     required = mode == 'required'
     OUT=Path(output);OUT.mkdir(parents=True,exist_ok=True)
     if required:
@@ -37,7 +38,7 @@ def run_workbench_flow(tmp_path, mode, output, continuous=False):
         cmd=list(spec.command);flag='--server.port' if spec.name=='ui' else '--port'
         cmd[cmd.index(flag)+1]=str(ports[spec.name])
         specs.append(Service(spec.name,ports[spec.name],cmd,spec.health_path))
-    evidence={'continuous_execution':continuous,'mode':mode,'model':'intern-s2' if required else None,'sample_skus':30,'passed':False,'phase':'start','phase_seconds':{},'task_id':None,'failure_kind':'blocking','safety_failures':[],
+    evidence={'entry':entry,'continuous_execution':continuous,'mode':mode,'model':'intern-s2' if required else None,'sample_skus':30,'passed':False,'phase':'start','phase_seconds':{},'task_id':None,'failure_kind':'blocking','safety_failures':[],
               'dataset_files':{n:hashlib.sha256((ROOT/'data'/(n+'.csv')).read_bytes()).hexdigest() for n in ('sales','inventory','suppliers')}}
     supervisor=Supervisor(specs,env,tmp_path/'logs',timeout=60)
     page=None;browser=None
@@ -62,11 +63,17 @@ def run_workbench_flow(tmp_path, mode, output, continuous=False):
                 page.goto(urls['ui'])
                 expect(page.get_by_text('离线演示模式：',exact=False)).to_have_count(0 if required else 1)
                 evidence['phase']='upload'
-                for i,name in enumerate(('sales','inventory','suppliers')):
-                    page.locator('input[type=file]').nth(i).set_input_files(str(ROOT/'data'/(name+'.csv')))
-                for label in ('三份数据已统一为件','可用库存已扣除预占','单价为含税含运的整数分','在途到货时间填写的是距规划时点的天数'):
-                    page.get_by_text(label,exact=True).click()
-                page.get_by_role('button',name='检查并保存数据').click()
+                if entry=='upload':
+                    choose_entry(page,'上传表格')
+                    for i,name in enumerate(('sales','inventory','suppliers')):
+                        page.locator('input[type=file]').nth(i).set_input_files(str(ROOT/'data'/(name+'.csv')))
+                    for label in CHECKS:
+                        page.get_by_text(label,exact=True).click()
+                    page.get_by_role('button',name='检查并保存数据').click()
+                else:
+                    assert entry=='example'
+                    choose_entry(page,'示例体验')
+                    page.get_by_role('button',name='使用示例数据',exact=True).click()
                 expect(page.get_by_text('数据已就绪 · 30 个商品',exact=False)).to_be_visible()
                 page.get_by_role('spinbutton',name='采购预算（元）',exact=True).fill('5000')
                 page.get_by_role('button',name='生成补货方案').click()

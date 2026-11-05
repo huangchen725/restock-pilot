@@ -8,6 +8,7 @@ from datetime import datetime,timezone,date,timedelta
 from fractions import Fraction
 from pathlib import Path
 import httpx
+from tests.ui_actions import auto_entry
 from playwright.sync_api import sync_playwright,expect
 from app.models import DatasetSnapshot
 from app.redaction import redact_value
@@ -107,11 +108,11 @@ def run_flow(tmp_path,portal,required,output):
                     evidence[label]={'dataset_id':did,'manifest':manifest,'rows':{k:len(v) for k,v in tables.items()},'independent_source_match':True}
                     save();return did
                 first_source=publication();did1=verify_source(first_source,'first')
-                page.goto(urls['ui']);page.get_by_text('自动补货与周期预算',exact=True).click()
+                page.goto(urls['ui']);auto_entry(page)
                 page.get_by_role('spinbutton',name='每周期额度（元）',exact=True).fill('25000')
                 page.get_by_role('spinbutton',name='自动覆盖天数',exact=True).fill('7')
                 page.get_by_role('spinbutton',name='自动安全天数',exact=True).fill('2')
-                page.get_by_text('我已核对旧任务归属，并确认恢复原申请仍占用原补货周期额度',exact=True).click()
+                page.get_by_text('我确认按以上周期和预算检查补货；采购前仍由我批准',exact=True).click()
                 page.get_by_role('button',name='保存并开始观察',exact=True).click()
                 groups=wait(lambda:client.get('/replenishment-policies').json()['policies'],lambda rows:len(rows)==1,'configure',30)
                 gid=groups[0]['group_id'];evidence['group_id']=gid
@@ -128,7 +129,7 @@ def run_flow(tmp_path,portal,required,output):
                 assert client.post('/tasks/'+tid+'/approve',json={'version':1,'plan_hash':first['latest_plan_hash']}).status_code==409
                 assert client.get(urls['portal']+'/api/purchase-orders').json()==[]
                 combo=page.get_by_role('combobox',name='运行方式',exact=True);expect(combo).to_be_visible();combo.click();combo.press('ArrowDown');combo.press('Enter')
-                expect(page.get_by_text('生成待审方案',exact=True)).to_be_visible()
+                expect(combo).to_match_aria_snapshot('- combobox "运行方式": 生成待审方案')
                 page.get_by_role('button',name='更新自动补货设置',exact=True).click()
                 group_ready('needs_review')
                 second=client.get('/tasks/'+tid).json();assert second['latest_plan']['version']==2

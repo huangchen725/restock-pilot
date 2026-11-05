@@ -6,6 +6,7 @@ import sys
 import httpx
 import psutil
 import pytest
+from tests.ui_actions import choose_entry,CHECKS
 from playwright.sync_api import sync_playwright,expect
 from start import Service,Supervisor,services
 from tests.test_data_contract import tables,write_dataset
@@ -26,7 +27,8 @@ def workbench(tmp_path):
     env={**os.environ,'RESTOCK_AGENT_MODE':'off','RESTOCK_APPROVAL_TOKEN':'journey-ui-test',
          'INTERN_API_KEY':'unused-test','RESTOCK_API_URL':urls['api'],'PROCUREMENT_PORTAL_URL':urls['portal'],
          'RESTOCK_DB_PATH':str(tmp_path/'business.db'),'PROCUREMENT_DB_PATH':str(tmp_path/'portal.db'),
-         'PYTHONIOENCODING':'utf-8'}
+         'PYTHONIOENCODING':'utf-8','RESTOCK_COLLECTION_DIR':str(tmp_path/'collections'),
+         'RESTOCK_DEMO_PORT':str(free_port()),'RESTOCK_DEMO_LOG_DIR':str(tmp_path/'demo-logs')}
     specs=[]
     for spec in services(True):
         command=list(spec.command); flag='--server.port' if spec.name=='ui' else '--port'
@@ -48,6 +50,7 @@ def workbench(tmp_path):
 
 
 def upload(page,path):
+    choose_entry(page,'上传表格')
     for i,name in enumerate(('sales','inventory','suppliers')):
         remove=page.get_by_role('button',name='Remove '+name+'.csv',exact=True)
         if remove.count():
@@ -56,7 +59,7 @@ def upload(page,path):
             page.locator('input[type=file]').nth(i).set_input_files([])
         page.locator('input[type=file]').nth(i).set_input_files(str(path/(name+'.csv')))
         expect(page.get_by_role('button',name='Remove '+name+'.csv',exact=True)).to_be_visible()
-    for label in ('三份数据已统一为件','可用库存已扣除预占','单价为含税含运的整数分','在途到货时间填写的是距规划时点的天数'):
+    for label in CHECKS:
         checkbox=page.get_by_role('checkbox',name=label,exact=True)
         if not checkbox.is_checked(): page.get_by_text(label,exact=True).click()
     page.get_by_role('button',name='检查并保存数据').click()
@@ -64,19 +67,19 @@ def upload(page,path):
 
 def test_rejected_replacement_blocks_generation_until_corrected(workbench,tmp_path):
     page,urls,*_=workbench
-    page.goto(urls['ui']); page.get_by_role('button',name='使用示例数据').click()
+    page.goto(urls['ui']); choose_entry(page,'示例体验');page.get_by_role('button',name='使用示例数据').click()
     expect(page.get_by_text('数据已就绪 · 30 个商品',exact=False)).to_be_visible()
     broken=tables(); broken[1][0]['available_qty']='-1'; write_dataset(tmp_path,broken)
     upload(page,tmp_path)
     expect(page.get_by_text('库存资料第 2 行',exact=False)).to_be_visible()
-    expect(page.get_by_role('button',name='生成补货方案')).to_have_count(0)
+    expect(page.get_by_role('button',name='生成补货方案')).to_be_disabled()
     expect(page.get_by_text('数据已就绪 · 30 个商品',exact=False)).to_have_count(0)
     assert 'dataset=' not in page.url
     assert httpx.get(urls['api']+'/tasks',trust_env=False).json()['tasks']==[]
     write_dataset(tmp_path)
     upload(page,tmp_path)
     expect(page.get_by_text('数据已就绪 · 1 个商品',exact=False)).to_be_visible()
-    with page.expect_download() as download: page.get_by_role('button',name='下载三份 CSV 模板').click()
+    with page.expect_download() as download: page.get_by_role('button',name='下载填写样例（3 份 CSV）').click()
     target=tmp_path/'templates.zip'; download.value.save_as(target)
     import zipfile
     assert {'sales.csv','inventory.csv','suppliers.csv','填写说明.txt'}==set(zipfile.ZipFile(target).namelist())
@@ -90,7 +93,7 @@ def test_rejected_replacement_blocks_generation_until_corrected(workbench,tmp_pa
 
 def test_idle_form_keeps_user_edit_while_background_watcher_polls(workbench):
     page,urls,*_=workbench
-    page.goto(urls['ui']);page.get_by_role('button',name='使用示例数据').click()
+    page.goto(urls['ui']);choose_entry(page,'示例体验');page.get_by_role('button',name='使用示例数据').click()
     expect(page.get_by_text('数据已就绪 · 30 个商品',exact=False)).to_be_visible()
     page.get_by_role('button',name='生成补货方案',exact=True).click()
     expect(page.get_by_role('heading',name='人工确认',exact=True)).to_be_visible(timeout=20000)

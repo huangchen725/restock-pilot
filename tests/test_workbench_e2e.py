@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from tests.ui_actions import choose_entry,CHECKS
 from playwright.sync_api import sync_playwright, expect
 
 from start import Service, Supervisor
@@ -45,20 +46,25 @@ def test_upload_revise_approve_execute_refresh_and_download(tmp_path):
             try:
                 page.goto(ui)
                 expect(page.get_by_text('离线演示模式：',exact=False)).to_be_visible()
+                choose_entry(page,'上传表格')
                 uploads=page.locator('input[type=file]')
                 for index,name in enumerate(('sales','inventory','suppliers')):
                     uploads.nth(index).set_input_files(str(tmp_path/(name+'.csv')))
                 # Missing confirmations are actionable; the same files can be corrected.
                 page.get_by_role('button',name='检查并保存数据').click()
-                expect(page.get_by_text('先上传三份资料，或选择示例数据。')).to_be_visible()
-                for label in ('三份数据已统一为件','可用库存已扣除预占','单价为含税含运的整数分','在途到货时间填写的是距规划时点的天数'):
+                expect(page.get_by_text('请核实数量是否按单个商品填写，例如按瓶而不是按箱。',exact=True)).to_be_visible()
+                expect(page.get_by_role('button',name='生成补货方案',exact=True)).to_be_disabled()
+                for label in CHECKS:
                     page.get_by_text(label,exact=True).click()
                     expect(page.get_by_role('checkbox',name=label,exact=True)).to_be_checked()
                 page.get_by_role('button',name='检查并保存数据').click()
                 expect(page.get_by_text('数据已就绪 · 1 个商品',exact=False)).to_be_visible()
-                page.get_by_role('spinbutton',name='采购预算（元）',exact=True).fill('100')
-                page.get_by_role('spinbutton',name='覆盖天数',exact=True).fill('7')
-                page.get_by_role('spinbutton',name='安全天数',exact=True).fill('2')
+                expect(page.get_by_role('button',name='生成补货方案',exact=True)).to_be_enabled()
+                for label,value in [('采购预算（元）','100'),('覆盖天数','7'),('安全天数','2')]:
+                    field=page.get_by_role('spinbutton',name=label,exact=True)
+                    field.fill(value);field.press('Tab')
+                expect(page.get_by_role('spinbutton',name='覆盖天数',exact=True)).to_have_value('7')
+                expect(page.get_by_role('spinbutton',name='安全天数',exact=True)).to_have_value('2')
                 page.get_by_role('button',name='生成补货方案').click()
                 # P1-13：生成方案的后台任务耗时可能超过 expect 默认 5s 超时，
                 # 增加 timeout 等待"人工确认"区域出现（而非硬等待）。

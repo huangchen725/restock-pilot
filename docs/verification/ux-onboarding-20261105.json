@@ -1,0 +1,1011 @@
+{
+  "date": "2026-11-05",
+  "branch": "temporary",
+  "base_commit": "60c4a3a7d8abeecdda6daa6a679a1ce5d78fb0db",
+  "scope": "UX-01..UX-07: sidebar, guided data routes, plain-language fields, owned demo-page startup and first-use flows",
+  "status": "UX-01..UX-07 verified in the Windows local demonstration scope",
+  "verification": "Targeted only; no full regression. Independent ports/databases and demonstration procurement. No user database reset, commit or push.",
+  "current_node_count": 160,
+  "latest_results": {
+    "tests/test_collection.py::test_sources_accept_confirmed_config": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[save_every_seconds-0]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[collect_every_seconds-True]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[check_every_seconds--1]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_schedules_and_unauthorized_writes_are_rejected[max_age_seconds-1.5]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_stage_then_publish_complete_csv_and_independent_values": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_changes_coalesce_and_equivalent_data_does_not_republish": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[incomplete]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[row_count]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[foreign]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[missing_day]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[extra_field]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[future]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_bad_observations_cannot_replace_formal_data[old]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_pending_state_survives_db_reopen_and_settings_are_independent": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_published_files_recover_after_database_failure": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_source_change_blocks_old_approval_before_csv_save": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_stale_or_corrupted_source_blocks_new_task_and_approval": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_omitting_source_cannot_bypass_freshness_guard": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_failed_disk_write_keeps_old_version_and_pending_data": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_concurrent_publishing_has_one_formal_version": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_background_worker_saves_without_creating_task": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_source_identity_and_settings_cannot_be_overwritten": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_data_reversion_reuses_immutable_formal_files": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_normalizing_decimal_preserves_all_digits_without_context_rounding": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_extreme_timezone_is_rejected_without_server_error": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_background_corruption_is_visible_and_retries_are_scheduled": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_preexisting_manual_task_is_not_retroactively_bound_by_identical_source_data": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_source_calendar_day_uses_declared_offset_not_utc_date": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_collection.py::test_successful_unchanged_save_clears_previous_publish_error": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_onboarding_contracts.py::test_first_publication_is_immediate_only_when_explicitly_selected": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_onboarding_contracts.py::test_demo_start_requires_human_authorization": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_window_is_calendar_based_and_order_invariant": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_missing_days_require_explicit_zero_confirmation": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_all_missing_sku_is_not_silently_dropped": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[NaN]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[Infinity]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[-Infinity]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[-1]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[abc]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_sales_values[1e1000]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[nan-available_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[nan-inbound_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[unknown-available_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[unknown-inbound_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[1.5-available_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[1.5-inbound_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[-2-available_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[-2-inbound_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[-available_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_stock_is_reported[-inbound_qty]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supplier_numeric_validation[unit_cost_cents-0]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supplier_numeric_validation[unit_cost_cents-1.5]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supplier_numeric_validation[pack_size-0]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supplier_numeric_validation[lead_days--1]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supplier_numeric_validation[min_order_qty-NaN]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_duplicates_dates_and_cross_table_mismatches": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_inbound_requires_known_eta": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supported_encodings_and_explicit_contract[utf-8-sig]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_supported_encodings_and_explicit_contract[gb18030]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_no_implicit_business_confirmation": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_empty_or_malformed_csv[]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_empty_or_malformed_csv[sku,sku\\nA,A\\n]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n2026-10-01,A\\n]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_empty_or_malformed_csv[date,sku,sold_qty\\n2026-10-01,A,1,extra\\n]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_missing_file_and_bad_contract": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_or_future_dated_window[invalid]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_or_future_dated_window[0001-01-01]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_or_future_dated_window[2026-02-30]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_invalid_or_future_dated_window[2026-10-27]": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_data_contract.py::test_snapshot_hash_binds_confirmations_and_all_input": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_create_approve_execute_and_audit": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_reviser_changes_only_policy_and_invalidates_old_approval": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_execute_uses_approved_version_not_newer_database_plan": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_execute_rejects_plan_content_modified_after_approval": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_main_agent_stage_calls_real_runner": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_reviser_rejects_non_json_or_extra_policy_fields": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_step3_api.py::test_revise_deducts_created_order_quantities": {
+      "result": "passed",
+      "report": "outputs/ux-contract-final2.xml"
+    },
+    "tests/test_onboarding_contracts.py::test_demo_start_conflict_returns_actionable_error_without_adopting_port": {
+      "result": "passed",
+      "report": "outputs/ux-conflict.xml"
+    },
+    "tests/test_startup.py::test_dotenv_location_precedence_and_literal_secret": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_missing_dotenv_is_optional": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_missing_key_rejected_before_any_services_start": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_offline_has_no_gateway_or_cli_dependency": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_logs_redact_secret_and_authorization": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_busy_port_is_not_adopted_or_closed": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[local-test-secret]": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[0]": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_real_supervisor_starts_logs_redacts_and_stops_only_owned_process[1]": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_partial_launch_failure_can_roll_back_started_service": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_exited_child_does_not_report_ready": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_health_timeout_stops_unready_process": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_entrypoint_rolls_back_partial_startup": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_real_entrypoint_health_status_and_ctrl_c[True]": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_startup.py::test_real_entrypoint_health_status_and_ctrl_c[False]": {
+      "result": "passed",
+      "report": "outputs/ux-startup-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_local_stop_requires_control_token_and_preserves_other_instances": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_missing_browser_rejected_before_start": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_stop_during_preflight_releases_probe": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_mismatched_managed_service_url_is_rejected[RESTOCK_API_URL]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_mismatched_managed_service_url_is_rejected[RESTOCK_LITELLM_URL]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_crashed_supervisor_leaves_no_service_or_grandchild": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_stale_pid_record_does_not_block_setup_but_kernel_lock_does": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_setup_lock_release_after_abnormal_owner_exit": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_installer_gui_calls_only_existing_bootstrap_and_preserves_locks": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_launcher_credentials_never_reach_product_cli": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_desktop_lifecycle.py::test_stop_returns_only_after_recorded_service_descendants_exit": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-exec_command]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[custom_tool_call-apply_patch]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__other__read]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[computer_call-]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_file]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-read_mcp_resource]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-view_image]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[web_search_call-]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__approve]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_unallowed_model_calls_are_blocked_before_forwarding[function_call-mcp__restock__build_plan]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_request_and_child_environment_expose_only_capabilities": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_namespace_alias_cannot_smuggle_a_different_executor": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_broker_rejects_uncredentialed_calls_and_unknown_routes": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[False]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_agent_runtime.py::test_real_cli_scoped_mcp_and_hostile_model_output[True]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_browser_config_rejects_external_and_secret_urls": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_browser_two_batches_dedup_publish_and_independent_values": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope0-\\u6210\\u672c\\u7f3a\\u5931]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope1-\\u542b\\u7a0e\\u542b\\u8fd0]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope2-missing days]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_bad_business_rows_never_publish[scope3-\\u4e0d\\u5b58\\u5728\\u6216\\u5df2\\u505c\\u7528]": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_reader_network_guard_and_session_expiry": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_partial_version_change_and_schema_change_fail_closed": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_claim_recovery_and_model_refusal_leave_no_observation": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_visible_header_drift_and_cross_store_identity_rejected": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_missing_sales_cannot_be_relabelled_zero": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_periodic_collect_and_publish_restart_pause_and_stale_session": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_inbound_status_unit_and_distinct_eta_contract": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_unknown_inbound_status_is_not_silently_ignored": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_browser_collection.py::test_warehouse_identifier_requires_exact_match": {
+      "result": "passed",
+      "report": "outputs/ux-boundary-final.xml"
+    },
+    "tests/test_demo_site.py::test_owned_demo_concurrent_start_stop_restart": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_demo_site.py::test_foreign_port_is_never_adopted_or_closed": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_demo_site.py::test_failed_health_check_cleans_child_and_can_retry": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_onboarding_ui.py::test_sidebar_can_reopen_repeatedly_and_on_narrow_screen": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_ui.py::test_three_entry_routes_are_separate_and_empty_data_only_blocks_generation": {
+      "result": "passed",
+      "report": "outputs/ux-empty-upload.xml"
+    },
+    "tests/test_onboarding_ui.py::test_failed_table_replacement_keeps_original_task_but_blocks_approval": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_ui.py::test_requirements_entered_before_data_survive_route_selection": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_usability_ui.py::test_rejected_replacement_blocks_generation_until_corrected": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_usability_ui.py::test_idle_form_keeps_user_edit_while_background_watcher_polls": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download": {
+      "result": "passed",
+      "report": "outputs/ux-input-repeat.xml"
+    },
+    "tests/test_collection_workbench.py::test_source_settings_scheduled_csv_download_and_old_approval_block[1]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_collection_workbench.py::test_source_settings_scheduled_csv_download_and_old_approval_block[60]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-final.xml"
+    },
+    "tests/test_replenishment_live.py::test_workbench_observe_auto_update_one_approval_and_actual_order[False]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_replenishment_live.py::test_workbench_observe_auto_update_one_approval_and_actual_order[True]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_replenishment_live.py::test_scheduler_process_crash_reuses_task_and_committed_version[before]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_replenishment_live.py::test_scheduler_process_crash_reuses_task_and_committed_version[after]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_replenishment_live.py::test_changed_source_and_paused_scheduler_allow_original_order_recovery": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_m4_workbench.py::test_offline_workbench_full_flow": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_ui.py::test_demo_page_starts_from_workbench_reuses_process_and_exits_with_app[normal]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_ui.py::test_demo_page_starts_from_workbench_reuses_process_and_exits_with_app[api-crash]": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_ui.py::test_example_entry_full_revision_approval_orders_and_exports": {
+      "result": "passed",
+      "report": "outputs/ux-browser-close.xml"
+    },
+    "tests/test_onboarding_real.py::test_required_model_first_use_managed_page_to_approved_orders": {
+      "result": "passed",
+      "report": "outputs/ux-real-resumed.xml"
+    },
+    "tests/test_m5_end_to_end.py::test_workbench_combined_page_collection_and_one_approval": {
+      "result": "passed",
+      "report": "outputs/ux-two-batch-resumed.xml"
+    }
+  },
+  "runs": [
+    {
+      "report": "outputs/ux-contract-final2.xml",
+      "sha256": "12f68af3d285e486091ab04a9ef85a7020dec6afc94a670eb09d3e70e4d78faf",
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-conflict.xml",
+      "sha256": "c5d845c31901d2c09c127cca15b3309e2272b8947ea5fe6bd53acbe2091eb8be",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-boundary-final.xml",
+      "sha256": "71432e70a18113d710d300b0f0837908ec34eedeeec4b243cce1187c956e3fdd",
+      "passed": 55,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-startup-close.xml",
+      "sha256": "20c331c12139882f2ea551c5146ff62168c27cc3a11873b389b10c5f8ba16724",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-browser-final.xml",
+      "sha256": "202e9ed84d2a117d13a3de7a14fc6da1dbe4fb63da8de7b973810a3d028fb0b1",
+      "passed": 15,
+      "failed": 1,
+      "skipped": 3
+    },
+    {
+      "report": "outputs/ux-browser-close.xml",
+      "sha256": "277c3dee609e0a044d6ed1268f6251ad62b7b025ace340394336b763c1587393",
+      "passed": 12,
+      "failed": 2,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-input-close.xml",
+      "sha256": "9a2720cba96d3f3ba0550ee1d79742be91dedfc1b7760efcd6ef24b3c8fd3c9f",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-input-repeat.xml",
+      "sha256": "fe8848e3facde39eb25a36a09d09eaf6feb16ed84c7bf04506c7eb8224fc9656",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-real-first.xml",
+      "sha256": "f27a17cf21b80fe5694c80f590222651bee50a9bf88dae43345f4c42a387c102",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-two-batch.xml",
+      "sha256": "33c9da3d3cfebe7adc65e370550c7eb6afaadbd6a1fff49e899488b5e2e1826c",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-two-batch-resumed.xml",
+      "sha256": "8911ff879070e9dde0670e0d05ac516e011653c687e909a1bf86b23af75a5a04",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-real-resumed.xml",
+      "sha256": "7a7916baf1fa5d28e7b390be14c5ad4384723ab3dc0a9b570f56751eace2081b",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-empty-upload.xml",
+      "sha256": "b771c227181ab67a1e9db157a86b105d7aeb1301e831c9cc4637e1648a1950d3",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "report": "outputs/ux-startup-final.xml",
+      "sha256": "db881be6d0f4e63dad3ec7b2a374aeea066716ba3aecde6da1238c53fc375e1d",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "counts": {
+    "passed": 160,
+    "failed": 0,
+    "skipped": 0
+  },
+  "mode_boundaries": {
+    "offline_and_scripted": "Actual browsers and target orders; business model off. Scripted collection uses visible pages, not direct business-row injection.",
+    "required": "Intern-s2 through pinned CLI and LiteLLM; managed demo page. Completed resumed run: actual collection, publication, observed/review plan, one human approval, target orders and exports. First 600-second timeout and interrupted run retained; this is not a stability success-rate claim.",
+    "real_merchant": "Not run; postponed by user."
+  },
+  "issues": {
+    "UX-01": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_onboarding_ui.py::test_sidebar_can_reopen_repeatedly_and_on_narrow_screen"
+      ]
+    },
+    "UX-02": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_onboarding_ui.py::test_three_entry_routes_are_separate_and_empty_data_only_blocks_generation",
+        "tests/test_onboarding_ui.py::test_example_entry_full_revision_approval_orders_and_exports",
+        "tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download"
+      ]
+    },
+    "UX-03": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_onboarding_real.py::test_required_model_first_use_managed_page_to_approved_orders",
+        "tests/test_browser_collection.py"
+      ]
+    },
+    "UX-04": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_workbench_e2e.py::test_upload_revise_approve_execute_refresh_and_download",
+        "tests/test_usability_ui.py::test_rejected_replacement_blocks_generation_until_corrected",
+        "tests/test_onboarding_ui.py::test_failed_table_replacement_keeps_original_task_but_blocks_approval"
+      ]
+    },
+    "UX-05": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_onboarding_ui.py::test_requirements_entered_before_data_survive_route_selection",
+        "tests/test_onboarding_ui.py::test_three_entry_routes_are_separate_and_empty_data_only_blocks_generation"
+      ]
+    },
+    "UX-06": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_demo_site.py",
+        "tests/test_onboarding_contracts.py",
+        "tests/test_onboarding_ui.py::test_demo_page_starts_from_workbench_reuses_process_and_exits_with_app[normal]",
+        "tests/test_onboarding_ui.py::test_demo_page_starts_from_workbench_reuses_process_and_exits_with_app[api-crash]"
+      ]
+    },
+    "UX-07": {
+      "status": "verified",
+      "evidence": [
+        "tests/test_onboarding_contracts.py::test_first_publication_is_immediate_only_when_explicitly_selected",
+        "tests/test_onboarding_real.py::test_required_model_first_use_managed_page_to_approved_orders",
+        "tests/test_m5_end_to_end.py::test_workbench_combined_page_collection_and_one_approval"
+      ]
+    }
+  },
+  "source_sha256": {
+    "agent-integration/litellm-config.yaml": "c0c4fad9e239c5adf9564e690b47c3b408b815651c1876f00b047b76be60e861",
+    "app/__init__.py": "6afca3d342360316bc46870ef9e1d8902206f7d51be80ded375a54098db44771",
+    "app/agent_runtime.py": "3c757f4dc42ed3874e38beeeda62a6fcd066d9848a5607ceee4dbcdb7f19bdc5",
+    "app/approval_queue.py": "b5bd5b71b0d31f42c34faa8eb5105ee1becb472b437c4f21bc1b5f2df0c8db71",
+    "app/browser_collection.py": "47a294d164a00068dec37f238a0a6ac375dbcb85eae781f791b59f26458a05aa",
+    "app/business_tools.py": "a999fd2aadf0f4b147e74e3eeacb0ae75f62ade5fde5db2087b64c4e419b53ea",
+    "app/collection.py": "995201f681434566ee09752d9f34153b2a4951d0c615b4816f75ee82109e1953",
+    "app/collection_api.py": "c3fae04b7a104c1c26d50093c45a120c2caa672e2e21acbb8ab87121ff5de9ad",
+    "app/collector.py": "792ede254e18df978a4eddd0beb9757a8a7ef0c5210b67acb087f04803e6e044",
+    "app/config.py": "98915136472b021f5150c7130350ae871cdd5d4ba525b0c625fa82dcd67f452c",
+    "app/datasets.py": "3fd8784cffd6ca27f73d8b60f5d767b7e2207302d9b8fafa30ab73361598927b",
+    "app/db.py": "16b4e36ba6f16ea31db29d47ff6ee50e6cf2b1b360fee45dfa580fbb246900c0",
+    "app/demo_profile.py": "6bb707e4ed2517badf2a39f89b521b76fe3344e935bdd97fed440c45f8a439db",
+    "app/demo_site.py": "5c506955f2dbb8af36cf5efbdb36933c10572ced10db9a95b0ee4348a42f8335",
+    "app/demo_site_server.py": "fc14ccbb98cb3c5ab08405278691d6dbc9c54fe12ad3be532dbf6b936a2f978b",
+    "app/execution.py": "e8148b7a66d83e47a1fd21eff7e0db54466e5aae2535ced2bce4d8816cd9737a",
+    "app/jobs.py": "1516c96ae593e9df7f8ba9be6a1cc498a9f9a2d422a2923cc17b9b272ef26d78",
+    "app/ledger.py": "9d11cbdffa5777f0a354d78bf060f6d54a6ab6d4765f6079545d2b7c65a05c89",
+    "app/main.py": "a0ddc21d3627d018e28342b2542a3c17565fe4a9ab770593b55f0f16624101d5",
+    "app/mcp_server.py": "9f754c0d9cd73095d7a30bdcf2db5e2f7323e00cfeba1efbf8a4e33957c1b8de",
+    "app/merchant_test_portal.py": "4e5210bdda2b1cf843e9d3233b8de5229ab2e6abe938c2caaaa40422c1e9dd1c",
+    "app/models.py": "dca6d526c75245b9259601bb5b1ff475afbec37a6536d62b5a98ea799e7e2ab1",
+    "app/period_coverage.py": "dee6213f213a0298667bee2079a1745b418469d5464fb623f4a1f3ff64e110fb",
+    "app/processes.py": "4a0391e3602b6b7b14f11517c4cd907651746d8486f1bca232db608dc3985167",
+    "app/procurement_portal.py": "ab4d79433e8788373c176073cb9a2b7d331dc3355f7ee0984bc6db26753d2940",
+    "app/prompts.py": "591e193442084f2bb821c547416feac635b1e5a251d43f82f77c8b375cb77f73",
+    "app/purchase_context.py": "e09e6f93cbd13d3bd2bd5aaed31d2742e2773adbb6caa67324b9286eca7156f8",
+    "app/redaction.py": "cfbb3b417133641e327541b3926efd30aa860e26fda53f2bbb659854beea20a4",
+    "app/replenishment.py": "046c832952b5a4da504796330ce5accc5eabe2be4f34d952e4b4cdbb2e085c6a",
+    "app/reports.py": "c78e4992add6c1823e151b9a1a6f03a8300fc85184dd9d44c95d0f0d4c4f1c13",
+    "app/rules.py": "94a3478762bc8170e65143d29453daa0173be469141ec657b50813fe86cd9577",
+    "app/runner.py": "810b92f8127a6a1328e8473bd81b7d4171e3fcbed6ca3499ef4fa89d748b7e6f",
+    "app/runtime_versions.py": "3d95a0167fd5725436ac31349763b566296096ebdbe65d07d02dff40ab18cb9b",
+    "app/state_machine.py": "5e7e577d9025f91dd13d7122c9a248c4286cf28cd4047bcb8b244f7e0e681d89",
+    "app/user_messages.py": "543c4d28a16c7750d39a86c75f618348fe76b52925f26f1bc32dfde6426bf6ee",
+    "app/validation.py": "0ad9efa7b89178fd4980bcf19913127edb3f1aa8eda5cb4e2ea3099e38fa41f3",
+    "requirements.lock": "f2e867b42fe645cf4ae4da0a20b5d11b9e049e4f3ad09154b8719a940b0d0f88",
+    "runtime-lock.json": "596ce3174a6b88d9b6bb0950937855ee28166b339b2c528024b5072cebf569ae",
+    "start.py": "2729733dd9b6a97597903aa806dd7d8911634cdee102ca510a850330ebfcee16",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/acceptance_plugin.py": "441ea2dff51a0d3e1e9b6b143c3dbc1ca288f03281ad40dcb161db96919362bb",
+    "tests/m5_end_to_end.py": "d2e9d42f7597094f8fc7f45f166d7c1c8f5a2e3a390300ad1f3f8c786168bfab",
+    "tests/m5_flow_server.py": "f5fbe1ec99cabba517ff2e39a6d81406cf5a2035c3b5745916d11370d591c898",
+    "tests/native_entry_checks.py": "fa8c848a40f260d1779a8fb48406260c181f338a48c92ce302820cf9dbdd0a98",
+    "tests/scenario_catalog.py": "e2040656a293559c1aeb6bf5c549355b925ba93cf81502cb4ba5f112e635325c",
+    "tests/scheduler_probe_server.py": "cc5c565e59ff06e789a66fd43d525e2d6dbef5b0a72203c21e05ed6c00d7472d",
+    "tests/summary_assertions.py": "91e77a915760225ab3c9dd5b02bfc38c9a80c53a61331b186a7de9ac2f4369e2",
+    "tests/support.py": "ff82b309a7fb9375b3184c5be48cc998270edb21459f928f5b83ed5bcefcabd3",
+    "tests/test_agent_runtime.py": "8f3f6e3c90579cc8b97c9c95a301e1e90748010db0d41fae7640da230dfd5b1d",
+    "tests/test_approval_queue.py": "53d4945001212789b8ea7c046aacbb839e73741cee610b4415ff0977aef4f8b6",
+    "tests/test_approval_queue_live.py": "c8df7e55e2f8449e0dc8de2ee0933bb1808df8b02f33589d1eef363bdda56e27",
+    "tests/test_audit_ledger.py": "bb8c013bf416f2019a1600400b1ad5fb25e4611ae07f13a9a31bff837a41560c",
+    "tests/test_browser_collection.py": "9f59670503701846bf8d1472829926b81532e8abd67502fc5a8703f406c970d7",
+    "tests/test_collection.py": "2e7d3767078dfe7cf65d9886fbf169ce695a0f1575d2441b4dd12764cebf5990",
+    "tests/test_collection_workbench.py": "16efb3463d390495d66b4f3942d6df69279947fb3d096250daafe53fbe408254",
+    "tests/test_collector_cli.py": "798bceff0b151a68160b187ae9e9804dc1d92693742d39d228671960a2018eb4",
+    "tests/test_collector_state.py": "be83e33fd3344959277850858dd12b1777c40d4d372de9b4cc0d2e1e32eb3f84",
+    "tests/test_cycle_advice.py": "6939e6d78871acb12dce6ce284694803359e79e5915abee0e8c74be330f79d32",
+    "tests/test_data_contract.py": "51fbbdbba55f3d574989e43e0587c0a23b4c305385613cee159eb4ff02933875",
+    "tests/test_demo_site.py": "13fba1bd91237661b21899ddab108c3e29749db6e2fdc8256e9fc7ac0a69470c",
+    "tests/test_desktop_lifecycle.py": "3d0bf763509ce3fb343914c2028a4c870883d1665f1b86488a9a5da3fbfa2bc2",
+    "tests/test_execution.py": "b7a1aef9e0109c7a426b0aec612e099ad5708d3c528ed0694b3e6d09463229ee",
+    "tests/test_fault_injection.py": "a9b0cedc07eef8483a3e3e3049df7e5a91ae671216e5474f820093f58d4c84cc",
+    "tests/test_fixed_scenarios.py": "fc7a62eb80ecd82544da4929be6968013e0230133c6c31428fe9c883ff911dc4",
+    "tests/test_m0_api.py": "6c326ec4c8728229c627037e27a1e2605b47d78ee1bb00a4795c78b71e439ac8",
+    "tests/test_m1_api.py": "549cabf35b9eb38ba03713ebe0be5bedb89c1dd60892b7e63d805387a0f0cdc5",
+    "tests/test_m3_acceptance.py": "1373a9aafca5546cd7eca0da1b79212b53bc996e19b311e37753cc61dfeb14cb",
+    "tests/test_m3_live.py": "fde09c3082d9a63198bb383bd39c965de0fea06d3618b232511c0f8d110677b3",
+    "tests/test_m3_safety.py": "5bde34b17bdef2329d6fcc10398804bbb54bae940aa8f2f1b7d10af255ef4501",
+    "tests/test_m3_workbench.py": "448152dff256b2df3a468be93592e854f49d6c90054d4ab22aa05dc796cfc9a5",
+    "tests/test_m4_acceptance_tools.py": "41b88c11ecf94c4ff9ed2316398e1ec26f39232eb8bf76c0d2b5d326b8aa4b0a",
+    "tests/test_m4_delivery.py": "b32285ea57de54539f08f5dbdcca13ca7ea384cd1e66557420db80031d49bd0b",
+    "tests/test_m4_workbench.py": "c642d8f7f37f38cad268cfbf57b271dadc9c585f4e84c792f6aa29972aa8a5fb",
+    "tests/test_m5_end_to_end.py": "b8b9f29dde60b37c815df7e670d29334bdec8637b69fc0f7476236d471837a1c",
+    "tests/test_m5_oracle.py": "40a916aa7e6d6262bcbe09c14ab930b91382098a84de9638e4508c4437071ade",
+    "tests/test_m5_source_failures.py": "160a5e35f20be9a2badb4583c69c3a7d972250ded602464cc295761667a623be",
+    "tests/test_mcp_server.py": "0348f4cf73cc33a5a51b5e41077794ffd486f4b1bf56be84383ae56c6e69c45a",
+    "tests/test_merchant_test_portal.py": "6c76ba21ab9152a768b63b300efbda4da3f4f14c6d65faf80d3ccc9c51cee805",
+    "tests/test_onboarding_contracts.py": "a873a68d1b40136f762242b7b14c66f079b6449fb1a59381fb1d7902cd7130a5",
+    "tests/test_onboarding_real.py": "a7704e272e92423685e2a57f575023027dce501cb1129dc4e91bdff28decba32",
+    "tests/test_onboarding_ui.py": "7324016aa84529040f398a04aa1d7af5fd1fafbe0dec6d3f33a7fc72d16a7c27",
+    "tests/test_p2_interfaces.py": "731de0010f85b10cad42e4ba60ed4bae7c8eea061250abdeaded92f24a761ee9",
+    "tests/test_p2_regression.py": "680ff334035dd4e40210b2f0dd05343daf2b49d88657072f38185a0fc59a08a6",
+    "tests/test_period_coverage.py": "fc7ca0b85c7af28c98a21862c148ed8feaf0ba7e6da598bb1e1b1fd64938fecc",
+    "tests/test_playwright_e2e.py": "94cb9fd82ff51d59b55d3313244e5820994e5dfe3f2bd689f146f88a92c85f73",
+    "tests/test_purchase_context.py": "df673192a1520faa4f1f92cd3faa178f12c2db2f95a036e18f8accd87aedf640",
+    "tests/test_real_collection.py": "f6ba38d652a2799fa3c0825ff2d8f9663bd162d55cf5343d8bbb94993a9d515b",
+    "tests/test_real_m2.py": "6d72e29c3e87b0240378491a34842da9071c0747b82a3412253baa472719f025",
+    "tests/test_recover_api.py": "1f6166afbb91e030ffab8ebca829cb7747dee16182b6057b6192810923b2f8e1",
+    "tests/test_replenishment_live.py": "c2eb39d80892b2dfd54831bd7b7468d43617abd3819877264feae2b849f8692d",
+    "tests/test_replenishment_schedule.py": "d51f99e476115b1b1a1342fc0f4889f1b888f88e61eef777d24cd27f6b05f8c5",
+    "tests/test_replenishment_v2.py": "66c09e9a750df0899fef93b908d967fcf8a8881fb96e1d6b0072b3eb01c13e53",
+    "tests/test_rules.py": "534f891274a89d67ffd8064f92088ee097d8d0f97968e6992004edbeb674f0a1",
+    "tests/test_runner.py": "27db591510c7de93c3975932095a49971e20b3667f0d233106dcc4676a292856",
+    "tests/test_runtime_versions.py": "815c9a2cad923535d994b48c7c5a58901d6cb5a0d021332c3e051f40fddc4687",
+    "tests/test_setup.py": "592fce110dcac75ef924f921e083c8cfc090ccc72afd81e083d7309fd8923fab",
+    "tests/test_setup_e2e.py": "fa938ab5535b1067bcee3c2b5fea9d1a42133c207ee10021d615e74315804a38",
+    "tests/test_startup.py": "9dde1926100c2f150e03d7334cdaa318110df0e520fb300610a03e2072d86ab6",
+    "tests/test_step3_api.py": "d8e9db89bbded48ec43aaf0510e6360f56b3c2112de9ed36ea3add7012dde3c9",
+    "tests/test_summary_assertions.py": "11f9096b65499c58a4ebe824de88a10bd7ab435fe3e4b6133db9e91930da2222",
+    "tests/test_usability_core.py": "91ed9c71f13f9a1ba221d18535a9b4c8702b31d670fc452311ac475532b21eb8",
+    "tests/test_usability_ui.py": "1eda417fd36e1d74af682d34b473a364b1c729a15a23d3262d7ff632b328708d",
+    "tests/test_workbench_e2e.py": "476f2c9828020b3f9d4ed7d1442f531d859162081ad302c1483d19059dbbb5ca",
+    "tests/ui_actions.py": "f275c30c05d8cafd844d9535620cdbd833b4fc0d8fbaa0c0ce5a91bdf48018eb",
+    "tests/workbench_flow.py": "8ee6c2beb8b3f1d8238ef3e304a6fe29e016e166ac1a2599313b44cee9c37802",
+    "ui/app.py": "a695fdc9341883a99cce1ea634dac557907394f997b6f4d912d896163a176076",
+    "ui/collection_panel.py": "daedd96c81a8768ef98862b47bc453d7ca3eeb0b15e8609173c61b1a1a4de440",
+    "ui/data_entry.py": "e3cac0089b96a3a7e1cd48cbcfca45586dcf6d4d26f1f7c99d43cae3d117c3d2",
+    "ui/replenishment_panel.py": "4dcbe5831570a665a2851df0c69c8aad0896592f9ffd601f33165cd07bb3ffab"
+  },
+  "product_unchanged_since_initial_test_freeze": true,
+  "changed_test_files_after_final_freeze": [
+    "tests/m5_end_to_end.py",
+    "tests/test_onboarding_ui.py",
+    "tests/test_startup.py"
+  ],
+  "source_freeze": "outputs/ux-source-final-freeze.json",
+  "first_real_failure": {
+    "report": "outputs/ux-real-first.xml",
+    "evidence": "outputs/ux-real-first/business.json",
+    "read_only_review": "outputs/ux-real-first/review.json",
+    "result": "Planner timeout at 600 seconds after inspect_dataset/build_plan; zero formal plans, execution records or target orders; no owned process/port remained."
+  },
+  "interrupted_attempts": [
+    "outputs/ux-real-second/business.json",
+    "outputs/ux-two-batch-close/scripted/business.json"
+  ],
+  "raw_failures": [
+    "outputs/ux-onboarding-red.xml",
+    "outputs/ux-ui1.xml",
+    "outputs/ux-browser2.xml",
+    "outputs/ux-browser-final.xml",
+    "outputs/ux-browser-close.xml",
+    "outputs/ux-boundary-final.xml",
+    "outputs/ux-two-batch.xml"
+  ],
+  "test_adjustments": [
+    "Mobile breakpoint test awaits Streamlit automatic collapse, then asserts reopen/collapse/reopen.",
+    "Supervisor child tuple corrected in fixture; actual failed process and port cleanup still checked.",
+    "New route selector and plain labels replace obsolete UI locators; data/approval/order assertions preserved.",
+    "Source-management synthetic observations created through the API; the real-model first-use test creates browser source entirely through UI.",
+    "URL changes use asynchronous assertions. Numeric fields are blurred and values asserted before submit; original 48-unit and 18-unit business expectations kept.",
+    "Partial-start fixture explicitly matches its isolated service URLs; real preflight still runs and first child must actually start then exit.",
+    "Run-mode selection checks the actual combobox value instead of looking for a text node.",
+    "Added an actual empty-upload rejection assertion, then reran its whole route-switch test; 1 passed. No production source changed.",
+    "Final diff review removed an accidental duplicate fixture edit from the direct Supervisor test. Reran the entire startup file: 15 passed, unchanged business/runtime checks."
+  ],
+  "not_run": [
+    "full regression",
+    "real store/platform",
+    "another-machine installation",
+    "10-run real-model stability",
+    "Linux/macOS lifecycle"
+  ],
+  "review": "Same-agent source review and independent numerical/target-order oracles; not a separate reviewer.",
+  "final_real_evidence": {
+    "path": "outputs/ux-real-resumed/business.json",
+    "sha256": "5d31dd02c0cf6ce1e7cf7f4766ddd52ef210592021aad3682a13e64a543ee786",
+    "junit": "outputs/ux-real-resumed.xml",
+    "duration_seconds": 267.52,
+    "phase_seconds": {
+      "connect": 0.52,
+      "collection-and-first-publication": 78.41,
+      "configure": 0.5,
+      "observation-plan": 54.75,
+      "review-plan": 2.11,
+      "execution": 102.66
+    },
+    "rows": {
+      "sales": 840,
+      "inventory": 30,
+      "suppliers": 30
+    },
+    "approval_clicks": 1,
+    "orders": 4,
+    "quantity": 594,
+    "total_cents": 1646694,
+    "source_oracle": true,
+    "ports_still_open": [],
+    "demo_process_remains": false,
+    "exports": {
+      "csv": {
+        "path": "report.csv",
+        "sha256": "3c75ef7cf383ea6863c984b7fd41261fec600131a3d1ef0c32998606f8b96128"
+      },
+      "html": {
+        "path": "report.html",
+        "sha256": "6a3eb3d44c3eff43905ef957fc5072bd6e3b973c78f6858c2a54729c56fb0780"
+      }
+    },
+    "collection_runs": 1
+  },
+  "recorded_source_hashes_match_closeout_worktree": true,
+  "real_summary_review": "Reviewed stored planner/advice and executor text against approved plan and four SUBMITTED orders. CNY totals, 14 purchased SKU lines, risks and statuses match; no payment or arrival completion claimed. Review by same agent."
+}

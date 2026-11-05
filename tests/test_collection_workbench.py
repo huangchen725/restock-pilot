@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from tests.ui_actions import choose_entry,manual_source
 from playwright.sync_api import sync_playwright, expect
 
 from start import Service, Supervisor
@@ -54,17 +55,15 @@ def test_source_settings_scheduled_csv_download_and_old_approval_block(tmp_path,
             page.set_default_timeout(20000)
             try:
                 page.goto(ui)
-                page.get_by_text('数据来源与定期保存',exact=True).click()
-                page.get_by_role('textbox',name='来源名称',exact=True).fill('模拟页面来源')
-                page.get_by_role('textbox',name='商户标识',exact=True).fill('m-test')
-                page.get_by_role('textbox',name='仓库标识',exact=True).fill('w-test')
-                for label,value in [('采集间隔（秒）','120'),('保存间隔（秒）',str(save_seconds)),('补货检查间隔（秒）','10800')]:
-                    page.get_by_role('spinbutton',name=label,exact=True).fill(value)
-                for label in ['来源数量和包装已统一为件','来源可用库存已扣除预占',
-                              '来源采购成本是含税含运的整数分','来源在途时间是距规划时点的天数']:
-                    page.get_by_text(label,exact=True).click()
-                    expect(page.get_by_role('checkbox',name=label,exact=True)).to_be_checked()
-                click_button(page, '保存数据来源')
+                # Synthetic observation fixture uses API; the UI now creates only supported browser connections.
+                created=http.post('/data-sources',json={'name':'模拟页面来源','merchant_id':'m-test','warehouse_id':'w-test',
+                    'environment':'test','schedule':{'collect_every_seconds':120,'save_every_seconds':save_seconds,
+                    'check_every_seconds':10800,'max_age_seconds':5400},
+                    'contract':{'quantity_unit':'piece','available_is_net':True,'cost_includes_tax_shipping':True,
+                    'inbound_eta_is_days':True,'missing_sales':'reject'}})
+                assert created.status_code==200,created.text
+                choose_entry(page,'自动采集网页')
+                manual_source(page)
                 expect(page.get_by_text('暂无正式数据版本，尚未完整采集或未到保存周期。')).to_be_visible()
                 sources = http.get('/data-sources').json()['sources']; assert len(sources)==1
                 source = sources[0]; sid=source['source_id']
@@ -94,7 +93,7 @@ def test_source_settings_scheduled_csv_download_and_old_approval_block(tmp_path,
                 path=tmp_path/'sales.csv'; download.value.save_as(path)
                 rows=list(csv.DictReader(io.StringIO(path.read_text(encoding='utf-8'))))
                 assert len(rows)==28 and sum(int(r['sold_qty']) for r in rows)==112
-                click_button(page, '选择本版用于补货')
+                click_button(page, '用这份资料继续')
                 page.get_by_role('spinbutton',name='采购预算（元）',exact=True).fill('100')
                 page.get_by_role('spinbutton',name='覆盖天数',exact=True).fill('7')
                 page.get_by_role('spinbutton',name='安全天数',exact=True).fill('2')
@@ -124,9 +123,10 @@ def test_source_settings_scheduled_csv_download_and_old_approval_block(tmp_path,
                 versions = http.get(f'/data-sources/{sid}/publications').json()['publications']
                 assert len(versions)==2
                 latest = http.get(f'/data-sources/{sid}').json()['state']['latest_dataset_id']
+                choose_entry(page,'自动采集网页')
                 click_button(page, '刷新数据进度')
                 expect(page.get_by_role('combobox',name='正式 CSV 版本',exact=True)).to_match_aria_snapshot('- combobox "正式 CSV 版本": 版本 2 · 销售截至 2026-10-28')
-                click_button(page, '选择本版用于补货')
+                click_button(page, '用这份资料继续')
                 expect(page).to_have_url(re.compile('dataset='+latest))
                 click_button(page, '应用新数据并重新生成')
                 expect(page.get_by_role('heading',name='与上一版本比较')).to_be_visible()
